@@ -1,0 +1,23 @@
+
+# eclipse files
+.cproject
+.pydevproject
+.project
+
+# backup files
+*~
+*.swp
+
+# diff files from config
+test/config/*/*.diff
+
+# python files
+*.pyc
+*.pyo
+
+# Debian stuff
+debian/files
+debian/*.debhelper.log
+debian/*.substvars
+debian/*/
+

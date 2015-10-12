@@ -1,0 +1,34 @@
+
+`Alchemy` is a new build system based on the one used in Android. A central
+makefile instance scans a workspace to find user makefiles, includes them and
+register modules to be built. Modules are described by a set of variables
+(`LOCAL_XXX`) specifying source files, custom compilation flags, include
+directories and some other more advanced stuff.
+
+Modules can be libraries (static and shared), executable, prebuilt binaries of
+components built by another build system (like autotools suite for many linux
+packages). Build of external modules is similar to what is done in buildroot.
+
+`Alchemy` is hence a mix of what can be done in Android (building source files
+without having to write complicated makefile/autoconfo.ac) and buildroot
+(building open-source components having there own makefile/configure/cmake)
+
+`Alchemy` supports:
+
+* building static/shared libraries and executables from source code.
+* building autotools/cmake from archives or source tree.
+* building qmake applications.
+* building for linux/ios/macos/android/mingw32 targets.
+* building on linux/macos hosts.
+
+`Alchemy` uses gnu make and shell/python scripts to do the job. The
+configuration tool is kconfig (as on linux/buildroot/busybox) and prebuilt
+binaries are provided on linux/macos hosts.
+
+A first working example is how kconfig binaries are built (see kconfig subdir
+and its atom.mk/build.sh)
+
+License:
+
+Alchemy is licensed under a 3-clause BSD license.
+kconfig source code is GPLv2.

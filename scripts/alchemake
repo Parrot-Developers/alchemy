@@ -1,0 +1,27 @@
+#!/bin/bash
+# simple shell wrapper around alchemake.py
+
+# Set our home
+if [ "${ALCHEMY_HOME}" = "" ]; then
+	ALCHEMY_HOME=/usr/lib/Alchemy
+fi
+
+# Check that if ALCHEMY_WORKSPACE_DIR is given it is a directory parent
+# of current directory
+if [ "${ALCHEMY_WORKSPACE_DIR}" != "" -a -d "${ALCHEMY_WORKSPACE_DIR}" ]; then
+	curdir=$(pwd -P)
+	workdir=$(cd "${ALCHEMY_WORKSPACE_DIR}" && pwd -P)
+	if [ "${curdir##${workdir}}" = "${curdir}" ]; then
+		echo "ERROR: trying to use alchemake outside ALCHEMY_WORKSPACE_DIR=${ALCHEMY_WORKSPACE_DIR}"
+		exit 1
+	fi
+	cd ${ALCHEMY_WORKSPACE_DIR}
+fi
+
+# With no workspace, simply wrap make, otherwise use alchemy main Makefile
+# Use "$@" to requote given arguments
+if [ "${ALCHEMY_WORKSPACE_DIR}" != "" ]; then
+	exec ${ALCHEMY_HOME}/scripts/alchemake.py -f ${ALCHEMY_HOME}/main.mk "$@"
+else
+	exec ${ALCHEMY_HOME}/scripts/alchemake.py "$@"
+fi

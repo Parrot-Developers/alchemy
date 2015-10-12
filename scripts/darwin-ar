@@ -1,0 +1,44 @@
+#! /bin/bash -e
+
+AR=$1
+LIBTOOL=${AR%ar}libtool
+LIPO=${AR%ar}lipo
+RANLIB=${AR%ar}ranlib
+command=$2
+archive=$3
+shift 3
+files=$@
+
+archs=$(lipo -info $1 | \
+		grep 'Architectures in the fat file:' | \
+		sed 's/Architectures in the fat file: .* are: \(.*\)/\1/')
+if [ -z "$archs" ]; then
+  # Thin binary: call ar directly
+  $AR $command $archive $files
+
+elif [[ $command == r* ]] && [ ! -f $archive ]; then
+  # Initial creation of fat binary
+  $LIBTOOL -static -o $archive $files
+
+else
+  for arch in $archs ; do
+    # Extract the target-specific archive
+    if [ -f $archive ]; then
+      $LIPO -thin $arch $archive -output ${archive%.a}.${arch}.a
+    fi
+
+    # Extract the target-specific objects
+    arch_files=
+    for file in $files ; do 
+      $LIPO -thin $arch $file -output ${file%.o}.${arch}.o
+	  arch_files+=' '${file%.o}.${arch}.o
+    done
+
+	# Update the arch-specific archive
+    $AR $command ${archive%.a}.${arch}.a $arch_files
+    $RANLIB -no_warning_for_no_symbols ${archive%.a}.${arch}.a
+  done
+
+  # Create universal archive
+  $LIPO ${archive%.a}.*.a -create -output $archive
+fi

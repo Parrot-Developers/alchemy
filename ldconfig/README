@@ -1,0 +1,15 @@
+Newest ldconfig from debian/ubuntu distribution does not support anymore
+generating ld.so.cache for arm architecture.
+
+Alchemy will use its own fixed version to avoid troubles with host machine.
+
+The ldconfig binary has been extracted from debian packages :
+
+https://packages.debian.org/fr/wheezy/libc-bin
+
+libc-bin_2.13-38+deb7u8_amd64.deb
+libc-bin_2.13-38+deb7u8_i386.deb
+
+http://security.debian.org/debian-security/pool/updates/main/e/eglibc/libc-bin_2.13-38+deb7u8_i386.deb
+http://security.debian.org/debian-security/pool/updates/main/e/eglibc/libc-bin_2.13-38+deb7u8_amd64.deb
+

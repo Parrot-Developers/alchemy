@@ -1,0 +1,1589 @@
+<p><title>Alchemy</title>
+<link href="markdown.css" rel="stylesheet"></link></p>
+
+<script src="toc.js" type="text/javascript"></script>
+
+<p><body onload="generateTOC(document.getElementById('toc'));"></p>
+
+<h1>Introduction</h1>
+
+<p><code>Alchemy</code> is a new build system based on the one used in Android. A central
+makefile instance scans a workspace to find user makefiles, includes them and
+register modules to be built. Modules are described by a set of variables
+(<code>LOCAL_XXX</code>) specifying source files, custom compilation flags, include
+directories and some other more advanced stuff.</p>
+
+<p>Modules can be libraries (static and shared), executable, prebuilt binaries of
+components built by another build system (like autotools suite for many linux
+packages). Build of external modules is similar to what is done in buildroot.</p>
+
+<p><code>Alchemy</code> is hence a mix of what can be done in Android (building source files
+without having to write complicated makefile/autoconfo.ac) and buildroot
+(building open-source components having there own makefile/configure/cmake)</p>
+
+<p><code>Alchemy</code> supports:</p>
+
+<ul>
+<li>building static/shared libraries and executables from source code.</li>
+<li>building autotools/cmake from archives or source tree.</li>
+<li>building qmake applications.</li>
+<li>building for linux/ios/macos/android/mingw32 targets.</li>
+<li>building on linux/macos hosts.</li>
+</ul>
+
+<p><code>Alchemy</code> uses gnu make and shell/python scripts to do the job. The
+configuration tool is kconfig (as on linux/buildroot/busybox) and prebuilt
+binaries are provided on linux/macos hosts.</p>
+
+<p>A first working example is how kconfig binaries are built (see kconfig subdir
+and its atom.mk/build.sh)</p>
+
+<p>As the build system is real close in its philosophy to the Android one, please
+take a look at the following documentation to have a overview of the system.
+This build system differs mainly in the set of <code>LOCAL_XXX</code> variables supported.</p>
+
+<p><a href="android-build-system.html">Android build system</a></p>
+
+<p><a href="android-mk.html">Android ndk build system</a></p>
+
+<p><strong>Note</strong> : This documentation tries to be up to date but take a look at
+the file <code>variables.mk</code> for a complete list of <code>LOCAL_xxx</code> and <code>TARGET_xxx</code>
+variables that can be used. It also has some description of variables.</p>
+
+<hr />
+
+<div id="toc"></div>
+
+<hr />
+
+<h2>Environment</h2>
+
+<p>To work correctly, the build system needs to be configured with target specific
+information.</p>
+
+<p>At a minimum, <code>TARGET_PRODUCT</code>, <code>TARGET_PRODUCT_VARIANT</code> and <code>TARGET_CONFIG_DIR</code>
+are required. Other variables can be set in the <code>product.mk</code> file located in
+<code>TARGET_CONFIG_DIR</code>. This way environment is not cluttered with variables.</p>
+
+<p>Optionally, some <code>TARGET_XXX</code> variables can be prefixed with <code>ALCHEMY_</code> to avoid
+conflict with other build systems (android for example).</p>
+
+<ul>
+<li><code>ALCHEMY_TARGET_PRODUCT</code></li>
+<li><code>ALCHEMY_TARGET_PRODUCT_VARIANT</code></li>
+<li><code>ALCHEMY_TARGET_CONFIG_DIR</code></li>
+<li><code>ALCHEMY_TARGET_OUT</code></li>
+<li><code>ALCHEMY_TARGET_SKEL_DIRS</code></li>
+<li><code>ALCHEMY_TARGET_SCAN_ADD_DIRS</code></li>
+<li><code>ALCHEMY_TARGET_SCAN_PRUNE_DIRS</code></li>
+<li><code>ALCHEMY_TARGET_SDK_DIRS</code></li>
+<li><code>ALCHEMY_USE_COLORS</code></li>
+</ul>
+
+<h3>Target</h3>
+
+<ul>
+<li><code>TARGET_OS</code> : Specify the OS of the target. Possible values are :
+<ul>
+<li><code>linux</code>.</li>
+<li><code>ecos</code>.</li>
+<li><code>darwin</code>.</li>
+<li><code>android</code> : alias for <code>linux</code> OS with <code>android</code> flavour. <code>TARGET_ARCH</code> defaults to <code>arm</code>.</li>
+<li><code>iphone</code> : alias for <code>darwin</code> OS with <code>iphoneos</code> flavour.</li>
+<li><code>iphonesimulator</code> : alias for <code>darwin</code> OS with <code>iphonesimulator</code> flavour.</li>
+<li><code>parrot</code> : alias for <code>linux</code> OS with <code>parrot</code> flavour. <code>TARGET_ARCH</code> defaults to <code>arm</code>.
+</br>Default is <code>linux</code> on linux hosts, and <code>darwin</code> on mac hosts.</li>
+</ul></li>
+<li><code>TARGET_OS_FLAVOUR</code> : Flavour of the OS, depending on <code>TARGET_OS</code>.
+For <code>linux</code> :
+<ul>
+<li><code>parrot</code> for linux-only product.</li>
+<li><code>android</code> for android products.</li>
+<li><code>native</code> or <code>native-chroot</code> for pc.
+For <code>darwin</code> :</li>
+<li><code>iphoneos</code> for iOS devices.</li>
+<li><code>iphonesimulator</code> for iOS simulator.</li>
+<li><code>native</code> for mac.
+</br>Default is <code>native</code>.</li>
+</ul></li>
+<li><code>TARGET_LIBC</code> : Libc to be used. Normally automatically guessed based on other
+settings. Mainly to be used in <code>atom.mk</code> files to select different behaviours.
+<ul>
+<li><code>bionic</code> for android libc.</li>
+<li><code>eglibc</code> for embedded linux.</li>
+<li><code>ecos</code> for ecos OS.</li>
+<li><code>native</code> for native libc on pc.</li>
+<li><code>darwin</code> for mac and iphone.
+</br>Default is :
+<ul>
+<li><code>bionic</code> if <code>TARGET_OS</code> is <code>linux</code> and <code>TARGET_OS_FLAVOUR</code> is <code>android</code>.</li>
+<li><code>native</code> if <code>TARGET_OS</code> is <code>linux</code> and <code>TARGET_OS_FLAVOUR</code> is <code>native</code> or
+<code>native-chroot</code>.</li>
+<li><code>eglibc</code> if <code>TARGET_OS</code> is <code>linux</code>.</li>
+<li><code>ecos</code> if <code>TARGET_OS</code> is <code>ecos</code>.</li>
+<li><code>darwin</code> if <code>TARGET_OS</code> is <code>darwin</code>.</li>
+</ul></li>
+</ul></li>
+<li><code>TARGET_ARCH</code> : Architecture of the target. Useful to select prebuilt binaries
+based on architecture. Possible values are :
+<ul>
+<li><code>arm</code></li>
+<li><code>aarch64</code></li>
+<li><code>x86</code></li>
+<li><code>x64</code>
+</br>Default is <code>x86</code> or <code>x64</code>, depending on the host system.</li>
+</ul></li>
+<li><code>TARGET_CPU</code> : Cpu of the target. This value is typically used to select
+optimization and select some module (for ex: linux). Possible values are :
+<ul>
+<li><code>p6</code></li>
+<li><code>p6i</code></li>
+<li><code>armv5te</code></li>
+<li><code>p7</code></li>
+<li><code>o3</code></li>
+<li><code>omap3</code></li>
+<li><code>omap4</code></li>
+<li><code>armv7a-neon</code></li>
+<li><code>tegrak1</code></li>
+<li><code>tegrax1</code>
+</br>Default is empty (no specific optimization activated).</li>
+</ul></li>
+<li><code>TARGET_PRODUCT</code>: Name of the product. Mainly used for determining some other
+default values.</li>
+<li><code>TARGET_PRODUCT_VARIANT</code> : Variant of the product. Mainly used for determining
+some other default values.</li>
+<li><code>TARGET_OUT</code> : Full path to folder to be used as root for output files.
+</br>Default is <code>Alchemy-out</code>.</li>
+<li><code>TARGET_OUT_BUILD</code> : Full path to folder where intermediate objects will be
+stored. Each module will have its own sub-folder inside.
+</br>Default is <code>$(TARGET_OUT)/build</code>.
+</br>Note: setting this variable is deprecated</li>
+<li><code>TARGET_OUT_STAGING</code> : Full path to folder where modules built will be copied
+or installed. This folder will also contain include files needed to build
+intermediates modules (<code>alchemy</code> also supports using include files from the
+source tree). Binaries in this folder will always contain symbols.
+</br>Default is <code>$(TARGET_OUT)/staging</code>.
+</br>Note: setting this variable is deprecated</li>
+<li><code>TARGET_OUT_FINAL</code> : Full path to folder where the final image will be
+created. A script generates this by copying from staging folder required files
+for execution (based on some exclusion pattern to skip documentation and
+include files for examples). It also strips binaries, includes libc files from
+the toolchain and merges an external skeleton with other essential files
+provided by the product.
+</br>Default is <code>$(TARGET_OUT)/final</code>.
+</br>Note: setting this variable is deprecated</li>
+<li><code>TARGET_CONFIG_DIR</code> : Full path to folder where the configuration files are
+stored. If not set, it is assumed that there will be no configurable module
+and everything will be built.
+</br>Default is <code>Alchemy-config/$(TARGET_PRODUCT)-$(TARGET_PRODUCT_VARIANT)</code>.</li>
+<li><code>TARGET_SKEL_DIRS</code> : List of full path to skeleton directories to merge when
+generating final tree. The path are separated by space.</li>
+</ul>
+
+<h3>Tools.</h3>
+
+<ul>
+<li><code>TARGET_CROSS</code> : full path to toolchain prefix.
+For example : <code>/opt/arm-eglibc/bin/arm-none-linux-gnueabi-</code>.
+</br>Default depends on other target settings.</li>
+<li><code>TARGET_CC</code> : full path to C compiler.
+</br>Default is <code>$(TARGET_CROSS)gcc</code>.</li>
+<li><code>TARGET_CXX</code> : full path to C++ compiler.
+</br>Default is <code>$(TARGET_CROSS)g++</code>.</li>
+<li><code>TARGET_AR</code> : full path to archive maker.
+</br>Default is <code>$(TARGET_CROSS)ar</code>.</li>
+<li><code>TARGET_LD</code> : full path to linker.
+</br>Default is <code>$(TARGET_CROSS)ld</code>.</li>
+<li><code>TARGET_NM</code> : full path to symbol lister.
+</br>Default is <code>$(TARGET_CROSS)nm</code>.</li>
+<li><code>TARGET_STRIP</code> : full path to symbol stripper.
+</br>Default is <code>$(TARGET_CROSS)strip</code>.</li>
+</ul>
+
+<h3>Linux specific</h3>
+
+<ul>
+<li><code>TARGET_LINUX_CROSS</code> : similar to <code>TARGET_CROSS</code> but to use a separate
+toolchain for the compilation of the linux kernel (and drivers).</li>
+<li><code>TARGET_LINUX_DIR</code> : path to linux kernel source tree. Used by some tools for
+dome drivers that need access to internal linux headers.</li>
+<li><code>TARGET_LINUX_LINK_CPIO_IMAGE</code> : set to <code>1</code> to link the cpio image inside the
+kernel. During cpio image generation, the kernel will be re-linked to add it
+inside. Also, required options are internally set in linux config. Although
+only the copy in build directory is modified, the original one is not touched.
+</br>Default is <code>0</code></li>
+<li><code>TARGET_LINUX_DEVICE_TREE</code> : name of a device tree to append to kernel image.
+It shall be in <code>$(LINUX_BUILD_DIR)/arch/$(TARGET_ARCH)/boot/dts</code>. The name
+shall be the one with the <code>.dtb</code> extension. Default is empty.</li>
+<li><code>TARGET_GENERATE_LINUX_UIMAGE</code> : generate a u-boot image of linux.
+</br>Default is <code>0</code></li>
+</ul>
+
+<h3>Darwin specific</h3>
+
+<ul>
+<li><code>TARGET_IPHONE_VERSION</code> : when targetting <code>iphoneos</code> or <code>iphonesimulator</code>,
+allows specifying the minimum supported version of iOS.
+</br>Default is <code>8.2</code></li>
+<li><code>TARGET_MACOS_VERSION</code> : when targetting <code>native</code> (e.g. MacOS desktop),
+allows specifying the minimum supported version of OSX.
+</br>Default is <code>10.10</code></li>
+</ul>
+
+<h3>Android specific</h3>
+
+<p>Alchemy supports targetting Android in two configurations: either using an
+official Android NDK, or using a custom-built Android system.</p>
+
+<ul>
+<li>When the <code>Alchemy-android</code> package is present, Alchemy will automatically use
+it when targetting Android.</li>
+<li>Otherwise, alchemy will try to use an Android NDK. This mode supports a few options:
+<ul>
+<li><code>TARGET_ANDROID_APILEVEL</code> : Android API level to target.
+</br>Default is <code>17</code></li>
+<li><code>TARGET_ANDROID_NDK</code> : Path of the Android NDK to use.
+</br>Default tries to auto-detect the NDK from a few somewhat standard location (<code>/opt/android-ndk-*</code>, <code>~/android-ndk-*</code>, ...)</li>
+<li><code>TARGET_ANDROID_SDK</code> : Path of the Android SDK to use.
+</br>Default tries to auto-detect the SDK from a few somewhat standard location (<code>/opt/android-sdk*</code>, <code>~/android-sdk*</code>, ...)</li>
+<li><code>TARGET_ANDROID_TOOLCHAIN</code> : name of the android toolchain, e.g. arm-linux-androideabi-4.7.
+</br>Default is the default toolchain for the current target architecture (<code>TARGET_ARCH</code>).</li>
+<li><code>TARGET_ANDROID_STL</code> : specify the C++ Standard Template Library implementation to use. The NDK supports multiple STL implementations, which can be selected with this variable. Supported values are : <code>gnustl</code>, the GNU libstdc++; <code>libc++</code>, LLVM's libc++; and <code>stlport</code>.
+</br>Default is the GNU libstdc++.</li>
+<li><code>TARGET_ANDROID_SHARED_STL</code> : by default, Android NDK uses a static version of the C++ Standard library, which works only when generating a single shared library or executable. Setting this variable to <code>1</code> switches to a shared library version of the STL, which is needed if the project contains multiple shared libraries or executables. In that case, the shared library must be copied to the target device.</li>
+</ul></li>
+</ul>
+
+<h3>Global flags for tools.</h3>
+
+<p>Normally not needed, default values are determined based on target setting.
+Mainly used by the android wrapper.</p>
+
+<ul>
+<li><code>TARGET_GLOBAL_C_INCLUDES</code> : List of full path to directories to add for all
+file compiled. The -I prefix will be appended so do not put it.</li>
+<li><code>TARGET_GLOBAL_CFLAGS</code> : Flags to pass to the C <strong>and</strong> C++ compiler.</li>
+<li><code>TARGET_GLOBAL_CXXFLAGS</code> : Flags to pass to the C++ compiler only.</li>
+<li><code>TARGET_GLOBAL_ARFLAGS</code> : Flags to pass to the archive maker.
+</br>Default is <code>rcs</code>, so you should never have to define it.</li>
+<li><code>TARGET_GLOBAL_LDFLAGS</code> : Flags to pass to the linker for executables.</li>
+<li><code>TARGET_GLOBAL_LDFLAGS_SHARED</code> : Flags to pass to the linker for shared
+libraries.</li>
+<li><code>TARGET_GLOBAL_LDLIBS</code> : Additional libraries to use when linking executables.</li>
+<li><code>TARGET_GLOBAL_LDLIBS_SHARED</code> : Additional libraries to use when linking
+libraries.</li>
+<li><code>TARGET_GLOBAL_PCH_FLAGS</code> : Flags to pass when precompiling headers.</li>
+</ul>
+
+<h3>Specific flags for arm targets.</h3>
+
+<p>Normally not needed, default values are determined based on target setting.
+Mainly used by the android wrapper.</p>
+
+<ul>
+<li><code>TARGET_GLOBAL_CFLAGS_arm</code> : Flags to pass to the C <strong>and</strong> C++ compiler to
+compile in <code>arm</code> mode. Normally managed internally but can be overridden.</li>
+<li><code>TARGET_GLOBAL_CFLAGS_thumb</code> : Flags to pass to the C <strong>and</strong> C++ compiler to
+compile in <code>thumb</code> mode. Normally managed internally but can be overridden.</li>
+<li><code>TARGET_DEFAULT_ARM_MODE</code> : Mode to use by default at compilation time
+(<code>arm</code> or <code>thumb</code>). Default is <code>thumb</code>, however modules can override this in
+their <code>LOCAL_ARM_MODE</code>. It is only possible to override <code>thumb</code> mode in <code>arm</code>
+mode, not the other way.</li>
+</ul>
+
+<h3>Other variables</h3>
+
+<ul>
+<li><code>TARGET_PBUILD_FORCE_STATIC</code> : Can be set to <code>1</code> to force the compilation of
+static libraries even if module requested to build a dynamic one. Mainly here
+to compile ecos target and prepare the transition from monolithic SoftAT
+executable to separate shared libraries.
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_PBUILD_HOOK_USE_DESCRIBE</code> : Can be set to <code>1</code> to save tags of libraries
+used in binary. It can be retrieved at run time with pal function
+<code>pal_lib_desc_get_table_entry</code>.
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_SCAN_PRUNE_DIRS</code> : A list of directories to exclude from the scan when
+searching for <code>atom.mk</code>. It can be absolute path or single name like <code>raptor</code>.
+<code>Alchemy</code> automatically excludes its own output directory, but feel free to
+add any known directories that will not contain <code>atom.mk</code>.
+</br>Default is empty.</li>
+<li><code>TARGET_SCAN_ADD_DIRS</code> : A list of directories to add during the scan when
+searching for <code>atom.mk</code>.
+</br>Default is empty.</li>
+<li><code>TARGET_SCAN_FOLLOW_LINKS</code> : Set to <code>1</code> to follow symbolic links when scanning
+for <code>atom.mk</code> files. When set to <code>0</code>, symbolic links to directories are not
+searched.
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_FORCE_EXTERNAL_CHECKS</code> : Set to <code>1</code> to force check of external modules
+even if they are already built. See chapter relating to recompilation checks
+for more information.
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_NOSTRIP_FINAL</code> : Can be set at <code>1</code> to prevent stripping binaries when
+generating final directory.
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_STRIP_FILTER</code> : List of filenames to filter during strip. Mainly used
+when valgrind or other tracing tool is used and requires debugging symbols
+on the target. This is an alternative to <code>TARGET_NOSTRIP_FINAL</code> that keeps
+<strong>ALL</strong> debugging symbols. This variable allows fine tunning. The list
+specifies only names, not path.
+</br><strong>Note</strong> : when valgrind is activated, <code>alchemy</code> automatically filters the
+linux loader as well as the libc and some valgrind libraries.
+</br>Default is empty.</li>
+<li><code>TARGET_ADD_DEPENDS_SECTION</code> : Activate the generation of an extra section in
+executables and shared libraries built by <code>alchemy</code>. This sections contains
+the list of modules used for the link and their revision. The first line
+contains the revision of the linked module itself.
+</br><strong>Note</strong> : this feature requires <code>USE_GIT_REV</code> at <code>1</code> (disabled by default).
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_DEPENDS_SECTION_NAME</code> : Name of the section with dependencies
+</br>Default is <code>.alchemy.depends</code>.</li>
+<li><code>TARGET_ADD_BUILDID_SECTION</code> : Add a <code>build-id</code> section in all binaries. This
+is a <code>sha1</code> of all sections that are loadable at runtime and with data in the
+binary. This section is kept after stripping and the <code>sha1</code> can be recomputed
+on the original and stripped binary and still produce the same <code>sha1</code>. This can
+be used to identify the non-stripped binary based on the stripped one. This is
+a feature similar to the <code>--build-id</code> option of <code>ld</code> but fixes a bug present
+on some toolchain (arm-2009q1 for example) in which only the header of
+sections is used, not the data of the sections.
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_BUILDID_SECTION_NAME</code> : Name of the section with <code>build-id</code>
+Default is <code>.alchemy.build-id</code>.</li>
+<li><code>TARGET_SDK_DIRS</code> : List of directories where to find <code>SDK</code> previously
+generated. Default is empty.</li>
+<li><code>TARGET_PERMISSIONS_FILES</code> : List of files containing permissions to apply to
+files and directories when generating the image (plf) from the final directory.
+The format of those permissions files is : <code>pattern mode user group</code>.
+<ul>
+<li><code>pattern</code> : file or directory pattern (regex) to test. Patterns for
+directories ends with a <code>/</code>. Pattern can also be a real path, it should then
+be enclosed by double quotes (ex: "/etc/hosts" 0644 root root).</li>
+<li><code>mode</code> : unix mode to apply, in octal notation.</li>
+<li><code>user</code>, <code>group</code> : name of user and group to apply. The uid and gid is
+extracted automatically from <code>/etc/passwd</code> and <code>/etc/group</code> files found in
+final directory.</li>
+</ul></li>
+<li><code>TARGET_CHROOT</code> : Set to 1 if the result of the compilation will be executed
+in a chroot environment. Used by some modules to adapt their configuration.
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_IMAGE_PATH_MAP_FILE</code> : File containing path mapping to be used when
+generating the image (plf). Used by chroot targets that are not flashed in the
+same root as the build. Format of this file is lines with 3 columns :
+<code>dir target-dir mount-point</code>
+<ul>
+<li><code>dir</code> : directory prefix of chroot target.</li>
+<li><code>target-dir</code> : real target directory.</li>
+<li><code>mount-point</code> : directory where <code>target-dir</code> will be mounted. As it is a
+first match list, more specific names shall be first. Example :
+<pre>
+/data /data/pulsar    /system/pulsar/data
+/     /system/pulsar  /system/pulsar
+</pre></li>
+<li>The root of the final tree will actually be flashed in /system/pulsar (3rd
+column is not useful here).</li>
+<li>The /data directory of the final tree will actually be flashed in /data/pulsar
+At runtime the /data/pulsar will be mounted in /system/pulsar/data so this
+directory needs to be created as well. Finally when the target will be executed
+in its chroot environment, the final tree will be found correctly.</li>
+</ul></li>
+<li><code>TARGET_BUILD_PROPERTIES</code> : list of properties to put in file build.prop
+loaded by boxinit at startup. The format is a list of <code>&lt;key&gt;=&lt;value&gt;</code> pair.
+Default contains some <code>ro.build</code> keys that alchemy will put.
+Note : each module can also specify its own properties in <code>LOCAL_BUILD_PROPERTIES</code>.</li>
+<li><code>TARGET_INCLUDE_GDBSERVER</code> : include gdbserver binary in target. This binary
+is GPLv3 and is needed only in development phase and shall not be present in
+final release packages.
+</br>Default is <code>1</code>.</li>
+<li><code>TARGET_INCLUDE_TZDATA</code> : include time zone data from libc.
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_INCLUDE_GCONV</code> : include gconv libraries from libc.
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_USE_CXX_EXCEPTIONS</code> : enable c++ exceptions.
+</br>Default is <code>1</code>.</li>
+<li><code>TARGET_LDCONFIG_DIRS</code> : list of directories to add in ldconfig cache. Path
+should be absolute and for the target. Standard path are already included
+by <code>Alchemy</code> (/lib/<arch>, /lib, /usr/lib/<arch>, /usr/lib).</li>
+<li><code>TARGET_IMAGE_FORMAT</code> : format of the image file to generate wilth <code>image</code> command.
+Supported value: <code>tar</code>, <code>cpio</code>, <code>ext2</code>, <code>ext3</code>, <code>ext4</code>, <code>plf</code> and the compressed
+forms <code>tar.gz</code>, <code>cpio.gz</code>, <code>ext2.gz</code>, <code>ext3.gz</code>, <code>ext4.gz</code>,
+<code>tar.bz2</code>, <code>cpio.bz2</code>, <code>ext2.bz2</code>, <code>ext3.bz2</code>, <code>ext4.bz2</code>
+</br>Default is <code>tar.gz</code>.</li>
+<li><code>TARGET_IMAGE_OPTIONS</code> : additional options to give during image generation:
+<ul>
+<li><code>--size &lt;val&gt; [&lt;unit&gt;]</code> : size of image (for <code>ext</code> format), unit is <code>K</code>, <code>M</code>, <code>G</code>
+</br>Default is empty.</li>
+</ul></li>
+<li><p><code>TARGET_FINAL_MODE</code>: how to create the final directory. Supported value:</p>
+
+<ul>
+<li><code>full</code>: nothing is filtered.</li>
+<li><code>firmware</code>: filtered according to internal heuristics suitable for embedded
+execution.
+</br>Default is <code>firmware</code>.</li>
+</ul></li>
+<li><p><code>USE_CLANG</code> : Use clang instead of gcc for compilation.
+</br>Default is <code>0</code>.</p></li>
+<li><code>USE_CCACHE</code> : Use ccache to speed up compilation.
+</br>Default is <code>0</code>.</li>
+<li><code>USE_SCAN_CACHE</code> : Use cache of <code>atom.mk</code> found during last scan. Useful if
+the scan is slow on your machine.
+</br>Default is <code>0</code>.</li>
+<li><code>USE_COLORS</code> : Use colors in output.
+</br>Default is <code>0</code>.</li>
+<li><code>USE_GIT_REV</code> : Retrieve git revision of modules to force compilation of
+external modules when the related project is updated.
+</br>Default is <code>1</code>.</li>
+<li><code>USE_CONFIG_CHECK</code> : Enable check of config before the build. Only need to be
+disabled in some sdk use cases.
+</br>Default is <code>1</code>.</li>
+<li><code>USE_COVERAGE</code> : Enable options for coverage (and disable compiler optimisations).
+</br>Default is <code>0</code>.</li>
+<li><code>USE_AUTO_LIB_PREFIX</code> : Automatically add 'lib' prefix when building an library
+whose name is not specified. This is needed for dynamic libraries on some platforms.
+</br>Default is <code>0</code>.</li>
+</ul>
+
+<h2>Configuration</h2>
+
+<p><code>Alchemy</code> allows the selection of available modules that will actually be built
+as well as configuring settings of modules. A global configuration file stores
+the list of selected modules and each configurable module stores its own
+settings. Those file are saved in the <code>TARGET_CONFIG_DIR</code> directory. However, it
+is possible to customize for each module the actual configuration file to use.</p>
+
+<h3>Global configuration file</h3>
+
+<p>The global configuration file contains the list of registered modules that will
+be built. This is useful in a workspace where everything is cloned and to select
+only a subset for compilation. Makefile targets available for that are :</p>
+
+<ul>
+<li><code>config</code> : display a qconf window to select modules.</li>
+<li><code>config-check</code> : check that the configuration file is up to date and display
+a message if not.</li>
+<li><code>config-update</code> : silently update the configuration. Dependencies will also
+be updated.</li>
+</ul>
+
+<p>The file is saved as <code>$(TARGET_CONFIG_DIR)/global.config</code></p>
+
+<h3>Module configuration files</h3>
+
+<p><code>Alchemy</code> allows modules to be configurable using the kconfig syntax. Module
+configuration will appear in the same kconfig interface where selection of
+modules to be built is done.</p>
+
+<p>To specify a list of file and load current configuration add the following in
+the <code>atom.mk</code> :</p>
+
+<pre>
+# Set config.in files and load configuration. Files are relative to LOCAL_PATH.
+LOCAL_CONFIG_FILES := \
+    Build/ConfigSoprano.in \
+    Build/ConfigSopranoTTS.in
+$(call load-config)
+
+ifdef CONFIG_SOPRANO_MPP_ENABLE
+....
+endif
+</pre>
+
+<p>If the option is checked, it is defined to 'y', otherwise it is not defined at
+all. So it is possible to simplify test</p>
+
+<pre>
+# This is possible but more complex for just 'on/off' options.
+ifeq ("$(CONFIG_SOPRANO_MPP_ENABLE)","y")
+....
+endif
+</pre>
+
+<p>The file is saved as <code>$(TARGET_CONFIG_DIR)/&lt;module&gt;.config</code></p>
+
+<p>For each configurable module, an <code>autoconf-&lt;module&gt;.h</code> file will be generated
+and automatically included during compilation. Modules depending on a
+configurable module will also have this file automatically included.</p>
+
+<p>A global <code>autoconf-merge.h</code> is also generated by concatenating all other files.
+It is available by the variable <code>AUTOCONF_MERGE_FILE</code>.</p>
+
+<p><strong>Note</strong> : Even if configurations are separated, it is preferable for a module
+to not depend on another module's configuration.</p>
+
+<h2>Customization</h2>
+
+<p>Given a workspace with <code>alchemy</code> it is possible to add some hooks to customize
+some default behaviours.</p>
+
+<h3><code>product.mk</code></h3>
+
+<p>This file, if found in the folder pointed to by <code>TARGET_CONFIG_DIR</code>, is included
+and allow tuning of some variables (basically all <code>TARGET_XXX</code> variables)</p>
+
+<h3><code>Alchemy-debug-setup.mk</code></h3>
+
+<p>This file, if found at the root of the workspace, is included and allow tuning
+debug variables or set variables that can be used by some modules.</p>
+
+<p>To set some debug flags, simply put a line like :</p>
+
+<pre>
+debug.blues.CFLAGS := -O0
+debug.softat.CFLAGS := -O0
+</pre>
+
+<p><code>CFLAGS</code>, <code>CXXFLAGS</code> and <code>LDFLAGS</code> are overridable.</p>
+
+<p><strong>Note</strong> : If you try to put a debug flag directly in an <code>atom.mk</code> you will get
+an error. This is to avoid committing debug flags in git repositories. The
+<code>Alchemy-debug-setup.mk</code> shall be used and shall never be committed, it shall be
+local to a developer workspace.</p>
+
+<p>An example of use by a module of variable defined in <code>Alchemy-debug-setup.mk</code> is
+in the <code>bluebox</code> module of <code>pulsar</code> project. This module gets the ip address to
+put in the product by reading a variable. This variable can be from the
+environment or from the <code>Alchemy-debug-setup.mk</code> file.</p>
+
+<h3>Location of module configuration files.</h3>
+
+<p>By default, module configuration files are searched in the folder pointer to by
+<code>TARGET_CONFIG_DIR</code>. However, if you pass a variable named
+<code>custom.&lt;module&gt;.config</code> as an argument of make, or alchemake this will override
+the location. You can also set this variable in <code>product.mk</code> or
+<code>Alchemy-debug-setup.mk</code>.</p>
+
+<h3>Special customization of configuration files.</h3>
+
+<p>It is possible to fine tune existing configuration files and apply <code>sed</code> files
+to them to change a flag. <code>sed</code> files to be applied to a module configuration
+file is indicated in a variable <code>custom.&lt;module&gt;.config.sedfiles</code>. Several
+<code>sed</code> files can be specified.</p>
+
+<p>When <code>sed</code> files are specified, a copy of the original configuration file is
+made in the build directory and <code>sed</code> files are applied there. However when the
+configuration tool is used, the original file is edited.</p>
+
+<p>The <code>custom.&lt;module&gt;.config.sedfiles</code> variable can be given as argument of make
+or alchemake as well as in <code>product.mk</code> or <code>Alchemy-debug-setup.mk</code>.</p>
+
+<h2>Anatomy of an <code>atom.mk</code></h2>
+
+<p>The first thing that shall be done in an <code>atom.mk</code> is to get its path in the
+variable <code>LOCAL_PATH</code> :</p>
+
+<pre>
+LOCAL_PATH := $(call my-dir)
+</pre>
+
+<p>This shall be done only once per <code>atom.mk</code> file and it shall be done before
+anything else. Internally it relies on the variable <code>MAKEFILE_LIST</code> to get the
+full path of the directory where the <code>atom.mk</code> file is (without the trailing '/').
+Then, one or more module definitions will follow.</p>
+
+<p>A module definition shall always starts with :</p>
+
+<pre>
+include $(CLEAR_VARS)
+</pre>
+
+<p>A module definition shall always end with :</p>
+
+<pre>
+include $(BUILD_XXX)
+</pre>
+
+<p>See below for possible <code>BUILD_XXX</code> values</p>
+
+<p>During module definition, only <code>LOCAL_XXX</code> variables shall be modified (except
+<code>LOCAL_PATH</code> set at the beginning of the <code>atom.k</code> file). It is also possible to
+define module specific variables by prefixing them with the module name. However,
+their use shall be limited to the scope of the <code>atom.mk</code> file where they are
+defined. No reference to a variable declared by another <code>atom.mk</code> file shall
+be done because the order of inclusion is not guaranteed or predictable.</p>
+
+<p>For each registered modules, following <code>make</code> targets will be available :</p>
+
+<ul>
+<li><code>make &lt;module&gt;</code> : will build the module and its dependencies.</li>
+<li><code>make &lt;module&gt;-clean</code> : will clean the module. For autotools modules, the
+unpacked sources and applied patches will be kept in the build directory.</li>
+<li><code>make &lt;module&gt;-dirclean</code> : will remove the build directory of the module.</li>
+<li><code>make &lt;module&gt;-doc</code> : will generate the documentation for the module.</li>
+<li><code>make &lt;module&gt;-path</code> : will display the path of the module.</li>
+<li><code>make &lt;module&gt;-codecheck</code> : will check coding style of C source files.</li>
+<li><code>make &lt;module&gt;-cppcheck</code> : will check coding style of C++ source files.</li>
+<li><code>make &lt;module&gt;-cloc</code> : will count the number of lines of code.</li>
+</ul>
+
+<h3>Module registration</h3>
+
+<p>Several classes of modules are managed by <code>alchemy</code> :</p>
+
+<ul>
+<li><code>STATIC_LIBRARY</code></li>
+<li><code>SHARED_LIBRARY</code></li>
+<li><code>LIBRARY</code></li>
+<li><code>EXECUTABLE</code></li>
+<li><code>AUTOTOOLS</code></li>
+<li><code>CMAKE</code></li>
+<li><code>QMAKE</code></li>
+<li><code>PYTHON_EXTENSION</code></li>
+<li><code>CUSTOM</code></li>
+<li><code>META_PACKAGE</code></li>
+<li><code>LINUX_MODULE</code></li>
+</ul>
+
+<p>Module will be referred as either <code>internal</code> or <code>external</code> :</p>
+
+<ul>
+<li>Internal modules are <code>STATIC_LIBRARY</code>, <code>SHARED_LIBRARY</code>, <code>LIBRARY</code> and
+<code>EXECUTABLE</code> modules because they are completely managed by the build system.</li>
+<li>External modules are <code>AUTOTOOLS</code>, <code>CMAKE</code>, <code>QMAKE</code>, <code>PYTHON_EXTENSION</code>,
+<code>CUSTOM</code>, <code>META_PACKAGE</code> and <code>LINUX_MODULE</code> modules because the build system has little
+control on the way those modules are built.</li>
+</ul>
+
+<p><strong>Note</strong> : <code>LIBRARY</code> can be used to compile both static and shared version of a
+module. The given <code>LOCAL_FILENAME</code>, if any, shall be the name of the shared
+version. Internally, the static name will be deduced by replacing the shared
+suffix (<code>.so</code>) by the static suffix (<code>.a</code>). See chapter about <code>LOCAL_LIBRARIES</code>
+for more information.</p>
+
+<p><strong>Note</strong> : there is also a <code>PREBUILT</code> class but its used is reserved for the
+build system and should not normally be used by user makefiles. It is present to
+declare system modules to be used as dependencies.</p>
+
+<h3>Common part</h3>
+
+<p>Both <code>internal</code> and <code>external</code> modules share a common base for their
+registration and their use. The only mandatory variable to set in a module is
+its name :</p>
+
+<pre>
+LOCAL_MODULE := module-name
+</pre>
+
+<p>The name of the module can contains any character from the range :
+<code>[a-z] [A-Z] [0-9] '_' '-'</code></p>
+
+<p>The convention is to use only lower case characters and use '-' as a word
+separator. The module name will serve as the default name of the binary for
+<code>internal</code> modules (with its extension appended automatically).</p>
+
+<h4><code>LOCAL_MODULE_FILENAME</code></h4>
+
+<p>This can be used to override the name of <code>internal</code> modules. For <code>external</code>
+modules it is used to create special <code>done</code> files to indicate that the module
+has been built (using a <code>touch</code> on the file). This shall be a simple file name
+without path specification. The extension shall be specified if required.</p>
+
+<h4><code>LOCAL_DESTDIR</code></h4>
+
+<p>This is the destination path relative to root of target file system. Default is
+<code>usr/bin</code> for executables and <code>usr/lib</code> for libraries.</p>
+
+<h4><code>LOCAL_DESCRIPTION</code></h4>
+
+<p>This is the description of the module that will be displayed in <code>qconf</code> window
+when configuring the build.</p>
+
+<h4><code>LOCAL_CATEGORY_PATH</code></h4>
+
+<p>This is the logical path this module belongs. It will be used to display the
+<code>qconf</code> configuration window independently from the file system layout. Event if
+there is no constraints on the value, please follow the categories already
+provided by the platform teams.</p>
+
+<h4><code>LOCAL_LIBRARIES</code></h4>
+
+<p>This is a list of modules this module depends on. Unlike android build system,
+it is not needed to explicitly specify the class of the module in variables like
+<code>LOCAL_STATIC_LIBRARIES</code> or <code>LOCAL_SHARED_LIBRARIES</code>. The class of the module is
+inferred from its own registration. This way a module can changes its class
+between <code>STATIC</code> and <code>SHARED</code> without the need of changing the chain of
+dependency. However, if a module is registered as <code>LIBRARY</code>, both static and
+shared versions will be available. By default, the shared version is used
+unless the dependency is explicitely listed in <code>LOCAL_STATIC_LIBRARIES</code>.</p>
+
+<p>For all modules listed in the definition of an <code>internal</code> module :
+<code>C_INCLUDES</code>, <code>CFLAGS</code>, <code>CXXFLAGS</code>, <code>LDLIBS</code>, <code>PREREQUISITES</code>, exported by
+modules will be imported in this module. If a static library is specified in
+the list, a recursion will be done to import its own dependencies.</p>
+
+<p>For all modules listed in the definition of an <code>external</code> module :
+Only <code>PREREQUISITES</code> exported by modules will be imported in this module.</p>
+
+<p><code>External</code> modules listed as dependencies will be completely built before this
+module. <code>Internal</code> modules listed as dependencies will be compiled in parallel
+with this module, only the link of dependencies will be done before this module.
+So if a module needs to generate some files that will be needed during the
+compilation of modules depending on it, they shall be exported in the
+prerequisites to be sure they are generated at the correct time. An example will
+be headers installed in staging directories. If they are not explicitly
+specified in prerequisites export, it will not work in a parallel build.</p>
+
+<h4><code>LOCAL_CONDITIONAL_LIBRARIES</code></h4>
+
+<p>This is a list of pair <code>variable:module</code> to indicate that a module is needed
+only if a variable (found in a <code>config.in</code> file) is defined. Although it is
+possible to explicitly put a conditional in the <code>atom.mk</code>, it is recommended to
+use this technique to make sure that <code>kconfig</code> will also see this conditional
+dependency. Without it it would not be possible to disable a module once the
+configuration variable is enabled: the configuration editor would need to be
+launched 2 times, one to disable the variable, another to disable the module.</p>
+
+<p>If a configuration variable needs to select several modules, specify it in
+several pairs <code>variable:module</code>.</p>
+
+<p>Internally modules will be added to <code>LOCAL_LIBRARIES</code> if the variable is defined
+in the configuration.</p>
+
+<p>If <code>variable</code> is <code>OPTIONAL</code>, the module is put as a dependency only if it is in
+the build configuration. This allow to depends on a module only if it is
+enabled. The <code>kconfig</code> tools will not display this dependency, only the build
+system will use it.</p>
+
+<h4><code>LOCAL_DEPENDS_HEADERS</code></h4>
+
+<p>This is a list of modules whose headers are required to compile but not for
+link. This does <strong>NOT</strong> introduce a build order, just an automatic import of
+exported headers.</p>
+
+<h4><code>LOCAL_DEPENDS_MODULES</code> <code>LOCAL_REQUIRED_MODULES</code></h4>
+
+<p>This is a list of modules required at runtime that will automatically be
+selected in the <code>qconf</code> configuration window. This does <strong>NOT</strong> introduce a
+build order.</p>
+
+<p><strong>Note</strong>: <code>LOCAL_REQUIRED_MODULES</code> is preferred over <code>LOCAL_DEPENDS_MODULES</code>.
+Once migrated to <code>LOCAL_REQUIRED_MODULES</code>, <code>LOCAL_DEPENDS_MODULES</code> might be used
+for another purpose (like really have a build dependency).</p>
+
+<h4><code>LOCAL_BUILD_PROPERTIES</code></h4>
+
+<p>List of properties to put in file build.prop loaded by boxinit at startup.
+The format is a list of <code>&lt;key&gt;=&lt;value&gt;</code> pair.</p>
+
+<h4><code>LOCAL_CONFIG_FILES</code></h4>
+
+<p>List of <code>Config.in</code> files relative to <code>LOCAL_PATH</code> to be used to configure the
+module. See <code>kconfig</code> language specification for more information about its
+syntax. All settings specified in this file shall be prefixed by the name of the
+module to avoid name collision when the global configuration file is created by
+the build system. To actually load the configuration and have access to settings
+the following shall be done :</p>
+
+<pre>
+$(call load-config)
+</pre>
+
+<p>After this, all settings variables can be used. Please note that they will all
+be prefixed by <code>CONFIG_</code> when used inside the makefile.</p>
+
+<p><strong>Note</strong> : to test for a boolean settings, it is best to do :</p>
+
+<pre>
+ifdef CONFIG_XXX
+</pre>
+
+<p>instead of</p>
+
+<pre>
+ifeq ($(CONFIG_XXX),y)
+</pre>
+
+<p>It is shorter and allow to use the flag <code>--warn-undefined-variables</code> during
+<code>make</code> invocation.</p>
+
+<h4><code>LOCAL_COPY_FILES</code></h4>
+
+<p>List of files to be copied in the staging directory. Files are specified like
+this: <code>src:dst</code></p>
+
+<ul>
+<li><code>src</code> is the source file, relative to <code>LOCAL_PATH</code>.</li>
+<li><code>dst</code> is the destination file, relative to <code>TARGET_OUT_STAGING</code>.</li>
+</ul>
+
+<p>If <code>dst</code> ends with a <code>'/'</code> it is assumed to be the destination directory and the
+file name is deduced from <code>src</code>.</p>
+
+<p>If <code>src</code> or <code>dst</code> start with a <code>'/'</code> it is assumed to be a full path, in this
+case <code>LOCAL_PATH</code> is not prepended for <code>src</code> and <code>TARGET_OUT_STAGING</code> is not
+prepended for <code>dst</code>.</p>
+
+<p><strong>Note</strong> : There is no build order between copied files and modules depending
+on the one copying the file. If you want to make sure that copied files are
+available for other module, either put copied files in <code>LOCAL_EXPORT_PREREQUISITES</code>
+or use <code>LOCAL_INSTALL_HEADERS</code>.</p>
+
+<h4><code>LOCAL_CREATE_LINKS</code></h4>
+
+<p>List of symbolic links to be created in the staging directory. Format is
+<code>name:target</code></p>
+
+<ul>
+<li><code>name</code> : name of the link, relative to <code>TARGET_OUT_STAGING</code>.</li>
+<li><code>target</code> : target of the link. This path will be interpreted in the final
+target so there is no restriction on the actual format.</li>
+</ul>
+
+<p>If <code>name</code> starts with a <code>'/'</code> it is assumed to be a full path, in this
+case <code>TARGET_OUT_STAGING</code> is not prepended.</p>
+
+<p><strong>Note</strong> : There is no build order between created links and modules depending
+on the one creating the link. Use <code>LOCAL_EXPORT_PREREQUISITES</code> also.</p>
+
+<h4><code>LOCAL_INSTALL_HEADERS</code></h4>
+
+<p>List of headers to be installed in the staging directory. The format is the same
+than <code>LOCAL_COPY_FILES</code>.</p>
+
+<p><strong>Note</strong> : internally this is a combination of <code>LOCAL_COPY_FILES</code> and
+<code>LOCAL_EXPORT_PREREQUISITES</code>. It means that headers will be installed before
+anything depending on this module is built.</p>
+
+<h4><code>LOCAL_CLEAN_FILES</code> <code>LOCAL_CLEAN_DIRS</code></h4>
+
+<p>List of files (respectively directories) to be automatically removed during
+cleaning of the module. Full path shall be specified and normally they refer to
+path in build or staging directories.</p>
+
+<h4><code>LOCAL_PREREQUISITES</code></h4>
+
+<p>List of files that shall exist prior to do anything in the module. Full path
+shall be specified (and usually they reside in the module build directory).</p>
+
+<p>A custom makefile rule shall exists to instruct make how to generate and update
+those prerequisites files.</p>
+
+<p><strong>Note</strong> : files listed here will be specified as order-only prerequisites in
+the generated make rules. It means that if the file is later modified it will
+<strong>NOT</strong> trigger a recompilation. Custom dependencies shall be added if this is
+required</p>
+
+<p>Example:</p>
+
+<pre>
+SOFTAT_BUILD_DIR := $(call local-get-build-dir)
+SOFTAT_CONFIG_READ_H := $(SOFTAT_BUILD_DIR)/HIPHOP_ConfigRead.h
+$(SOFTAT_CONFIG_READ_H): $(AUTOCONF_MERGE_FILE)
+    @mkdir -p $(dir $@)
+    $(Q)$(PRIVATE_PATH)/../HSTIGenerator/Ck5050ini_Generate.py \
+        -a $(AUTOCONF_MERGE_FILE) \
+        $(PRIVATE_PATH)/SoftATini \
+        $(SOFTAT_BUILD_DIR)
+
+LOCAL_PREREQUISITES += \
+    $(SOFTAT_CONFIG_READ_H)
+</pre>
+
+<h4><code>LOCAL_CUSTOM_TARGETS</code></h4>
+
+<p>List of custom targets directly managed by the <code>atom.mk</code>. Put here anything that
+is a target of a rule with commands. Doing so will ensure that the all the
+prerequisites that <code>alchemy</code> will collect for the module will be applied for
+your custom rules.</p>
+
+<p><strong>Note</strong> : there is no need to put in this list files that are already in
+<code>LOCAL_PREREQUISITES</code> or <code>LOCAL_EXPORT_PREREQUISITES</code>.</p>
+
+<h4><code>LOCAL_EXPORT_C_INCLUDES</code>, <code>LOCAL_EXPORT_CFLAGS</code>, <code>LOCAL_EXPORT_CXXFLAGS</code>, <code>LOCAL_EXPORT_LDLIBS</code>, <code>LOCAL_EXPORT_PREREQUISITES</code></h4>
+
+<p>Variables to be exported by this module and then imported by modules depending
+on it. This simplifies the maintenance of the build system by forcing module to
+export everything required to use them.</p>
+
+<p>For <code>internal</code> modules, <code>LOCAL_EXPORT_LDLIBS</code> is rarely used because the build
+system knows how to link with it and hence it is not needed to explicitly do so.</p>
+
+<p>For <code>external</code> modules it is a mean to instruct the build system how to link
+with them. It is however not needed to specify include directories that are
+globally available like <code>$(TARGET_OUT_STAGING)/usr/include</code>.</p>
+
+<h4><code>LOCAL_ARCHIVE</code> <code>LOCAL_ARCHIVE_VERSION</code> <code>LOCAL_ARCHIVE_SUBDIR</code> <code>LOCAL_ARCHIVE_PATCHES</code> <code>LOCAL_ARCHIVE_CMD_UNPACK</code> <code>LOCAL_ARCHIVE_CMD_POST_UNPACK</code></h4>
+
+<p><code>Alchemy</code> offer the possibility to have the source code in an archive. This is
+mainly used for external modules but can be used for internal modules as well.</p>
+
+<ul>
+<li><code>LOCAL_ARCHIVE</code> : name of the archive to be extracted. It is a path relative to
+<code>LOCAL_PATH</code>.</li>
+<li><p><code>LOCAL_ARCHIVE_SUBDIR</code> : directory that the extraction process will automatically
+creates. This is a path, relative to the extraction root where the configure
+script will be found. It is in general defined as
+<code>$(LOCAL_MODULE)-$(LOCAL_AUTOTOOLS_VERSION)</code></p></li>
+<li><p><code>LOCAL_ARCHIVE_VERSION</code> being a variable with the version of the package. This
+information is currently not used by the build system, and is only there as a
+convenience.</p></li>
+</ul>
+
+<p>Additionally, some patches can be applied to the extracted archive :</p>
+
+<ul>
+<li><p><code>LOCAL_ARCHIVE_PATCHES</code> : list of patches to apply. Paths relative to <code>LOCAL_PATH</code>.</p></li>
+<li><p><code>LOCAL_ARCHIVE_CMD_UNPACK</code> : Custom commands to be used instead of default
+ones. Please note that it shall be a macro defined using the <code>define/endef</code>
+keywords, not a <code>:=</code> definition.</p></li>
+<li><code>LOCAL_ARCHIVE_CMD_POST_UNPACK</code> : Custom commands to be executed after the
+given step. Please note that it shall be a macro defined using the
+<code>define/endef</code> keywords, not a <code>:=</code> definition.</li>
+</ul>
+
+<h4><code>LOCAL_DOXYFILE</code></h4>
+
+<p>Absolute path to a doxygen configuration file for documentation generation. If
+defined, the <module>-doc target will use it to generate the documentation. If
+not, a doxyfile will be generated on the fly, which will generate a
+documentation for all the source files found recursively under <code>LOCAL_PATH</code>, for
+all the languages supported by doxygen and for all the symbols.</p>
+
+<h4><code>LOCAL_DOXYGEN_INPUT</code></h4>
+
+<p>Additional path to files or directories to add to doxygen generation. It
+accepts either full path or relative path to LOCAL_PATH.</p>
+
+<h4><code>LOCAL_COPY_TO_BUILD_DIR</code></h4>
+
+<p>If set to 1, all files under LOCAL_PATH will be copied to the build directory
+before the configure step. This allows modules to execute autoreconf out of the
+original source tree.</p>
+
+<h3>Internal modules</h3>
+
+<p>Defining an <code>internal</code> module is the preferred way of registering a module. It
+offers many automatization of the build process including compilation, link,
+clean, installation, automatic import/export of include directories, compilation
+flags.</p>
+
+<p>Variable that can be set for internal modules :</p>
+
+<h4><code>LOCAL_SRC_FILES</code></h4>
+
+<p>List of files to be compiled. The path shall be relative to <code>LOCAL_PATH</code>. The
+following file  extension are recognized : <code>.c, .cc, .cxx, .cpp, .s .S</code>.
+ Other files will be ignored.</p>
+
+<p>The build system checks that files actually exist and issue a warning if not.</p>
+
+<h4><code>LOCAL_GENERATED_SRC_FILES</code></h4>
+
+<p>Similar to <code>LOCAL_SRC_FILES</code> but path is relative to module build directory. It
+can be used to compile generated files as well as file extracted from an archive.</p>
+
+<h4><code>LOCAL_C_INCLUDES</code></h4>
+
+<p>List of directories to be added during compilation to search for headers. Full
+path shall be specified, without the '-I'. <code>LOCAL_PATH</code> can be used for
+specifying path under the <code>atom.mk</code>.</p>
+
+<p><strong>Note</strong> : The build directory and <code>LOCAL_PATH</code> are automatically added during
+compilation</p>
+
+<h4><code>LOCAL_CFLAGS</code>, <code>LOCAL_CXXFLAGS</code></h4>
+
+<p>Flags to be passed during the compilation of source files. <code>LOCAL_CFLAGS</code> is
+given to <strong>all</strong> files, whereas <code>LOCAL_CXXFLAGS</code> is given only to <code>c++</code> files</p>
+
+<p><strong>Note</strong> : some warning flags are automatically added by the build system,
+please do not add/remove any to let the build system decides which flags are
+best suited for the target/toolchain.</p>
+
+<p><strong>Note</strong> : some checks are done to make sure that some flags are not included
+here, <code>-marm</code>, <code>-mthumb</code> and <code>-O0</code> are among them. They are managed by other
+means.</p>
+
+<h4><code>LOCAL_LDFLAGS</code></h4>
+
+<p>Flags to be passed during the linking of the binary (shared library or
+executable). It is rarely used. Do not specify libraries to be linked with,
+use <code>LOCAL_LDLIBS</code>, or better, rely on dependency management to import them
+automatically.</p>
+
+<h4><code>LOCAL_LDLIBS</code></h4>
+
+<p>Libraries to be linked with (<code>-l&lt;name&gt;</code>). It is rarely used, please use
+dependency management to import them automatically.</p>
+
+<h4><code>LOCAL_ARFLAGS</code></h4>
+
+<p>Flags to be passed to the static library generator. It is rarely used.</p>
+
+<h4><code>LOCAL_ARM_MODE</code></h4>
+
+<p>For arm architecture it is used to override the default mode. The default is to
+compile everything as <code>thumb</code>. This variable can be used to force <code>arm</code> mode.
+This flag is mainly used when code contains inline assembler that explicitly use
+<code>arm</code> mode inline instructions.</p>
+
+<p><strong>Note</strong> : default mode can be globally defined as <code>arm</code> with <code>TARGET_DEFAULT_ARM_MODE</code>.</p>
+
+<p><strong>Note</strong> : it is not possible to force <code>thumb</code> mode if default mode is <code>arm</code>.</p>
+
+<h4><code>LOCAL_FORCE_WHOLE_STATIC_LIBRARY</code></h4>
+
+<p>Setting this variable to <code>1</code> instructs the build system to make sure module
+depending on this one will use it inside a <code>-Wl,-whole-archive</code> linker flag.
+It is rarely used and only when there is some complex use of static libraries.</p>
+
+<h4><code>LOCAL_PBUILD_HOOK</code></h4>
+
+<p>This variable needs to be set at <code>1</code> when a module is using <code>PAL</code> log feature.
+It instructs the build system to include some additional steps at link time to
+mimic some parrot build feature (more precisely it scans for some undefined
+variables to declare them in an extra source file compiled and linked).</p>
+
+<h4><code>LOCAL_PBUILD_ALLOW_FORCE_STATIC</code></h4>
+
+<p>This variable indicates that the module can be build as static if global
+variable <code>TARGET_PBUILD_FORCE_STATIC</code> is set. This is a ParrotBuild
+compatibility mode that allows to specify module as shared and have a fallback
+when needed.</p>
+
+<h4><code>NO_COPY_TO_STAGING</code></h4>
+
+<p>If set to <code>1</code>, the module output file will not be copied in staging directory.
+This allow customization of this step by the <code>atom.mk</code>.</p>
+
+<h3>Autotools modules</h3>
+
+<p>The term <code>autotools</code> refer to modules that use a configure script that generates
+makefiles that can then be use to build/install/clean the module. It is
+generally open source packages that are taken as is without many modifications.</p>
+
+<p>The source code can be contained in an archive to be extracted before or can be
+available under <code>LOCAL_PATH</code>.</p>
+
+<p>For source contained in archives, two variables shall be defined :</p>
+
+<ul>
+<li><code>LOCAL_AUTOTOOLS_ARCHIVE</code> : name of the archive to be extracted. It is a path
+relative to <code>LOCAL_PATH</code>.</li>
+<li><code>LOCAL_AUTOTOOLS_SUBDIR</code> : directory that the extraction process will
+automatically creates. This is a path, relative to the extraction root where
+the configure script will be found. It is in general defined as
+<code>$(LOCAL_MODULE)-$(LOCAL_AUTOTOOLS_VERSION)</code></li>
+</ul>
+
+<p><code>LOCAL_AUTOTOOLS_VERSION</code> being a variable with the version of the package.
+This information is currently not used by the build system, and is only there as
+a convenience.</p>
+
+<p>Additionally, some patches can be applied to the extracted archive :</p>
+
+<ul>
+<li><code>LOCAL_AUTOTOOLS_PATCHES</code> : list of patches to apply. Paths relative to
+<code>LOCAL_PATH</code>.</li>
+</ul>
+
+<p><strong>Note</strong> : Internally, alchemy transforms <code>LOCAL_AUTOTOOLS_ARCHIVE_XXX</code> variables
+in generic <code>LOCAL_ARCHIVE_XXX</code> variables.</p>
+
+<p>For most of such modules it is the only thing to do before registering the
+module with :</p>
+
+<pre>
+include $(BUILD_AUTOTOOLS)
+</pre>
+
+<p>The build system will automatically generate internal rules for all steps :</p>
+
+<ul>
+<li>unpacking + patches</li>
+<li>configure</li>
+<li>build</li>
+<li>install</li>
+<li>clean</li>
+</ul>
+
+<p>During configure step, the following parameters are automatically given and does
+not need to be explicitly specified :</p>
+
+<ul>
+<li><code>--build</code></li>
+<li><code>--host</code></li>
+<li><code>--prefix</code></li>
+<li><code>--sysconfdir</code></li>
+</ul>
+
+<p>The values are determined based on the target specifications.</p>
+
+<p>In the environment, the following variables are set during the call to configure :</p>
+
+<ul>
+<li><code>AR</code></li>
+<li><code>AS</code></li>
+<li><code>LD</code></li>
+<li><code>NM</code></li>
+<li><code>CC</code></li>
+<li><code>GCC</code></li>
+<li><code>CXX</code></li>
+<li><code>CPP</code></li>
+<li><code>INSTALL</code></li>
+<li><code>RANLIB</code></li>
+<li><code>STRIP</code></li>
+<li><code>OBJCOPY</code></li>
+<li><code>OBJDUMP</code></li>
+<li><code>CC_FOR_BUILD</code></li>
+<li><code>CPPFLAGS</code></li>
+<li><code>CFLAGS</code></li>
+<li><code>CXXFLAGS</code></li>
+<li><code>LDFLAGS</code></li>
+<li><code>DYN_LDFLAGS</code></li>
+</ul>
+
+<p>Also, for <code>pkg-config</code> to work correctly, the following variable are exported :</p>
+
+<ul>
+<li><code>PKG_CONFIG_PATH</code></li>
+<li><code>PKG_CONFIG_LIBDIR</code></li>
+<li><code>PKG_CONFIG_SYSROOT_DIR</code></li>
+</ul>
+
+<p>It is possible to customize each step either by modifying environment or
+arguments of command used, rewriting commands completely or inserting some
+commands between steps.</p>
+
+<h4><code>LOCAL_AUTOTOOLS_CONFIGURE_ENV</code>, <code>LOCAL_AUTOTOOLS_CONFIGURE_ARGS</code></h4>
+
+<p>Additional variables to be given as environment or parameters to the configure
+script.</p>
+
+<h4><code>LOCAL_AUTOTOOLS_CONFIGURE_SCRIPT</code></h4>
+
+<p>Alchemy will assume that the configure script is named <code>configure</code> and located
+at either <code>LOCAL_PATH</code> or <code>LOCAL_ARCHIVE_SUBDIR</code> or <code>LOCAL_AUTOTOOLS_ARCHIVE_SUBDIR</code>.
+If the script is somewhere else specify new relative path in <code>LOCAL_AUTOTOOLS_CONFIGURE_SCRIPT</code>.</p>
+
+<h4><code>LOCAL_AUTOTOOLS_MAKE_BUILD_ENV</code>, <code>LOCAL_AUTOTOOLS_MAKE_BUILD_ARGS</code></h4>
+
+<p>Additional variables to be given as environment or parameters to the build
+command (using <code>make</code>).</p>
+
+<h4><code>LOCAL_AUTOTOOLS_MAKE_INSTALL_ENV</code>, <code>LOCAL_AUTOTOOLS_MAKE_INSTALL_ARGS</code></h4>
+
+<p>Additional variables to be given as environment oR parameters to the install
+command (using <code>make</code>).</p>
+
+<h4><code>LOCAL_AUTOTOOLS_CMD_UNPACK</code>, <code>LOCAL_AUTOTOOLS_CMD_CONFIGURE</code>, <code>LOCAL_AUTOTOOLS_CMD_BUILD</code>, <code>LOCAL_AUTOTOOLS_CMD_INSTALL</code>, <code>LOCAL_AUTOTOOLS_CMD_CLEAN</code></h4>
+
+<p>Custom commands to be used instead of default ones. Please note that it shall
+be a macro defined using the <code>define/endef</code> keywords, not a <code>:=</code> definition.</p>
+
+<h4><code>LOCAL_AUTOTOOLS_CMD_POST_UNPACK</code>, <code>LOCAL_AUTOTOOLS_CMD_POST_CONFIGURE</code>, <code>LOCAL_AUTOTOOLS_CMD_POST_BUILD</code>, <code>LOCAL_AUTOTOOLS_CMD_POST_INSTALL</code>, <code>LOCAL_AUTOTOOLS_CMD_POST_CLEAN</code></h4>
+
+<p>Custom commands to be executed after the given step. Please note that it shall
+be a macro defined using the <code>define/endef</code> keywords, not a <code>:=</code> definition.</p>
+
+<p>In the definition of custom commands, the following points shall be noted :</p>
+
+<ul>
+<li>It is not possible to use any <code>LOCAL_XXX</code> variables. If you try to do it an
+error will be generated. You can use any module specific variable that you
+defined or <code>PRIVATE_XXX</code> variables listed below.</li>
+<li><p>Use <code>$(Q)</code> before each command to be quiet unless in verbose mode.</p></li>
+<li><p><code>PRIVATE_ARCHIVE</code> : Full path to the archive file specified in
+<code>LOCAL_AUTOTOOLS_ARCHIVE</code>.</p></li>
+<li><code>PRIVATE_UNPACK_DIR</code> : Full path to where the archive has been extracted
+(usually the build directory). This is also where the directory specified in
+<code>LOCAL_AUTOTOOLS_SUBDIR</code> will be found.</li>
+<li><code>PRIVATE_SRC_DIR</code> : Full path to the source directory of the module. For
+modules with an archive to be unpacked, it is the same as <code>PRIVATE_OBJ_DIR</code>.</li>
+<li><code>PRIVATE_OBJ_DIR</code> : Full path to the directory where the module will be
+configured and built. For modules with an archive to be unpacked it will be
+the directory specified in <code>LOCAL_AUTOTOOLS_SUBDIR</code> inside the build directory,
+otherwise it will be under the directory <code>obj</code> inside the build directory.</li>
+<li><code>PRIVATE_CONFIGURE_ENV</code> : Verbatim content of the <code>LOCAL_AUTOTOOLS_XXX</code> variable.</li>
+<li><code>PRIVATE_CONFIGURE_ARGS</code> : Verbatim content of the <code>LOCAL_AUTOTOOLS_XXX</code> variable.</li>
+<li><code>PRIVATE_MAKE_BUILD_ENV</code> : Verbatim content of the <code>LOCAL_AUTOTOOLS_XXX</code> variable.</li>
+<li><code>PRIVATE_MAKE_BUILD_ARGS</code> : Verbatim content of the <code>LOCAL_AUTOTOOLS_XXX</code> variable.</li>
+<li><code>PRIVATE_MAKE_INSTALL_ENV</code> : Verbatim content of the <code>LOCAL_AUTOTOOLS_XXX</code> variable.</li>
+<li><code>PRIVATE_MAKE_INSTALL_ARGS</code> : Verbatim content of the <code>LOCAL_AUTOTOOLS_XXX</code> variable.</li>
+</ul>
+
+<p>Some variables containing generic content can also be used :</p>
+
+<ul>
+<li><code>TARGET_AUTOTOOLS_CPPFLAGS</code></li>
+<li><code>TARGET_AUTOTOOLS_CFLAGS</code></li>
+<li><code>TARGET_AUTOTOOLS_CXXFLAGS</code></li>
+<li><code>TARGET_AUTOTOOLS_LDFLAGS</code></li>
+<li><code>TARGET_AUTOTOOLS_DYN_LDFLAGS</code></li>
+<li><code>TARGET_AUTOTOOLS_CONFIGURE_ENV</code></li>
+<li><code>TARGET_AUTOTOOLS_CONFIGURE_ARGS</code></li>
+<li><code>TARGET_AUTOTOOLS_MAKE_ENV</code></li>
+<li><code>TARGET_AUTOTOOLS_MAKE_ARGS</code></li>
+<li><code>TARGET_AUTOTOOLS_CONFIGURE_PREFIX</code></li>
+<li><code>TARGET_AUTOTOOLS_CONFIGURE_SYSCONFDIR</code></li>
+<li><code>TARGET_AUTOTOOLS_INSTALL_DESTDIR</code></li>
+</ul>
+
+<p><strong>Note</strong> : Old variables still available for compatibility :</p>
+
+<ul>
+<li><code>AUTOTOOLS_CONFIGURE_ENV</code></li>
+<li><code>AUTOTOOLS_CONFIGURE_ARGS</code></li>
+<li><code>AUTOTOOLS_CONFIGURE_PREFIX</code></li>
+<li><code>AUTOTOOLS_CONFIGURE_SYSCONFDIR</code></li>
+<li><code>AUTOTOOLS_INSTALL_DESTDIR</code></li>
+<li><code>AUTOTOOLS_MAKE_ENV</code></li>
+<li><code>AUTOTOOLS_MAKE_ARGS</code></li>
+</ul>
+
+<h3>CMake modules</h3>
+
+<p>This class of modules if for the compilation of packages that use <code>cmake</code>.
+<code>Alchemy</code> provides internally everything needed for the compilation, in
+particular a toolchain file.</p>
+
+<h4>Customization variables</h4>
+
+<ul>
+<li><code>LOCAL_CMAKE_CONFIGURE_ARGS</code> : Extra arguments for the configure step.</li>
+<li><code>LOCAL_CMAKE_MAKE_BUILD_ARGS</code> : extra arguments for the build step.</li>
+<li><code>LOCAL_CMAKE_MAKE_INSTALL_ARGS</code> : Extra arguments for the install step.</li>
+</ul>
+
+<h4>Custom commands</h4>
+
+<p>It is possible to override each step of the build.
+Please note that it shall be a macro defined using the <code>define/endef</code> keywords,
+not a <code>:=</code> definition.</p>
+
+<ul>
+<li><code>LOCAL_CMAKE_CMD_CONFIGURE</code></li>
+<li><code>LOCAL_CMAKE_CMD_BUILD</code></li>
+<li><code>LOCAL_CMAKE_CMD_INSTALL</code></li>
+<li><code>LOCAL_CMAKE_CMD_CLEAN</code></li>
+<li><code>LOCAL_CMAKE_CMD_POST_CONFIGURE</code></li>
+<li><code>LOCAL_CMAKE_CMD_POST_BUILD</code></li>
+<li><code>LOCAL_CMAKE_CMD_POST_INSTALL</code></li>
+<li><code>LOCAL_CMAKE_CMD_POST_CLEAN</code></li>
+</ul>
+
+<h3>QMake modules</h3>
+
+<p>This class of modules if for the compilation of packages that use <code>qt</code> and
+<code>qmake</code>. <code>Alchemy</code> provides internally everything needed for the compilation,
+in particular a <code>alchemy.pri</code> file to be included in your <code>.pro</code> to get all
+dependencies from atom.mk (include paths, libraries...).</p>
+
+<h4>Configuration</h4>
+
+<p>If the workspace contains a Qt build, then no configuration is needed.</p>
+
+<p>Otherwise, a Qt SDK installation can be used, by specifying a few variables:</p>
+
+<ul>
+<li><code>TARGET_QT_SDKROOT</code> : Root path of the SDK.
+</br>Alchemy will try to automatically detect installed Qt SDK if this is not specified.</li>
+<li><code>TARGET_QT_PLATFORM</code> : Qt platform.
+</br>Default is computed automatically based on <code>TARGET_OS</code>, <code>TARGET_OS_FLAVOUR</code> and <code>TARGET_ARCH</code>.</li>
+<li><code>TARGET_QT_VERSION</code> : Qt version.
+</br>Default is 4.5.</li>
+<li><code>TARGET_QT_SDK</code> : Path to the Qt SDK for the target platform. This folder
+must contain the <code>qmake</code> command in the <code>bin</code> folder.
+</br>Default is <code>$(TARGET_QT_SDKROOT)/$(TARGET_QT_PLATFORM)/$(TARGET_QT_VERSION)</code>.</li>
+</ul>
+
+<p>When none of this variables is specified, Alchemy will try to automatically
+discover an appropriate Qt SDK, or use qmake in path when targetting the host
+system.</p>
+
+<h4>Customization variables</h4>
+
+<ul>
+<li><code>LOCAL_QMAKE_PRO_FILE</code> : The name of the <code>.pro</code> file to be used. If not
+specified, the name is assumed to be <code>$(LOCAL_MODULE).pro</code>. The path is
+relative to <code>LOCAL_PATH</code></li>
+</ul>
+
+<h3>Python extension modules</h3>
+
+<p>This class of modules is for the compilation of python extensions using a
+<code>setup.py</code> file and <code>distutils</code>. <code>Alchemy</code> provides internally everything
+needed to correctly build them and install them. The module still need to add
+a dependency to <code>python</code> or <code>python3</code>.</p>
+
+<h4>Customization variables</h4>
+
+<ul>
+<li><code>LOCAL_PYTHONEXT_SETUP_PY_ENV</code> : Additional environment variables to pass to
+<code>setup.py</code>.</li>
+<li><code>LOCAL_PYTHONEXT_SETUP_PY_ARGS</code> : Additional arguments to pass to <code>setup.py</code>.</li>
+</ul>
+
+<h3>Linux kernel modules</h3>
+
+<p>This class of modules is for the compilation of Linux kernel modules from
+one or several source files. Only <code>LOCAL_MODULE_FILENAME</code> (which is optional
+and should be a <code>.ko</code> filename), <code>LOCAL_SRC_FILES</code>, <code>LOCAL_C_INCLUDES</code> and
+<code>LOCAL_CFLAGS</code> are supported in addition to generic module description and
+dependency variables.</p>
+
+<h3>GObject introspection type library modules</h3>
+
+<p>This class of modules is for the compilation of gobject-introspection <code>.typelib</code>
+type libraries used by languages bindings to automatically use a library 
+without explicit wrappers. Only GObject introspection of libraries is currently
+supported.</p>
+
+<p>Pulsar gobject-introspection module shoud be present for this to work.</p>
+
+<h4>Customization variables</h4>
+
+<ul>
+<li><code>LOCAL_GI_NAMESPACE</code> : Mandatory namespace passed to g-ir-scanner.</li>
+<li><code>LOCAL_GI_LIBRARY</code> : Mandatory introspected library passed to g-ir-scanner.</li>
+<li><code>LOCAL_GI_ID_PREFIX</code> : Optional identifier prefix passed to g-ir-scanner.
+If not specified, the namespace is used.</li>
+</ul>
+
+<h3>Prebuilt modules</h3>
+
+<p>This class is used to register a module that can be used as a dependency but that
+will not built anything. Mainly used for native build where many modules from
+the host machine will be used without being recompiled. If the same module is
+registered with another class it will be ignored. This allows a workspace normally
+used for cross-compilation to be used as-is to compile some native configuration.</p>
+
+<p>As <code>alchemy</code> comes with a number of native prebuilt modules, and they have
+priority over the ones found in the workspace, it is now possible to explicitely
+mark some of them as overriden (for example in <code>product.mk</code>) using:
+</br><code>prebuilt.&lt;module&gt;.override := 1</code></p>
+
+<h3>Custom rules</h3>
+
+<p>You can add custom rules in you makefile, for example to generate files. However
+care must be taken because the <code>LOCAL_XXX</code> variables can not be used everywhere.</p>
+
+<p>First, a reminder in makefile terminology. A rule describes <code>commands</code> to be
+executed for a <code>target</code> when <code>prerequisites</code> are newer or target does not exist.</p>
+
+<pre>
+target: prerequisites
+    commands
+</pre>
+
+<p><code>LOCAL_XXX</code> variables can be used in <code>target</code> and <code>prerequisites</code> <strong>but not in <code>commands</code></strong>.
+In commands, you can only use <code>PRIVATE_PATH</code> and <code>PRIVATE_MODULE</code> variables which
+correspond to <code>LOCAL_PATH</code> and <code>LOCAL_MODULE</code>, all other variables will be empty
+at the point commands are executed.</p>
+
+<p>If you have a chain of dependencies from the <code>LOCAL_MODULE_FILENAME</code> to some
+internal targets, don't forget to add them in <code>LOCAL_CUSTOM_TARGETS</code> to make
+build prerequisites are correctly propagated.</p>
+
+<h3>Host modules</h3>
+
+<p><code>Alchemy</code> offers the possibility to compile modules for the host that can be used
+as tools by other modules. The registration of a host module is the same as for a
+standard module, the only thing that change is that <code>LOCAL_HOST_MODULE</code> shall be
+used instead of <code>LOCAL_MODULE</code>. Dependency management is the same. Internally
+the name of the module will be prefixed by <code>host.</code> so any reference to the
+module name (in another module dependency or in make goals) shall use this prefix.</p>
+
+<p>If a module requires a host tool from a host module to build, it shall add a
+dependency in the <code>LOCAL_DEPENDS_HOST_MODULES</code> variable.</p>
+
+<p>Host tools are installed in the directory <code>HOST_OUT_STAGING</code> and usually in the
+<code>usr/bin</code> sub-directory.</p>
+
+<p>Note that <code>$(HOST_OUT_STAGING)/bin</code> and <code>$(HOST_OUT_STAGING)/usr/bin</code> are
+automatically added to the <code>PATH</code> environment variable for <code>AUTOTOOLS</code> and
+<code>CMAKE</code> builds.</p>
+
+<p>There is some <code>HOST_xxx</code> variables that are defined internally and that can be
+customized before invoking <code>alchemy</code>. For the meaning, see the corresponding
+<code>TARGET_xxx</code> variable. In this list only the default value is indicated.</p>
+
+<ul>
+<li><code>HOST_OUT_BUILD</code> : <code>$(TARGET_OUT)/build-host</code></li>
+<li><code>HOST_OUT_STAGING</code> : <code>$(TARGET_OUT)/staging-host</code></li>
+<li><code>HOST_GLOBAL_C_INCLUDES</code> :</li>
+<li><code>HOST_GLOBAL_CFLAGS</code> : <code>-pipe -O2 -g0</code></li>
+<li><code>HOST_GLOBAL_CXXFLAGS</code> : empty</li>
+<li><code>HOST_GLOBAL_ARFLAGS</code> : <code>rcs</code></li>
+<li><code>HOST_GLOBAL_LDFLAGS</code> : empty</li>
+<li><code>HOST_GLOBAL_LDFLAGS_SHARED</code> : empty</li>
+<li><code>HOST_GLOBAL_LDLIBS</code> : empty</li>
+<li><code>HOST_GLOBAL_LDLIBS_SHARED</code> : empty</li>
+<li><code>HOST_GLOBAL_PCH_FLAGS</code> : empty</li>
+<li><code>HOST_CC</code> : <code>gcc</code></li>
+<li><code>HOST_CXX</code> : <code>g++</code></li>
+<li><code>HOST_AS</code> : <code>as</code></li>
+<li><code>HOST_AR</code> : <code>ar</code></li>
+<li><code>HOST_LD</code> : <code>ld</code></li>
+<li><code>HOST_NM</code> : <code>nm</code></li>
+<li><code>HOST_STRIP</code> : <code>strip</code></li>
+<li><code>HOST_CPP</code> : <code>cpp</code></li>
+<li><code>HOST_RANLIB</code> : <code>ranlib</code></li>
+<li><code>HOST_OBJCOPY</code> : <code>objcopy</code></li>
+<li><code>HOST_OBJDUMP</code> : <code>objdump</code></li>
+</ul>
+
+<p><strong>Note</strong> : <code>include</code>, <code>lib</code> and <code>usr/lib</code> folders under <code>HOST_OUT_STAGING</code> are
+automatically added to corresponding flags.</p>
+
+<h3>CPU features</h3>
+
+<p><code>Alchemy</code> automatically sets some variables that can be used by user <code>atom.mk</code>
+to build specific source files based on available CPU features.</p>
+
+<p>Currently, the following variables are available:</p>
+
+<ul>
+<li><code>TARGET_CPU_HAS_NEON</code> : Neon instructions are available on target.</li>
+<li><code>TARGET_CPU_HAS_SSE2</code> : SSE2 instructions are available on target.</li>
+<li><code>TARGET_CPU_HAS_SSSE3</code> : SSSE3 instructions are available on target.</li>
+</ul>
+
+<h2>A closer look to dependencies</h2>
+
+<p>One feature of <code>alchemy</code> is dependencies management. Each module specifies modules
+required for building (<code>LOCAL_LIBRARIES</code>) and for runtime (<code>LOCAL_DEPENDS_MODULES</code>).
+During configuration phase, those dependencies are handled via <code>select</code> commands
+in the kconfig language.</p>
+
+<p>Before building checks are done to make sure dependencies are OK, and error/warnings
+are issue in case of anomalies found.</p>
+
+<p>Include directories, compiler/linker flags and libraries exported by a module are
+automatically imported by a module that depends on it.</p>
+
+<p>For static libraries it is even recursive, it exports automatically their dependencies.
+The order of link of static libraries is also automatically done so that the
+order given in an atom.mk is not a problem.</p>
+
+<p>For example, if <code>A</code> is an executable and <code>B</code>, <code>C</code>, <code>D</code>, and <code>E</code> are static libraries.
+If dependencies are as below:</p>
+
+<pre>
+A->E,B
+B->C,D
+C->D,E
+</pre>
+
+<p>The full link order for A will be:</p>
+
+<pre>
+A -> B,C,D,E
+</pre>
+
+<h2>SDK generation</h2>
+
+<p>Given a build configuration, <code>Alchemy</code> can generate a <code>SDK</code> to be used in another
+configuration. The <code>SDK</code> will contain the staging content as well as all headers
+found in directories exported by modules. The generated <code>SDK</code> will also contain
+an <code>atom.mk</code> that will describe modules.</p>
+
+<p>To generate a <code>SDK</code>:</p>
+
+<pre>
+make sdk
+</pre>
+
+<p>This will generate a <code>sdk</code> folder in <code>$(TARGET_OUT)</code> as well as a zip file of
+this folder in <code>$(TARGET_OUT)/$(TARGET_PRODUCT_FULL_NAME)</code>.</p>
+
+<p>To use a <code>SDK</code>, specify the directory where the <code>atom.mk</code> is in the variable
+<code>TARGET_SDK_DIRS</code>. Several directories can be specified. Using a <code>SDK</code> is
+transparent for users, dependencies shall be specified in the same way. The only
+difference is that modules from <code>SDK</code> won't appear in global config and will not
+be built.</p>
+
+<h2>Codecheck false positives or intentional deviations</h2>
+
+<p>You can ignore specific codecheck warnings in a C source code file by inserting
+a tag with the following syntax in a comment line just preceding the line with
+the error:</p>
+
+<pre>
+    codecheck_ignore[TYPE1(,TYPE2...)]
+</pre>
+
+<p>Where TYPE is the message type returned by <code>make &lt;module&gt;-codecheck</code>
+(for example <code>LONG_LINE</code>, <code>NEW_TYPEDEFS</code>, etc).</p>
+
+<p>Ex:</p>
+
+<pre>
+    /* codecheck_ignore[NEW_TYPEDEFS,LONG_LINE] */
+    typedef struct _CustomTypedef CustomTypedef; /* custom typedef for consistency with other GObjects */
+</pre>
+
+<h2>Cppcheck false positives or intentional deviations</h2>
+
+<p>You can ignore specific cppcheck warnings in a C++ source code file by inserting
+a tag with the following syntax in a comment line to the line with
+the error:</p>
+
+<pre>
+    NOLINT(category)
+</pre>
+
+<p>Where category is the message returned by <code>make &lt;module&gt;-cppcheck</code>
+(for example <code>whitespace/braces</code>, etc).  NOLINT or NOLINT(*)
+suppresses errors of all categories on that line.</p>
+
+<p>Ex:</p>
+
+<pre>
+    static int my_function()
+    {  // NOLINT(whitespace/braces)
+</pre>
+
+<h2>How to use it</h2>
+
+<p>After describing how to create a makefile that is integrated in <code>alchemy</code>, let's
+see how to call <code>alchemy</code> to actually build a project.</p>
+
+<h3>Wrapper script</h3>
+
+<p><code>Alchemy</code> build system needs a few parameters to known what to do. The <code>TARGET_XXX</code>
+variables need to be set in the environment. However, without anything it will
+defaults to compile natively in a linux pc without any configuration directory.
+Output directories will also be selected by default. A typical wrapper script
+will look like this (assuming alchemy is at the root of the workspace):</p>
+
+<pre>
+#!/bin/bash
+
+readonly TOP_DIR=`pwd`
+
+export TARGET_PRODUCT="pclinux"
+export TARGET_CONFIG_DIR=${TOP_DIR}/config
+export TARGET_OUT=${TOP_DIR}/out
+export ALCHEMY_USE_COLORS=1
+
+# This can be put in a product.mk file located in ALCHEMY_TARGET_CONFIG_DIR
+export TARGET_OS="linux"
+export TARGET_OS_FLAVOUR="native"
+export TARGET_LIBC="native"
+export TARGET_ARCH="x86"
+
+time ${TOP_DIR}/alchemy/scripts/alchemake.py -f ${TOP_DIR}/alchemy/main.mk $*
+</pre>
+
+<p><strong>Note</strong>: <code>alchemake.py</code> is a simple python script that wraps the invocation of
+<code>make</code> to stop the compilation at the first error seen. It is purely optional
+but without it, a parallel compilation will continue if a error is seen until
+current targets are finished, which can be long if a kernel or busybox
+compilation is in progress.</p>
+
+<h3>Command line options</h3>
+
+<p>You can specify some variables in the <code>make</code> command line to activate some extra
+features.</p>
+
+<ul>
+<li><code>F=1</code> : Force re-checking external modules for modifications. By default they
+are not checked to speed-up thing. Note that if a module is explicitly given
+as a goal in <code>make</code> command, it will be re-checked.</li>
+<li><code>V=1</code> : Activate verbose mode. Commands executed will be printed.</li>
+<li><code>W=1</code> : Activate extra warnings for <code>internal</code> modules.</li>
+</ul>
+
+<p><strong>Note</strong>: To have more information, you can type <code>./build.sh help</code>. This is a
+special goal inside <code>alchemy</code>. If you type <code>./build.sh --help</code>, you will get the
+help of the <code>make</code> program, not the help of <code>alchemy</code>.</p>

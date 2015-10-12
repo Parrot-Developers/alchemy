@@ -1,0 +1,1478 @@
+<title>Alchemy</title>
+<link href="markdown.css" rel="stylesheet"></link>
+<script src="toc.js" type="text/javascript"></script>
+<body onload="generateTOC(document.getElementById('toc'));">
+
+# Introduction
+
+`Alchemy` is a new build system based on the one used in Android. A central
+makefile instance scans a workspace to find user makefiles, includes them and
+register modules to be built. Modules are described by a set of variables
+(`LOCAL_XXX`) specifying source files, custom compilation flags, include
+directories and some other more advanced stuff.
+
+Modules can be libraries (static and shared), executable, prebuilt binaries of
+components built by another build system (like autotools suite for many linux
+packages). Build of external modules is similar to what is done in buildroot.
+
+`Alchemy` is hence a mix of what can be done in Android (building source files
+without having to write complicated makefile/autoconfo.ac) and buildroot
+(building open-source components having there own makefile/configure/cmake)
+
+`Alchemy` supports:
+
+* building static/shared libraries and executables from source code.
+* building autotools/cmake from archives or source tree.
+* building qmake applications.
+* building for linux/ios/macos/android/mingw32 targets.
+* building on linux/macos hosts.
+
+`Alchemy` uses gnu make and shell/python scripts to do the job. The
+configuration tool is kconfig (as on linux/buildroot/busybox) and prebuilt
+binaries are provided on linux/macos hosts.
+
+A first working example is how kconfig binaries are built (see kconfig subdir
+and its atom.mk/build.sh)
+
+As the build system is real close in its philosophy to the Android one, please
+take a look at the following documentation to have a overview of the system.
+This build system differs mainly in the set of `LOCAL_XXX` variables supported.
+
+[Android build system](android-build-system.html)
+
+[Android ndk build system](android-mk.html)
+
+**Note** : This documentation tries to be up to date but take a look at
+the file `variables.mk` for a complete list of `LOCAL_xxx` and `TARGET_xxx`
+variables that can be used. It also has some description of variables.
+
+* * *
+
+<div id="toc"></div>
+
+* * *
+
+## Environment
+
+To work correctly, the build system needs to be configured with target specific
+information.
+
+At a minimum, `TARGET_PRODUCT`, `TARGET_PRODUCT_VARIANT` and `TARGET_CONFIG_DIR`
+are required. Other variables can be set in the `product.mk` file located in
+`TARGET_CONFIG_DIR`. This way environment is not cluttered with variables.
+
+Optionally, some `TARGET_XXX` variables can be prefixed with `ALCHEMY_` to avoid
+conflict with other build systems (android for example).
+
+* `ALCHEMY_TARGET_PRODUCT`
+* `ALCHEMY_TARGET_PRODUCT_VARIANT`
+* `ALCHEMY_TARGET_CONFIG_DIR`
+* `ALCHEMY_TARGET_OUT`
+* `ALCHEMY_TARGET_SKEL_DIRS`
+* `ALCHEMY_TARGET_SCAN_ADD_DIRS`
+* `ALCHEMY_TARGET_SCAN_PRUNE_DIRS`
+* `ALCHEMY_TARGET_SDK_DIRS`
+* `ALCHEMY_USE_COLORS`
+
+### Target
+
+* `TARGET_OS` : Specify the OS of the target. Possible values are :
+  * `linux`.
+  * `ecos`.
+  * `darwin`.
+  * `android` : alias for `linux` OS with `android` flavour. `TARGET_ARCH` defaults to `arm`.
+  * `iphone` : alias for `darwin` OS with `iphoneos` flavour.
+  * `iphonesimulator` : alias for `darwin` OS with `iphonesimulator` flavour.
+  * `parrot` : alias for `linux` OS with `parrot` flavour. `TARGET_ARCH` defaults to `arm`.
+  </br>Default is `linux` on linux hosts, and `darwin` on mac hosts.
+* `TARGET_OS_FLAVOUR` : Flavour of the OS, depending on `TARGET_OS`.
+  For `linux` :
+  * `parrot` for linux-only product.
+  * `android` for android products.
+  * `native` or `native-chroot` for pc.
+  For `darwin` :
+  * `iphoneos` for iOS devices.
+  * `iphonesimulator` for iOS simulator.
+  * `native` for mac.
+   </br>Default is `native`.
+* `TARGET_LIBC` : Libc to be used. Normally automatically guessed based on other
+  settings. Mainly to be used in `atom.mk` files to select different behaviours.
+  * `bionic` for android libc.
+  * `eglibc` for embedded linux.
+  * `ecos` for ecos OS.
+  * `native` for native libc on pc.
+  * `darwin` for mac and iphone.
+  </br>Default is :
+     * `bionic` if `TARGET_OS` is `linux` and `TARGET_OS_FLAVOUR` is `android`.
+     * `native` if `TARGET_OS` is `linux` and `TARGET_OS_FLAVOUR` is `native` or
+       `native-chroot`.
+     * `eglibc` if `TARGET_OS` is `linux`.
+     * `ecos` if `TARGET_OS` is `ecos`.
+     * `darwin` if `TARGET_OS` is `darwin`.
+* `TARGET_ARCH` : Architecture of the target. Useful to select prebuilt binaries
+  based on architecture. Possible values are :
+  * `arm`
+  * `aarch64`
+  * `x86`
+  * `x64`
+  </br>Default is `x86` or `x64`, depending on the host system.
+* `TARGET_CPU` : Cpu of the target. This value is typically used to select
+  optimization and select some module (for ex: linux). Possible values are :
+  * `p6`
+  * `p6i`
+  * `armv5te`
+  * `p7`
+  * `o3`
+  * `omap3`
+  * `omap4`
+  * `armv7a-neon`
+  * `tegrak1`
+  * `tegrax1`
+  </br>Default is empty (no specific optimization activated).
+* `TARGET_PRODUCT`: Name of the product. Mainly used for determining some other
+  default values.
+* `TARGET_PRODUCT_VARIANT` : Variant of the product. Mainly used for determining
+  some other default values.
+* `TARGET_OUT` : Full path to folder to be used as root for output files.
+   </br>Default is `Alchemy-out`.
+* `TARGET_OUT_BUILD` : Full path to folder where intermediate objects will be
+  stored. Each module will have its own sub-folder inside.
+  </br>Default is `$(TARGET_OUT)/build`.
+  </br>Note: setting this variable is deprecated
+* `TARGET_OUT_STAGING` : Full path to folder where modules built will be copied
+  or installed. This folder will also contain include files needed to build
+  intermediates modules (`alchemy` also supports using include files from the
+  source tree). Binaries in this folder will always contain symbols.
+  </br>Default is `$(TARGET_OUT)/staging`.
+  </br>Note: setting this variable is deprecated
+* `TARGET_OUT_FINAL` : Full path to folder where the final image will be
+  created. A script generates this by copying from staging folder required files
+  for execution (based on some exclusion pattern to skip documentation and
+  include files for examples). It also strips binaries, includes libc files from
+  the toolchain and merges an external skeleton with other essential files
+  provided by the product.
+  </br>Default is `$(TARGET_OUT)/final`.
+  </br>Note: setting this variable is deprecated
+* `TARGET_CONFIG_DIR` : Full path to folder where the configuration files are
+  stored. If not set, it is assumed that there will be no configurable module
+  and everything will be built.
+  </br>Default is `Alchemy-config/$(TARGET_PRODUCT)-$(TARGET_PRODUCT_VARIANT)`.
+* `TARGET_SKEL_DIRS` : List of full path to skeleton directories to merge when
+  generating final tree. The path are separated by space.
+
+### Tools.
+
+* `TARGET_CROSS` : full path to toolchain prefix.
+  For example : `/opt/arm-eglibc/bin/arm-none-linux-gnueabi-`.
+  </br>Default depends on other target settings.
+* `TARGET_CC` : full path to C compiler.
+  </br>Default is `$(TARGET_CROSS)gcc`.
+* `TARGET_CXX` : full path to C++ compiler.
+  </br>Default is `$(TARGET_CROSS)g++`.
+* `TARGET_AR` : full path to archive maker.
+  </br>Default is `$(TARGET_CROSS)ar`.
+* `TARGET_LD` : full path to linker.
+  </br>Default is `$(TARGET_CROSS)ld`.
+* `TARGET_NM` : full path to symbol lister.
+  </br>Default is `$(TARGET_CROSS)nm`.
+* `TARGET_STRIP` : full path to symbol stripper.
+  </br>Default is `$(TARGET_CROSS)strip`.
+
+### Linux specific
+* `TARGET_LINUX_CROSS` : similar to `TARGET_CROSS` but to use a separate
+  toolchain for the compilation of the linux kernel (and drivers).
+* `TARGET_LINUX_DIR` : path to linux kernel source tree. Used by some tools for
+  dome drivers that need access to internal linux headers.
+* `TARGET_LINUX_LINK_CPIO_IMAGE` : set to `1` to link the cpio image inside the
+  kernel. During cpio image generation, the kernel will be re-linked to add it
+  inside. Also, required options are internally set in linux config. Although
+  only the copy in build directory is modified, the original one is not touched.
+  </br>Default is `0`
+* `TARGET_LINUX_DEVICE_TREE` : name of a device tree to append to kernel image.
+  It shall be in `$(LINUX_BUILD_DIR)/arch/$(TARGET_ARCH)/boot/dts`. The name
+  shall be the one with the `.dtb` extension. Default is empty.
+* `TARGET_GENERATE_LINUX_UIMAGE` : generate a u-boot image of linux.
+  </br>Default is `0`
+
+### Darwin specific
+
+* `TARGET_IPHONE_VERSION` : when targetting `iphoneos` or `iphonesimulator`,
+  allows specifying the minimum supported version of iOS.
+  </br>Default is `8.2`
+* `TARGET_MACOS_VERSION` : when targetting `native` (e.g. MacOS desktop),
+  allows specifying the minimum supported version of OSX.
+  </br>Default is `10.10`
+
+### Android specific
+Alchemy supports targetting Android in two configurations: either using an
+official Android NDK, or using a custom-built Android system.
+
+* When the `Alchemy-android` package is present, Alchemy will automatically use
+it when targetting Android.
+* Otherwise, alchemy will try to use an Android NDK. This mode supports a few options:
+  * `TARGET_ANDROID_APILEVEL` : Android API level to target.
+  </br>Default is `17`
+  * `TARGET_ANDROID_NDK` : Path of the Android NDK to use.
+  </br>Default tries to auto-detect the NDK from a few somewhat standard location (`/opt/android-ndk-*`, `~/android-ndk-*`, ...)
+  * `TARGET_ANDROID_SDK` : Path of the Android SDK to use.
+  </br>Default tries to auto-detect the SDK from a few somewhat standard location (`/opt/android-sdk*`, `~/android-sdk*`, ...)
+  * `TARGET_ANDROID_TOOLCHAIN` : name of the android toolchain, e.g. arm-linux-androideabi-4.7.
+  </br>Default is the default toolchain for the current target architecture (`TARGET_ARCH`).
+  * `TARGET_ANDROID_STL` : specify the C++ Standard Template Library implementation to use. The NDK supports multiple STL implementations, which can be selected with this variable. Supported values are : `gnustl`, the GNU libstdc++; `libc++`, LLVM's libc++; and `stlport`.
+  </br>Default is the GNU libstdc++.
+  * `TARGET_ANDROID_SHARED_STL` : by default, Android NDK uses a static version of the C++ Standard library, which works only when generating a single shared library or executable. Setting this variable to `1` switches to a shared library version of the STL, which is needed if the project contains multiple shared libraries or executables. In that case, the shared library must be copied to the target device.
+
+### Global flags for tools.
+Normally not needed, default values are determined based on target setting.
+Mainly used by the android wrapper.
+
+* `TARGET_GLOBAL_C_INCLUDES` : List of full path to directories to add for all
+  file compiled. The -I prefix will be appended so do not put it.
+* `TARGET_GLOBAL_CFLAGS` : Flags to pass to the C **and** C++ compiler.
+* `TARGET_GLOBAL_CXXFLAGS` : Flags to pass to the C++ compiler only.
+* `TARGET_GLOBAL_ARFLAGS` : Flags to pass to the archive maker.
+  </br>Default is `rcs`, so you should never have to define it.
+* `TARGET_GLOBAL_LDFLAGS` : Flags to pass to the linker for executables.
+* `TARGET_GLOBAL_LDFLAGS_SHARED` : Flags to pass to the linker for shared
+  libraries.
+* `TARGET_GLOBAL_LDLIBS` : Additional libraries to use when linking executables.
+* `TARGET_GLOBAL_LDLIBS_SHARED` : Additional libraries to use when linking
+  libraries.
+* `TARGET_GLOBAL_PCH_FLAGS` : Flags to pass when precompiling headers.
+
+### Specific flags for arm targets.
+Normally not needed, default values are determined based on target setting.
+Mainly used by the android wrapper.
+
+* `TARGET_GLOBAL_CFLAGS_arm` : Flags to pass to the C **and** C++ compiler to
+  compile in `arm` mode. Normally managed internally but can be overridden.
+* `TARGET_GLOBAL_CFLAGS_thumb` : Flags to pass to the C **and** C++ compiler to
+  compile in `thumb` mode. Normally managed internally but can be overridden.
+* `TARGET_DEFAULT_ARM_MODE` : Mode to use by default at compilation time
+  (`arm` or `thumb`). Default is `thumb`, however modules can override this in
+  their `LOCAL_ARM_MODE`. It is only possible to override `thumb` mode in `arm`
+  mode, not the other way.
+
+### Other variables
+
+* `TARGET_PBUILD_FORCE_STATIC` : Can be set to `1` to force the compilation of
+  static libraries even if module requested to build a dynamic one. Mainly here
+  to compile ecos target and prepare the transition from monolithic SoftAT
+  executable to separate shared libraries.
+  </br>Default is `0`.
+* `TARGET_PBUILD_HOOK_USE_DESCRIBE` : Can be set to `1` to save tags of libraries
+  used in binary. It can be retrieved at run time with pal function
+  `pal_lib_desc_get_table_entry`.
+  </br>Default is `0`.
+* `TARGET_SCAN_PRUNE_DIRS` : A list of directories to exclude from the scan when
+  searching for `atom.mk`. It can be absolute path or single name like `raptor`.
+  `Alchemy` automatically excludes its own output directory, but feel free to
+  add any known directories that will not contain `atom.mk`.
+  </br>Default is empty.
+* `TARGET_SCAN_ADD_DIRS` : A list of directories to add during the scan when
+  searching for `atom.mk`.
+  </br>Default is empty.
+* `TARGET_SCAN_FOLLOW_LINKS` : Set to `1` to follow symbolic links when scanning
+  for `atom.mk` files. When set to `0`, symbolic links to directories are not
+  searched.
+  </br>Default is `0`.
+* `TARGET_FORCE_EXTERNAL_CHECKS` : Set to `1` to force check of external modules
+  even if they are already built. See chapter relating to recompilation checks
+  for more information.
+  </br>Default is `0`.
+* `TARGET_NOSTRIP_FINAL` : Can be set at `1` to prevent stripping binaries when
+  generating final directory.
+  </br>Default is `0`.
+* `TARGET_STRIP_FILTER` : List of filenames to filter during strip. Mainly used
+  when valgrind or other tracing tool is used and requires debugging symbols
+  on the target. This is an alternative to `TARGET_NOSTRIP_FINAL` that keeps
+  **ALL** debugging symbols. This variable allows fine tunning. The list
+  specifies only names, not path.
+  </br>**Note** : when valgrind is activated, `alchemy` automatically filters the
+  linux loader as well as the libc and some valgrind libraries.
+  </br>Default is empty.
+* `TARGET_ADD_DEPENDS_SECTION` : Activate the generation of an extra section in
+  executables and shared libraries built by `alchemy`. This sections contains
+  the list of modules used for the link and their revision. The first line
+  contains the revision of the linked module itself.
+  </br>**Note** : this feature requires `USE_GIT_REV` at `1` (disabled by default).
+  </br>Default is `0`.
+* `TARGET_DEPENDS_SECTION_NAME` : Name of the section with dependencies
+  </br>Default is `.alchemy.depends`.
+* `TARGET_ADD_BUILDID_SECTION` : Add a `build-id` section in all binaries. This
+  is a `sha1` of all sections that are loadable at runtime and with data in the
+  binary. This section is kept after stripping and the `sha1` can be recomputed
+  on the original and stripped binary and still produce the same `sha1`. This can
+  be used to identify the non-stripped binary based on the stripped one. This is
+  a feature similar to the `--build-id` option of `ld` but fixes a bug present
+  on some toolchain (arm-2009q1 for example) in which only the header of
+  sections is used, not the data of the sections.
+  </br>Default is `0`.
+* `TARGET_BUILDID_SECTION_NAME` : Name of the section with `build-id`
+  Default is `.alchemy.build-id`.
+* `TARGET_SDK_DIRS` : List of directories where to find `SDK` previously
+  generated. Default is empty.
+* `TARGET_PERMISSIONS_FILES` : List of files containing permissions to apply to
+  files and directories when generating the image (plf) from the final directory.
+  The format of those permissions files is : `pattern mode user group`.
+  * `pattern` : file or directory pattern (regex) to test. Patterns for
+    directories ends with a `/`. Pattern can also be a real path, it should then
+    be enclosed by double quotes (ex: "/etc/hosts" 0644 root root).
+  * `mode` : unix mode to apply, in octal notation.
+  * `user`, `group` : name of user and group to apply. The uid and gid is
+    extracted automatically from `/etc/passwd` and `/etc/group` files found in
+    final directory.
+* `TARGET_CHROOT` : Set to 1 if the result of the compilation will be executed
+  in a chroot environment. Used by some modules to adapt their configuration.
+  </br>Default is `0`.
+* `TARGET_IMAGE_PATH_MAP_FILE` : File containing path mapping to be used when
+  generating the image (plf). Used by chroot targets that are not flashed in the
+  same root as the build. Format of this file is lines with 3 columns :
+  `dir target-dir mount-point`
+  * `dir` : directory prefix of chroot target.
+  * `target-dir` : real target directory.
+  * `mount-point` : directory where `target-dir` will be mounted. As it is a
+    first match list, more specific names shall be first. Example :
+  <pre>
+    /data /data/pulsar    /system/pulsar/data
+    /     /system/pulsar  /system/pulsar
+  </pre>
+  * The root of the final tree will actually be flashed in /system/pulsar (3rd
+    column is not useful here).
+  * The /data directory of the final tree will actually be flashed in /data/pulsar
+  At runtime the /data/pulsar will be mounted in /system/pulsar/data so this
+  directory needs to be created as well. Finally when the target will be executed
+  in its chroot environment, the final tree will be found correctly.
+* `TARGET_BUILD_PROPERTIES` : list of properties to put in file build.prop
+  loaded by boxinit at startup. The format is a list of `<key>=<value>` pair.
+  Default contains some `ro.build` keys that alchemy will put.
+  Note : each module can also specify its own properties in `LOCAL_BUILD_PROPERTIES`.
+* `TARGET_INCLUDE_GDBSERVER` : include gdbserver binary in target. This binary
+  is GPLv3 and is needed only in development phase and shall not be present in
+  final release packages.
+  </br>Default is `1`.
+* `TARGET_INCLUDE_TZDATA` : include time zone data from libc.
+  </br>Default is `0`.
+* `TARGET_INCLUDE_GCONV` : include gconv libraries from libc.
+  </br>Default is `0`.
+* `TARGET_USE_CXX_EXCEPTIONS` : enable c++ exceptions.
+  </br>Default is `1`.
+* `TARGET_LDCONFIG_DIRS` : list of directories to add in ldconfig cache. Path
+  should be absolute and for the target. Standard path are already included
+  by `Alchemy` (/lib/<arch>, /lib, /usr/lib/<arch>, /usr/lib).
+* `TARGET_IMAGE_FORMAT` : format of the image file to generate wilth `image` command.
+  Supported value: `tar`, `cpio`, `ext2`, `ext3`, `ext4`, `plf` and the compressed
+  forms `tar.gz`, `cpio.gz`, `ext2.gz`, `ext3.gz`, `ext4.gz`,
+  `tar.bz2`, `cpio.bz2`, `ext2.bz2`, `ext3.bz2`, `ext4.bz2`
+  </br>Default is `tar.gz`.
+* `TARGET_IMAGE_OPTIONS` : additional options to give during image generation:
+  * `--size <val> [<unit>]` : size of image (for `ext` format), unit is `K`, `M`, `G`
+  </br>Default is empty.
+* `TARGET_FINAL_MODE`: how to create the final directory. Supported value:
+  * `full`: nothing is filtered.
+  * `firmware`: filtered according to internal heuristics suitable for embedded
+    execution.
+  </br>Default is `firmware`.
+
+* `USE_CLANG` : Use clang instead of gcc for compilation.
+  </br>Default is `0`.
+* `USE_CCACHE` : Use ccache to speed up compilation.
+  </br>Default is `0`.
+* `USE_SCAN_CACHE` : Use cache of `atom.mk` found during last scan. Useful if
+  the scan is slow on your machine.
+  </br>Default is `0`.
+* `USE_COLORS` : Use colors in output.
+  </br>Default is `0`.
+* `USE_GIT_REV` : Retrieve git revision of modules to force compilation of
+  external modules when the related project is updated.
+  </br>Default is `1`.
+* `USE_CONFIG_CHECK` : Enable check of config before the build. Only need to be
+  disabled in some sdk use cases.
+  </br>Default is `1`.
+* `USE_COVERAGE` : Enable options for coverage (and disable compiler optimisations).
+  </br>Default is `0`.
+* `USE_AUTO_LIB_PREFIX` : Automatically add 'lib' prefix when building an library
+  whose name is not specified. This is needed for dynamic libraries on some platforms.
+  </br>Default is `0`.
+
+## Configuration
+
+`Alchemy` allows the selection of available modules that will actually be built
+as well as configuring settings of modules. A global configuration file stores
+the list of selected modules and each configurable module stores its own
+settings. Those file are saved in the `TARGET_CONFIG_DIR` directory. However, it
+is possible to customize for each module the actual configuration file to use.
+
+### Global configuration file
+
+The global configuration file contains the list of registered modules that will
+be built. This is useful in a workspace where everything is cloned and to select
+only a subset for compilation. Makefile targets available for that are :
+
+* `config` : display a qconf window to select modules.
+* `config-check` : check that the configuration file is up to date and display
+  a message if not.
+* `config-update` : silently update the configuration. Dependencies will also
+  be updated.
+
+The file is saved as `$(TARGET_CONFIG_DIR)/global.config`
+
+### Module configuration files
+
+`Alchemy` allows modules to be configurable using the kconfig syntax. Module
+configuration will appear in the same kconfig interface where selection of
+modules to be built is done.
+
+To specify a list of file and load current configuration add the following in
+the `atom.mk` :
+
+<pre>
+# Set config.in files and load configuration. Files are relative to LOCAL_PATH.
+LOCAL_CONFIG_FILES := \
+	Build/ConfigSoprano.in \
+	Build/ConfigSopranoTTS.in
+$(call load-config)
+
+ifdef CONFIG_SOPRANO_MPP_ENABLE
+....
+endif
+</pre>
+
+If the option is checked, it is defined to 'y', otherwise it is not defined at
+all. So it is possible to simplify test
+
+<pre>
+# This is possible but more complex for just 'on/off' options.
+ifeq ("$(CONFIG_SOPRANO_MPP_ENABLE)","y")
+....
+endif
+</pre>
+
+The file is saved as `$(TARGET_CONFIG_DIR)/<module>.config`
+
+For each configurable module, an `autoconf-<module>.h` file will be generated
+and automatically included during compilation. Modules depending on a
+configurable module will also have this file automatically included.
+
+A global `autoconf-merge.h` is also generated by concatenating all other files.
+It is available by the variable `AUTOCONF_MERGE_FILE`.
+
+**Note** : Even if configurations are separated, it is preferable for a module
+to not depend on another module's configuration.
+
+## Customization
+
+Given a workspace with `alchemy` it is possible to add some hooks to customize
+some default behaviours.
+
+### `product.mk`
+
+This file, if found in the folder pointed to by `TARGET_CONFIG_DIR`, is included
+and allow tuning of some variables (basically all `TARGET_XXX` variables)
+
+### `Alchemy-debug-setup.mk`
+
+This file, if found at the root of the workspace, is included and allow tuning
+debug variables or set variables that can be used by some modules.
+
+To set some debug flags, simply put a line like :
+<pre>
+debug.blues.CFLAGS := -O0
+debug.softat.CFLAGS := -O0
+</pre>
+
+`CFLAGS`, `CXXFLAGS` and `LDFLAGS` are overridable.
+
+**Note** : If you try to put a debug flag directly in an `atom.mk` you will get
+an error. This is to avoid committing debug flags in git repositories. The
+`Alchemy-debug-setup.mk` shall be used and shall never be committed, it shall be
+local to a developer workspace.
+
+An example of use by a module of variable defined in `Alchemy-debug-setup.mk` is
+in the `bluebox` module of `pulsar` project. This module gets the ip address to
+put in the product by reading a variable. This variable can be from the
+environment or from the `Alchemy-debug-setup.mk` file.
+
+### Location of module configuration files.
+
+By default, module configuration files are searched in the folder pointer to by
+`TARGET_CONFIG_DIR`. However, if you pass a variable named
+`custom.<module>.config` as an argument of make, or alchemake this will override
+the location. You can also set this variable in `product.mk` or
+`Alchemy-debug-setup.mk`.
+
+### Special customization of configuration files.
+
+It is possible to fine tune existing configuration files and apply `sed` files
+to them to change a flag. `sed` files to be applied to a module configuration
+file is indicated in a variable `custom.<module>.config.sedfiles`. Several
+`sed` files can be specified.
+
+When `sed` files are specified, a copy of the original configuration file is
+made in the build directory and `sed` files are applied there. However when the
+configuration tool is used, the original file is edited.
+
+The `custom.<module>.config.sedfiles` variable can be given as argument of make
+or alchemake as well as in `product.mk` or `Alchemy-debug-setup.mk`.
+
+## Anatomy of an `atom.mk`
+
+The first thing that shall be done in an `atom.mk` is to get its path in the
+variable `LOCAL_PATH` :
+
+<pre>
+LOCAL_PATH := $(call my-dir)
+</pre>
+
+This shall be done only once per `atom.mk` file and it shall be done before
+anything else. Internally it relies on the variable `MAKEFILE_LIST` to get the
+full path of the directory where the `atom.mk` file is (without the trailing '/').
+Then, one or more module definitions will follow.
+
+A module definition shall always starts with :
+<pre>
+include $(CLEAR_VARS)
+</pre>
+
+A module definition shall always end with :
+<pre>
+include $(BUILD_XXX)
+</pre>
+
+See below for possible `BUILD_XXX` values
+
+During module definition, only `LOCAL_XXX` variables shall be modified (except
+`LOCAL_PATH` set at the beginning of the `atom.k` file). It is also possible to
+define module specific variables by prefixing them with the module name. However,
+their use shall be limited to the scope of the `atom.mk` file where they are
+defined. No reference to a variable declared by another `atom.mk` file shall
+be done because the order of inclusion is not guaranteed or predictable.
+
+For each registered modules, following `make` targets will be available :
+
+* `make <module>` : will build the module and its dependencies.
+* `make <module>-clean` : will clean the module. For autotools modules, the
+   unpacked sources and applied patches will be kept in the build directory.
+* `make <module>-dirclean` : will remove the build directory of the module.
+* `make <module>-doc` : will generate the documentation for the module.
+* `make <module>-path` : will display the path of the module.
+* `make <module>-codecheck` : will check coding style of C source files.
+* `make <module>-cppcheck` : will check coding style of C++ source files.
+* `make <module>-cloc` : will count the number of lines of code.
+
+### Module registration
+
+Several classes of modules are managed by `alchemy` :
+
+* `STATIC_LIBRARY`
+* `SHARED_LIBRARY`
+* `LIBRARY`
+* `EXECUTABLE`
+* `AUTOTOOLS`
+* `CMAKE`
+* `QMAKE`
+* `PYTHON_EXTENSION`
+* `CUSTOM`
+* `META_PACKAGE`
+* `LINUX_MODULE`
+
+Module will be referred as either `internal` or `external` :
+
+* Internal modules are `STATIC_LIBRARY`, `SHARED_LIBRARY`, `LIBRARY` and
+  `EXECUTABLE` modules because they are completely managed by the build system.
+* External modules are `AUTOTOOLS`, `CMAKE`, `QMAKE`, `PYTHON_EXTENSION`,
+  `CUSTOM`, `META_PACKAGE` and `LINUX_MODULE` modules because the build system has little
+  control on the way those modules are built.
+
+**Note** : `LIBRARY` can be used to compile both static and shared version of a
+module. The given `LOCAL_FILENAME`, if any, shall be the name of the shared
+version. Internally, the static name will be deduced by replacing the shared
+suffix (`.so`) by the static suffix (`.a`). See chapter about `LOCAL_LIBRARIES`
+for more information.
+
+**Note** : there is also a `PREBUILT` class but its used is reserved for the
+build system and should not normally be used by user makefiles. It is present to
+declare system modules to be used as dependencies.
+
+### Common part
+
+Both `internal` and `external` modules share a common base for their
+registration and their use. The only mandatory variable to set in a module is
+its name :
+
+<pre>
+LOCAL_MODULE := module-name
+</pre>
+
+The name of the module can contains any character from the range :
+`[a-z] [A-Z] [0-9] '_' '-'`
+
+The convention is to use only lower case characters and use '-' as a word
+separator. The module name will serve as the default name of the binary for
+`internal` modules (with its extension appended automatically).
+
+#### `LOCAL_MODULE_FILENAME`
+
+This can be used to override the name of `internal` modules. For `external`
+modules it is used to create special `done` files to indicate that the module
+has been built (using a `touch` on the file). This shall be a simple file name
+without path specification. The extension shall be specified if required.
+
+#### `LOCAL_DESTDIR`
+
+This is the destination path relative to root of target file system. Default is
+`usr/bin` for executables and `usr/lib` for libraries.
+
+#### `LOCAL_DESCRIPTION`
+
+This is the description of the module that will be displayed in `qconf` window
+when configuring the build.
+
+#### `LOCAL_CATEGORY_PATH`
+
+This is the logical path this module belongs. It will be used to display the
+`qconf` configuration window independently from the file system layout. Event if
+there is no constraints on the value, please follow the categories already
+provided by the platform teams.
+
+#### `LOCAL_LIBRARIES`
+
+This is a list of modules this module depends on. Unlike android build system,
+it is not needed to explicitly specify the class of the module in variables like
+`LOCAL_STATIC_LIBRARIES` or `LOCAL_SHARED_LIBRARIES`. The class of the module is
+inferred from its own registration. This way a module can changes its class
+between `STATIC` and `SHARED` without the need of changing the chain of
+dependency. However, if a module is registered as `LIBRARY`, both static and
+shared versions will be available. By default, the shared version is used
+unless the dependency is explicitely listed in `LOCAL_STATIC_LIBRARIES`.
+
+For all modules listed in the definition of an `internal` module :
+`C_INCLUDES`, `CFLAGS`, `CXXFLAGS`, `LDLIBS`, `PREREQUISITES`, exported by
+modules will be imported in this module. If a static library is specified in
+the list, a recursion will be done to import its own dependencies.
+
+For all modules listed in the definition of an `external` module :
+Only `PREREQUISITES` exported by modules will be imported in this module.
+
+`External` modules listed as dependencies will be completely built before this
+module. `Internal` modules listed as dependencies will be compiled in parallel
+with this module, only the link of dependencies will be done before this module.
+So if a module needs to generate some files that will be needed during the
+compilation of modules depending on it, they shall be exported in the
+prerequisites to be sure they are generated at the correct time. An example will
+be headers installed in staging directories. If they are not explicitly
+specified in prerequisites export, it will not work in a parallel build.
+
+#### `LOCAL_CONDITIONAL_LIBRARIES`
+
+This is a list of pair `variable:module` to indicate that a module is needed
+only if a variable (found in a `config.in` file) is defined. Although it is
+possible to explicitly put a conditional in the `atom.mk`, it is recommended to
+use this technique to make sure that `kconfig` will also see this conditional
+dependency. Without it it would not be possible to disable a module once the
+configuration variable is enabled: the configuration editor would need to be
+launched 2 times, one to disable the variable, another to disable the module.
+
+If a configuration variable needs to select several modules, specify it in
+several pairs `variable:module`.
+
+Internally modules will be added to `LOCAL_LIBRARIES` if the variable is defined
+in the configuration.
+
+If `variable` is `OPTIONAL`, the module is put as a dependency only if it is in
+the build configuration. This allow to depends on a module only if it is
+enabled. The `kconfig` tools will not display this dependency, only the build
+system will use it.
+
+#### `LOCAL_DEPENDS_HEADERS`
+
+This is a list of modules whose headers are required to compile but not for
+link. This does **NOT** introduce a build order, just an automatic import of
+exported headers.
+
+#### `LOCAL_DEPENDS_MODULES` `LOCAL_REQUIRED_MODULES`
+
+This is a list of modules required at runtime that will automatically be
+selected in the `qconf` configuration window. This does **NOT** introduce a
+build order.
+
+**Note**: `LOCAL_REQUIRED_MODULES` is preferred over `LOCAL_DEPENDS_MODULES`.
+Once migrated to `LOCAL_REQUIRED_MODULES`, `LOCAL_DEPENDS_MODULES` might be used
+for another purpose (like really have a build dependency).
+
+#### `LOCAL_BUILD_PROPERTIES`
+
+List of properties to put in file build.prop loaded by boxinit at startup.
+The format is a list of `<key>=<value>` pair.
+
+#### `LOCAL_CONFIG_FILES`
+
+List of `Config.in` files relative to `LOCAL_PATH` to be used to configure the
+module. See `kconfig` language specification for more information about its
+syntax. All settings specified in this file shall be prefixed by the name of the
+module to avoid name collision when the global configuration file is created by
+the build system. To actually load the configuration and have access to settings
+the following shall be done :
+
+<pre>
+$(call load-config)
+</pre>
+
+After this, all settings variables can be used. Please note that they will all
+be prefixed by `CONFIG_` when used inside the makefile.
+
+**Note** : to test for a boolean settings, it is best to do :
+<pre>
+ifdef CONFIG_XXX
+</pre>
+instead of
+<pre>
+ifeq ($(CONFIG_XXX),y)
+</pre>
+
+It is shorter and allow to use the flag `--warn-undefined-variables` during
+`make` invocation.
+
+#### `LOCAL_COPY_FILES`
+
+List of files to be copied in the staging directory. Files are specified like
+this: `src:dst`
+
+* `src` is the source file, relative to `LOCAL_PATH`.
+* `dst` is the destination file, relative to `TARGET_OUT_STAGING`.
+
+If `dst` ends with a `'/'` it is assumed to be the destination directory and the
+file name is deduced from `src`.
+
+If `src` or `dst` start with a `'/'` it is assumed to be a full path, in this
+case `LOCAL_PATH` is not prepended for `src` and `TARGET_OUT_STAGING` is not
+prepended for `dst`.
+
+**Note** : There is no build order between copied files and modules depending
+on the one copying the file. If you want to make sure that copied files are
+available for other module, either put copied files in `LOCAL_EXPORT_PREREQUISITES`
+or use `LOCAL_INSTALL_HEADERS`.
+
+#### `LOCAL_CREATE_LINKS`
+
+List of symbolic links to be created in the staging directory. Format is
+`name:target`
+
+* `name` : name of the link, relative to `TARGET_OUT_STAGING`.
+* `target` : target of the link. This path will be interpreted in the final
+  target so there is no restriction on the actual format.
+
+If `name` starts with a `'/'` it is assumed to be a full path, in this
+case `TARGET_OUT_STAGING` is not prepended.
+
+**Note** : There is no build order between created links and modules depending
+on the one creating the link. Use `LOCAL_EXPORT_PREREQUISITES` also.
+
+#### `LOCAL_INSTALL_HEADERS`
+
+List of headers to be installed in the staging directory. The format is the same
+than `LOCAL_COPY_FILES`.
+
+**Note** : internally this is a combination of `LOCAL_COPY_FILES` and
+`LOCAL_EXPORT_PREREQUISITES`. It means that headers will be installed before
+anything depending on this module is built.
+
+#### `LOCAL_CLEAN_FILES` `LOCAL_CLEAN_DIRS`
+
+List of files (respectively directories) to be automatically removed during
+cleaning of the module. Full path shall be specified and normally they refer to
+path in build or staging directories.
+
+#### `LOCAL_PREREQUISITES`
+
+List of files that shall exist prior to do anything in the module. Full path
+shall be specified (and usually they reside in the module build directory).
+
+A custom makefile rule shall exists to instruct make how to generate and update
+those prerequisites files.
+
+**Note** : files listed here will be specified as order-only prerequisites in
+the generated make rules. It means that if the file is later modified it will
+**NOT** trigger a recompilation. Custom dependencies shall be added if this is
+required
+
+Example:
+<pre>
+SOFTAT_BUILD_DIR := $(call local-get-build-dir)
+SOFTAT_CONFIG_READ_H := $(SOFTAT_BUILD_DIR)/HIPHOP_ConfigRead.h
+$(SOFTAT_CONFIG_READ_H): $(AUTOCONF_MERGE_FILE)
+	@mkdir -p $(dir $@)
+	$(Q)$(PRIVATE_PATH)/../HSTIGenerator/Ck5050ini_Generate.py \
+		-a $(AUTOCONF_MERGE_FILE) \
+		$(PRIVATE_PATH)/SoftATini \
+		$(SOFTAT_BUILD_DIR)
+
+LOCAL_PREREQUISITES += \
+	$(SOFTAT_CONFIG_READ_H)
+</pre>
+
+#### `LOCAL_CUSTOM_TARGETS`
+
+List of custom targets directly managed by the `atom.mk`. Put here anything that
+is a target of a rule with commands. Doing so will ensure that the all the
+prerequisites that `alchemy` will collect for the module will be applied for
+your custom rules.
+
+**Note** : there is no need to put in this list files that are already in
+`LOCAL_PREREQUISITES` or `LOCAL_EXPORT_PREREQUISITES`.
+
+#### `LOCAL_EXPORT_C_INCLUDES`, `LOCAL_EXPORT_CFLAGS`, `LOCAL_EXPORT_CXXFLAGS`, `LOCAL_EXPORT_LDLIBS`, `LOCAL_EXPORT_PREREQUISITES`
+
+Variables to be exported by this module and then imported by modules depending
+on it. This simplifies the maintenance of the build system by forcing module to
+export everything required to use them.
+
+For `internal` modules, `LOCAL_EXPORT_LDLIBS` is rarely used because the build
+system knows how to link with it and hence it is not needed to explicitly do so.
+
+For `external` modules it is a mean to instruct the build system how to link
+with them. It is however not needed to specify include directories that are
+globally available like `$(TARGET_OUT_STAGING)/usr/include`.
+
+#### `LOCAL_ARCHIVE` `LOCAL_ARCHIVE_VERSION` `LOCAL_ARCHIVE_SUBDIR` `LOCAL_ARCHIVE_PATCHES` `LOCAL_ARCHIVE_CMD_UNPACK` `LOCAL_ARCHIVE_CMD_POST_UNPACK`
+
+`Alchemy` offer the possibility to have the source code in an archive. This is
+mainly used for external modules but can be used for internal modules as well.
+
+* `LOCAL_ARCHIVE` : name of the archive to be extracted. It is a path relative to
+  `LOCAL_PATH`.
+* `LOCAL_ARCHIVE_SUBDIR` : directory that the extraction process will automatically
+  creates. This is a path, relative to the extraction root where the configure
+  script will be found. It is in general defined as
+  `$(LOCAL_MODULE)-$(LOCAL_AUTOTOOLS_VERSION)`
+
+* `LOCAL_ARCHIVE_VERSION` being a variable with the version of the package. This
+information is currently not used by the build system, and is only there as a
+convenience.
+
+Additionally, some patches can be applied to the extracted archive :
+
+* `LOCAL_ARCHIVE_PATCHES` : list of patches to apply. Paths relative to `LOCAL_PATH`.
+
+* `LOCAL_ARCHIVE_CMD_UNPACK` : Custom commands to be used instead of default
+  ones. Please note that it shall be a macro defined using the `define/endef`
+  keywords, not a `:=` definition.
+* `LOCAL_ARCHIVE_CMD_POST_UNPACK` : Custom commands to be executed after the
+  given step. Please note that it shall be a macro defined using the
+  `define/endef` keywords, not a `:=` definition.
+
+#### `LOCAL_DOXYFILE`
+
+Absolute path to a doxygen configuration file for documentation generation. If
+defined, the <module>-doc target will use it to generate the documentation. If
+not, a doxyfile will be generated on the fly, which will generate a
+documentation for all the source files found recursively under `LOCAL_PATH`, for
+all the languages supported by doxygen and for all the symbols.
+
+#### `LOCAL_DOXYGEN_INPUT`
+
+Additional path to files or directories to add to doxygen generation. It
+accepts either full path or relative path to LOCAL_PATH.
+
+#### `LOCAL_COPY_TO_BUILD_DIR`
+
+If set to 1, all files under LOCAL_PATH will be copied to the build directory
+before the configure step. This allows modules to execute autoreconf out of the
+original source tree.
+
+### Internal modules
+
+Defining an `internal` module is the preferred way of registering a module. It
+offers many automatization of the build process including compilation, link,
+clean, installation, automatic import/export of include directories, compilation
+flags.
+
+Variable that can be set for internal modules :
+
+#### `LOCAL_SRC_FILES`
+
+List of files to be compiled. The path shall be relative to `LOCAL_PATH`. The
+following file  extension are recognized : `.c, .cc, .cxx, .cpp, .s .S`.
+ Other files will be ignored.
+
+The build system checks that files actually exist and issue a warning if not.
+
+#### `LOCAL_GENERATED_SRC_FILES`
+
+Similar to `LOCAL_SRC_FILES` but path is relative to module build directory. It
+can be used to compile generated files as well as file extracted from an archive.
+
+#### `LOCAL_C_INCLUDES`
+
+List of directories to be added during compilation to search for headers. Full
+path shall be specified, without the '-I'. `LOCAL_PATH` can be used for
+specifying path under the `atom.mk`.
+
+**Note** : The build directory and `LOCAL_PATH` are automatically added during
+compilation
+
+#### `LOCAL_CFLAGS`, `LOCAL_CXXFLAGS`
+
+Flags to be passed during the compilation of source files. `LOCAL_CFLAGS` is
+given to **all** files, whereas `LOCAL_CXXFLAGS` is given only to `c++` files
+
+**Note** : some warning flags are automatically added by the build system,
+please do not add/remove any to let the build system decides which flags are
+best suited for the target/toolchain.
+
+**Note** : some checks are done to make sure that some flags are not included
+here, `-marm`, `-mthumb` and `-O0` are among them. They are managed by other
+means.
+
+#### `LOCAL_LDFLAGS`
+
+Flags to be passed during the linking of the binary (shared library or
+executable). It is rarely used. Do not specify libraries to be linked with,
+use `LOCAL_LDLIBS`, or better, rely on dependency management to import them
+automatically.
+
+#### `LOCAL_LDLIBS`
+
+Libraries to be linked with (`-l<name>`). It is rarely used, please use
+dependency management to import them automatically.
+
+#### `LOCAL_ARFLAGS`
+
+Flags to be passed to the static library generator. It is rarely used.
+
+#### `LOCAL_ARM_MODE`
+
+For arm architecture it is used to override the default mode. The default is to
+compile everything as `thumb`. This variable can be used to force `arm` mode.
+This flag is mainly used when code contains inline assembler that explicitly use
+`arm` mode inline instructions.
+
+**Note** : default mode can be globally defined as `arm` with `TARGET_DEFAULT_ARM_MODE`.
+
+**Note** : it is not possible to force `thumb` mode if default mode is `arm`.
+
+#### `LOCAL_FORCE_WHOLE_STATIC_LIBRARY`
+
+Setting this variable to `1` instructs the build system to make sure module
+depending on this one will use it inside a `-Wl,-whole-archive` linker flag.
+It is rarely used and only when there is some complex use of static libraries.
+
+#### `LOCAL_PBUILD_HOOK`
+
+This variable needs to be set at `1` when a module is using `PAL` log feature.
+It instructs the build system to include some additional steps at link time to
+mimic some parrot build feature (more precisely it scans for some undefined
+variables to declare them in an extra source file compiled and linked).
+
+#### `LOCAL_PBUILD_ALLOW_FORCE_STATIC`
+
+This variable indicates that the module can be build as static if global
+variable `TARGET_PBUILD_FORCE_STATIC` is set. This is a ParrotBuild
+compatibility mode that allows to specify module as shared and have a fallback
+when needed.
+
+#### `NO_COPY_TO_STAGING`
+
+If set to `1`, the module output file will not be copied in staging directory.
+This allow customization of this step by the `atom.mk`.
+
+### Autotools modules
+
+The term `autotools` refer to modules that use a configure script that generates
+makefiles that can then be use to build/install/clean the module. It is
+generally open source packages that are taken as is without many modifications.
+
+The source code can be contained in an archive to be extracted before or can be
+available under `LOCAL_PATH`.
+
+For source contained in archives, two variables shall be defined :
+
+* `LOCAL_AUTOTOOLS_ARCHIVE` : name of the archive to be extracted. It is a path
+  relative to `LOCAL_PATH`.
+* `LOCAL_AUTOTOOLS_SUBDIR` : directory that the extraction process will
+  automatically creates. This is a path, relative to the extraction root where
+  the configure script will be found. It is in general defined as
+  `$(LOCAL_MODULE)-$(LOCAL_AUTOTOOLS_VERSION)`
+
+`LOCAL_AUTOTOOLS_VERSION` being a variable with the version of the package.
+This information is currently not used by the build system, and is only there as
+a convenience.
+
+Additionally, some patches can be applied to the extracted archive :
+
+* `LOCAL_AUTOTOOLS_PATCHES` : list of patches to apply. Paths relative to
+  `LOCAL_PATH`.
+
+**Note** : Internally, alchemy transforms `LOCAL_AUTOTOOLS_ARCHIVE_XXX` variables
+in generic `LOCAL_ARCHIVE_XXX` variables.
+
+For most of such modules it is the only thing to do before registering the
+module with :
+<pre>
+include $(BUILD_AUTOTOOLS)
+</pre>
+
+The build system will automatically generate internal rules for all steps :
+
+* unpacking + patches
+* configure
+* build
+* install
+* clean
+
+During configure step, the following parameters are automatically given and does
+not need to be explicitly specified :
+
+* `--build`
+* `--host`
+* `--prefix`
+* `--sysconfdir`
+
+The values are determined based on the target specifications.
+
+In the environment, the following variables are set during the call to configure :
+
+* `AR`
+* `AS`
+* `LD`
+* `NM`
+* `CC`
+* `GCC`
+* `CXX`
+* `CPP`
+* `INSTALL`
+* `RANLIB`
+* `STRIP`
+* `OBJCOPY`
+* `OBJDUMP`
+* `CC_FOR_BUILD`
+* `CPPFLAGS`
+* `CFLAGS`
+* `CXXFLAGS`
+* `LDFLAGS`
+* `DYN_LDFLAGS`
+
+Also, for `pkg-config` to work correctly, the following variable are exported :
+
+* `PKG_CONFIG_PATH`
+* `PKG_CONFIG_LIBDIR`
+* `PKG_CONFIG_SYSROOT_DIR`
+
+It is possible to customize each step either by modifying environment or
+arguments of command used, rewriting commands completely or inserting some
+commands between steps.
+
+#### `LOCAL_AUTOTOOLS_CONFIGURE_ENV`, `LOCAL_AUTOTOOLS_CONFIGURE_ARGS`
+
+Additional variables to be given as environment or parameters to the configure
+script.
+
+#### `LOCAL_AUTOTOOLS_CONFIGURE_SCRIPT`
+
+Alchemy will assume that the configure script is named `configure` and located
+at either `LOCAL_PATH` or `LOCAL_ARCHIVE_SUBDIR` or `LOCAL_AUTOTOOLS_ARCHIVE_SUBDIR`.
+If the script is somewhere else specify new relative path in `LOCAL_AUTOTOOLS_CONFIGURE_SCRIPT`.
+
+#### `LOCAL_AUTOTOOLS_MAKE_BUILD_ENV`, `LOCAL_AUTOTOOLS_MAKE_BUILD_ARGS`
+
+Additional variables to be given as environment or parameters to the build
+command (using `make`).
+
+#### `LOCAL_AUTOTOOLS_MAKE_INSTALL_ENV`, `LOCAL_AUTOTOOLS_MAKE_INSTALL_ARGS`
+
+Additional variables to be given as environment oR parameters to the install
+command (using `make`).
+
+#### `LOCAL_AUTOTOOLS_CMD_UNPACK`, `LOCAL_AUTOTOOLS_CMD_CONFIGURE`, `LOCAL_AUTOTOOLS_CMD_BUILD`, `LOCAL_AUTOTOOLS_CMD_INSTALL`, `LOCAL_AUTOTOOLS_CMD_CLEAN`
+
+Custom commands to be used instead of default ones. Please note that it shall
+be a macro defined using the `define/endef` keywords, not a `:=` definition.
+
+#### `LOCAL_AUTOTOOLS_CMD_POST_UNPACK`, `LOCAL_AUTOTOOLS_CMD_POST_CONFIGURE`, `LOCAL_AUTOTOOLS_CMD_POST_BUILD`, `LOCAL_AUTOTOOLS_CMD_POST_INSTALL`, `LOCAL_AUTOTOOLS_CMD_POST_CLEAN`
+
+Custom commands to be executed after the given step. Please note that it shall
+be a macro defined using the `define/endef` keywords, not a `:=` definition.
+
+In the definition of custom commands, the following points shall be noted :
+
+* It is not possible to use any `LOCAL_XXX` variables. If you try to do it an
+  error will be generated. You can use any module specific variable that you
+  defined or `PRIVATE_XXX` variables listed below.
+* Use `$(Q)` before each command to be quiet unless in verbose mode.
+
+* `PRIVATE_ARCHIVE` : Full path to the archive file specified in
+  `LOCAL_AUTOTOOLS_ARCHIVE`.
+* `PRIVATE_UNPACK_DIR` : Full path to where the archive has been extracted
+  (usually the build directory). This is also where the directory specified in
+  `LOCAL_AUTOTOOLS_SUBDIR` will be found.
+* `PRIVATE_SRC_DIR` : Full path to the source directory of the module. For
+  modules with an archive to be unpacked, it is the same as `PRIVATE_OBJ_DIR`.
+* `PRIVATE_OBJ_DIR` : Full path to the directory where the module will be
+  configured and built. For modules with an archive to be unpacked it will be
+  the directory specified in `LOCAL_AUTOTOOLS_SUBDIR` inside the build directory,
+  otherwise it will be under the directory `obj` inside the build directory.
+* `PRIVATE_CONFIGURE_ENV` : Verbatim content of the `LOCAL_AUTOTOOLS_XXX` variable.
+* `PRIVATE_CONFIGURE_ARGS` : Verbatim content of the `LOCAL_AUTOTOOLS_XXX` variable.
+* `PRIVATE_MAKE_BUILD_ENV` : Verbatim content of the `LOCAL_AUTOTOOLS_XXX` variable.
+* `PRIVATE_MAKE_BUILD_ARGS` : Verbatim content of the `LOCAL_AUTOTOOLS_XXX` variable.
+* `PRIVATE_MAKE_INSTALL_ENV` : Verbatim content of the `LOCAL_AUTOTOOLS_XXX` variable.
+* `PRIVATE_MAKE_INSTALL_ARGS` : Verbatim content of the `LOCAL_AUTOTOOLS_XXX` variable.
+
+Some variables containing generic content can also be used :
+
+* `TARGET_AUTOTOOLS_CPPFLAGS`
+* `TARGET_AUTOTOOLS_CFLAGS`
+* `TARGET_AUTOTOOLS_CXXFLAGS`
+* `TARGET_AUTOTOOLS_LDFLAGS`
+* `TARGET_AUTOTOOLS_DYN_LDFLAGS`
+* `TARGET_AUTOTOOLS_CONFIGURE_ENV`
+* `TARGET_AUTOTOOLS_CONFIGURE_ARGS`
+* `TARGET_AUTOTOOLS_MAKE_ENV`
+* `TARGET_AUTOTOOLS_MAKE_ARGS`
+* `TARGET_AUTOTOOLS_CONFIGURE_PREFIX`
+* `TARGET_AUTOTOOLS_CONFIGURE_SYSCONFDIR`
+* `TARGET_AUTOTOOLS_INSTALL_DESTDIR`
+
+**Note** : Old variables still available for compatibility :
+
+* `AUTOTOOLS_CONFIGURE_ENV`
+* `AUTOTOOLS_CONFIGURE_ARGS`
+* `AUTOTOOLS_CONFIGURE_PREFIX`
+* `AUTOTOOLS_CONFIGURE_SYSCONFDIR`
+* `AUTOTOOLS_INSTALL_DESTDIR`
+* `AUTOTOOLS_MAKE_ENV`
+* `AUTOTOOLS_MAKE_ARGS`
+
+### CMake modules
+
+This class of modules if for the compilation of packages that use `cmake`.
+`Alchemy` provides internally everything needed for the compilation, in
+particular a toolchain file.
+
+#### Customization variables
+
+* `LOCAL_CMAKE_CONFIGURE_ARGS` : Extra arguments for the configure step.
+* `LOCAL_CMAKE_MAKE_BUILD_ARGS` : extra arguments for the build step.
+* `LOCAL_CMAKE_MAKE_INSTALL_ARGS` : Extra arguments for the install step.
+
+#### Custom commands
+
+It is possible to override each step of the build.
+Please note that it shall be a macro defined using the `define/endef` keywords,
+not a `:=` definition.
+
+* `LOCAL_CMAKE_CMD_CONFIGURE`
+* `LOCAL_CMAKE_CMD_BUILD`
+* `LOCAL_CMAKE_CMD_INSTALL`
+* `LOCAL_CMAKE_CMD_CLEAN`
+* `LOCAL_CMAKE_CMD_POST_CONFIGURE`
+* `LOCAL_CMAKE_CMD_POST_BUILD`
+* `LOCAL_CMAKE_CMD_POST_INSTALL`
+* `LOCAL_CMAKE_CMD_POST_CLEAN`
+
+### QMake modules
+
+This class of modules if for the compilation of packages that use `qt` and
+`qmake`. `Alchemy` provides internally everything needed for the compilation,
+in particular a `alchemy.pri` file to be included in your `.pro` to get all
+dependencies from atom.mk (include paths, libraries...).
+
+#### Configuration
+
+If the workspace contains a Qt build, then no configuration is needed.
+
+Otherwise, a Qt SDK installation can be used, by specifying a few variables:
+
+* `TARGET_QT_SDKROOT` : Root path of the SDK.
+</br>Alchemy will try to automatically detect installed Qt SDK if this is not specified.
+* `TARGET_QT_PLATFORM` : Qt platform.
+</br>Default is computed automatically based on `TARGET_OS`, `TARGET_OS_FLAVOUR` and `TARGET_ARCH`.
+* `TARGET_QT_VERSION` : Qt version.
+</br>Default is 4.5.
+* `TARGET_QT_SDK` : Path to the Qt SDK for the target platform. This folder
+must contain the `qmake` command in the `bin` folder.
+</br>Default is `$(TARGET_QT_SDKROOT)/$(TARGET_QT_PLATFORM)/$(TARGET_QT_VERSION)`.
+
+When none of this variables is specified, Alchemy will try to automatically
+discover an appropriate Qt SDK, or use qmake in path when targetting the host
+system.
+
+#### Customization variables
+
+* `LOCAL_QMAKE_PRO_FILE` : The name of the `.pro` file to be used. If not
+  specified, the name is assumed to be `$(LOCAL_MODULE).pro`. The path is
+  relative to `LOCAL_PATH`
+
+### Python extension modules
+
+This class of modules is for the compilation of python extensions using a
+`setup.py` file and `distutils`. `Alchemy` provides internally everything
+needed to correctly build them and install them. The module still need to add
+a dependency to `python` or `python3`.
+
+#### Customization variables
+
+* `LOCAL_PYTHONEXT_SETUP_PY_ENV` : Additional environment variables to pass to
+  `setup.py`.
+* `LOCAL_PYTHONEXT_SETUP_PY_ARGS` : Additional arguments to pass to `setup.py`.
+
+### Linux kernel modules
+
+This class of modules is for the compilation of Linux kernel modules from
+one or several source files. Only `LOCAL_MODULE_FILENAME` (which is optional
+and should be a `.ko` filename), `LOCAL_SRC_FILES`, `LOCAL_C_INCLUDES` and
+`LOCAL_CFLAGS` are supported in addition to generic module description and
+dependency variables.
+
+### GObject introspection type library modules
+
+This class of modules is for the compilation of gobject-introspection `.typelib`
+type libraries used by languages bindings to automatically use a library 
+without explicit wrappers. Only GObject introspection of libraries is currently
+supported.
+
+Pulsar gobject-introspection module shoud be present for this to work.
+
+#### Customization variables
+
+* `LOCAL_GI_NAMESPACE` : Mandatory namespace passed to g-ir-scanner.
+* `LOCAL_GI_LIBRARY` : Mandatory introspected library passed to g-ir-scanner.
+* `LOCAL_GI_ID_PREFIX` : Optional identifier prefix passed to g-ir-scanner.
+  If not specified, the namespace is used.
+
+### Prebuilt modules
+
+This class is used to register a module that can be used as a dependency but that
+will not built anything. Mainly used for native build where many modules from
+the host machine will be used without being recompiled. If the same module is
+registered with another class it will be ignored. This allows a workspace normally
+used for cross-compilation to be used as-is to compile some native configuration.
+
+As `alchemy` comes with a number of native prebuilt modules, and they have
+priority over the ones found in the workspace, it is now possible to explicitely
+mark some of them as overriden (for example in `product.mk`) using:
+</br>`prebuilt.<module>.override := 1`
+
+### Custom rules
+
+You can add custom rules in you makefile, for example to generate files. However
+care must be taken because the `LOCAL_XXX` variables can not be used everywhere.
+
+First, a reminder in makefile terminology. A rule describes `commands` to be
+executed for a `target` when `prerequisites` are newer or target does not exist.
+<pre>
+target: prerequisites
+	commands
+</pre>
+
+`LOCAL_XXX` variables can be used in `target` and `prerequisites` **but not in `commands`**.
+In commands, you can only use `PRIVATE_PATH` and `PRIVATE_MODULE` variables which
+correspond to `LOCAL_PATH` and `LOCAL_MODULE`, all other variables will be empty
+at the point commands are executed.
+
+If you have a chain of dependencies from the `LOCAL_MODULE_FILENAME` to some
+internal targets, don't forget to add them in `LOCAL_CUSTOM_TARGETS` to make
+build prerequisites are correctly propagated.
+
+### Host modules
+
+`Alchemy` offers the possibility to compile modules for the host that can be used
+as tools by other modules. The registration of a host module is the same as for a
+standard module, the only thing that change is that `LOCAL_HOST_MODULE` shall be
+used instead of `LOCAL_MODULE`. Dependency management is the same. Internally
+the name of the module will be prefixed by `host.` so any reference to the
+module name (in another module dependency or in make goals) shall use this prefix.
+
+If a module requires a host tool from a host module to build, it shall add a
+dependency in the `LOCAL_DEPENDS_HOST_MODULES` variable.
+
+Host tools are installed in the directory `HOST_OUT_STAGING` and usually in the
+`usr/bin` sub-directory.
+
+Note that `$(HOST_OUT_STAGING)/bin` and `$(HOST_OUT_STAGING)/usr/bin` are
+automatically added to the `PATH` environment variable for `AUTOTOOLS` and
+`CMAKE` builds.
+
+There is some `HOST_xxx` variables that are defined internally and that can be
+customized before invoking `alchemy`. For the meaning, see the corresponding
+`TARGET_xxx` variable. In this list only the default value is indicated.
+
+* `HOST_OUT_BUILD` : `$(TARGET_OUT)/build-host`
+* `HOST_OUT_STAGING` : `$(TARGET_OUT)/staging-host`
+* `HOST_GLOBAL_C_INCLUDES` :
+* `HOST_GLOBAL_CFLAGS` : `-pipe -O2 -g0`
+* `HOST_GLOBAL_CXXFLAGS` : empty
+* `HOST_GLOBAL_ARFLAGS` : `rcs`
+* `HOST_GLOBAL_LDFLAGS` : empty
+* `HOST_GLOBAL_LDFLAGS_SHARED` : empty
+* `HOST_GLOBAL_LDLIBS` : empty
+* `HOST_GLOBAL_LDLIBS_SHARED` : empty
+* `HOST_GLOBAL_PCH_FLAGS` : empty
+* `HOST_CC` : `gcc`
+* `HOST_CXX` : `g++`
+* `HOST_AS` : `as`
+* `HOST_AR` : `ar`
+* `HOST_LD` : `ld`
+* `HOST_NM` : `nm`
+* `HOST_STRIP` : `strip`
+* `HOST_CPP` : `cpp`
+* `HOST_RANLIB` : `ranlib`
+* `HOST_OBJCOPY` : `objcopy`
+* `HOST_OBJDUMP` : `objdump`
+
+**Note** : `include`, `lib` and `usr/lib` folders under `HOST_OUT_STAGING` are
+automatically added to corresponding flags.
+
+### CPU features
+
+`Alchemy` automatically sets some variables that can be used by user `atom.mk`
+to build specific source files based on available CPU features.
+
+Currently, the following variables are available:
+
+* `TARGET_CPU_HAS_NEON` : Neon instructions are available on target.
+* `TARGET_CPU_HAS_SSE2` : SSE2 instructions are available on target.
+* `TARGET_CPU_HAS_SSSE3` : SSSE3 instructions are available on target.
+
+## A closer look to dependencies
+
+One feature of `alchemy` is dependencies management. Each module specifies modules
+required for building (`LOCAL_LIBRARIES`) and for runtime (`LOCAL_DEPENDS_MODULES`).
+During configuration phase, those dependencies are handled via `select` commands
+in the kconfig language.
+
+Before building checks are done to make sure dependencies are OK, and error/warnings
+are issue in case of anomalies found.
+
+Include directories, compiler/linker flags and libraries exported by a module are
+automatically imported by a module that depends on it.
+
+For static libraries it is even recursive, it exports automatically their dependencies.
+The order of link of static libraries is also automatically done so that the
+order given in an atom.mk is not a problem.
+
+For example, if `A` is an executable and `B`, `C`, `D`, and `E` are static libraries.
+If dependencies are as below:
+<pre>
+A->E,B
+B->C,D
+C->D,E
+</pre>
+
+The full link order for A will be:
+<pre>
+A -> B,C,D,E
+</pre>
+
+## SDK generation
+
+Given a build configuration, `Alchemy` can generate a `SDK` to be used in another
+configuration. The `SDK` will contain the staging content as well as all headers
+found in directories exported by modules. The generated `SDK` will also contain
+an `atom.mk` that will describe modules.
+
+To generate a `SDK`:
+<pre>
+make sdk
+</pre>
+This will generate a `sdk` folder in `$(TARGET_OUT)` as well as a zip file of
+this folder in `$(TARGET_OUT)/$(TARGET_PRODUCT_FULL_NAME)`.
+
+To use a `SDK`, specify the directory where the `atom.mk` is in the variable
+`TARGET_SDK_DIRS`. Several directories can be specified. Using a `SDK` is
+transparent for users, dependencies shall be specified in the same way. The only
+difference is that modules from `SDK` won't appear in global config and will not
+be built.
+
+## Codecheck false positives or intentional deviations
+
+You can ignore specific codecheck warnings in a C source code file by inserting
+a tag with the following syntax in a comment line just preceding the line with
+the error:
+
+<pre>
+	codecheck_ignore[TYPE1(,TYPE2...)]
+</pre>
+
+Where TYPE is the message type returned by `make <module>-codecheck`
+(for example `LONG_LINE`, `NEW_TYPEDEFS`, etc).
+
+Ex:
+<pre>
+	/* codecheck_ignore[NEW_TYPEDEFS,LONG_LINE] */
+	typedef struct _CustomTypedef CustomTypedef; /* custom typedef for consistency with other GObjects */
+</pre>
+
+## Cppcheck false positives or intentional deviations
+
+You can ignore specific cppcheck warnings in a C++ source code file by inserting
+a tag with the following syntax in a comment line to the line with
+the error:
+
+<pre>
+	NOLINT(category)
+</pre>
+
+Where category is the message returned by `make <module>-cppcheck`
+(for example `whitespace/braces`, etc).  NOLINT or NOLINT(*)
+suppresses errors of all categories on that line.
+
+Ex:
+<pre>
+	static int my_function()
+	{  // NOLINT(whitespace/braces)
+</pre>
+
+## How to use it
+
+After describing how to create a makefile that is integrated in `alchemy`, let's
+see how to call `alchemy` to actually build a project.
+
+### Wrapper script
+
+`Alchemy` build system needs a few parameters to known what to do. The `TARGET_XXX`
+variables need to be set in the environment. However, without anything it will
+defaults to compile natively in a linux pc without any configuration directory.
+Output directories will also be selected by default. A typical wrapper script
+will look like this (assuming alchemy is at the root of the workspace):
+
+<pre>
+#!/bin/bash
+
+readonly TOP_DIR=`pwd`
+
+export TARGET_PRODUCT="pclinux"
+export TARGET_CONFIG_DIR=${TOP_DIR}/config
+export TARGET_OUT=${TOP_DIR}/out
+export ALCHEMY_USE_COLORS=1
+
+# This can be put in a product.mk file located in ALCHEMY_TARGET_CONFIG_DIR
+export TARGET_OS="linux"
+export TARGET_OS_FLAVOUR="native"
+export TARGET_LIBC="native"
+export TARGET_ARCH="x86"
+
+time ${TOP_DIR}/alchemy/scripts/alchemake.py -f ${TOP_DIR}/alchemy/main.mk $*
+</pre>
+
+**Note**: `alchemake.py` is a simple python script that wraps the invocation of
+`make` to stop the compilation at the first error seen. It is purely optional
+but without it, a parallel compilation will continue if a error is seen until
+current targets are finished, which can be long if a kernel or busybox
+compilation is in progress.
+
+### Command line options
+
+You can specify some variables in the `make` command line to activate some extra
+features.
+
+* `F=1` : Force re-checking external modules for modifications. By default they
+  are not checked to speed-up thing. Note that if a module is explicitly given
+  as a goal in `make` command, it will be re-checked.
+* `V=1` : Activate verbose mode. Commands executed will be printed.
+* `W=1` : Activate extra warnings for `internal` modules.
+
+**Note**: To have more information, you can type `./build.sh help`. This is a
+special goal inside `alchemy`. If you type `./build.sh --help`, you will get the
+help of the `make` program, not the help of `alchemy`.
+

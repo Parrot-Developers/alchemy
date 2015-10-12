@@ -1,0 +1,54 @@
+# bash completion for Alchemake                             -*- shell-script -*-
+
+# To be called in th PS1 variable to add product name in prompt
+# Optional argument can be a format string.
+_alchemake_ps1()
+{
+	local p=""
+	# Check that a workspace is defined and exists and we are in it
+	if [ "${ALCHEMY_WORKSPACE_DIR}" != "" -a \
+			-d ${ALCHEMY_WORKSPACE_DIR} -a \
+			"${PWD##${ALCHEMY_WORKSPACE_DIR}}" != "${PWD}" ]; then
+		# Format product name
+		if [ "${ALCHEMY_TARGET_PRODUCT}" != "" ]; then
+			p="${ALCHEMY_TARGET_PRODUCT}"
+			if [ "${ALCHEMY_TARGET_PRODUCT_VARIANT}" != "" ]; then
+				p=${p}-${ALCHEMY_TARGET_PRODUCT_VARIANT}
+			fi
+		fi
+	fi
+	if [ "${p}" != "" ]; then
+		printf -- "${1:- (%s)}" "${p}"
+	fi
+}
+
+_alchemake()
+{
+	local std_goals=" \
+		help help-modules all clean dirclean clobber final plf \
+		config config-check config-update xconfig menuconfig nconf \
+		dump dump-depends dump-xml build-graph"
+	local mod_goals=""
+
+	local cur prev words cword split
+	_init_completion -s || return
+
+	# Check that a workspace is defined and exists
+	if [ "${ALCHEMY_WORKSPACE_DIR}" != "" -a \
+			-d ${ALCHEMY_WORKSPACE_DIR} ]; then
+		# Check that a cache exists
+		if [ "${ALCHEMY_TARGET_OUT_BUILD}" != "" -a \
+				-f ${ALCHEMY_TARGET_OUT_BUILD}/build-modules ]; then
+			mod_goals=$(cat ${ALCHEMY_TARGET_OUT}/build-modules)
+		elif [ "${ALCHEMY_TARGET_OUT}" != "" -a \
+				-f ${ALCHEMY_TARGET_OUT}/build/build-modules ]; then
+			mod_goals=$(cat ${ALCHEMY_TARGET_OUT}/build/build-modules)
+		fi
+	fi
+
+	COMPREPLY=( $( compgen -W "${std_goals} ${mod_goals}" -- "$cur" ) )
+
+} &&
+complete -F _alchemake alchemake
+
+# ex: filetype=sh
