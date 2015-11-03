@@ -191,7 +191,7 @@ conflict with other build systems (android for example).
 * `TARGET_LINUX_DEVICE_TREE` : name of a device tree to append to kernel image.
   It shall be in `$(LINUX_BUILD_DIR)/arch/$(TARGET_ARCH)/boot/dts`. The name
   shall be the one with the `.dtb` extension. Default is empty.
-* `TARGET_GENERATE_LINUX_UIMAGE` : generate a u-boot image of linux.
+* `TARGET_LINUX_GENERATE_UIMAGE` : generate a u-boot image of linux.
   </br>Default is `0`
 
 ### Darwin specific
