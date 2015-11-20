@@ -259,6 +259,7 @@ endif
 .PHONY: linux-headers
 linux-headers: $(LINUX_HEADERS_DONE_FILE)
 $(LINUX_HEADERS_DONE_FILE): | $(LINUX_BUILD_DIR)/.config
+ifneq ("$(LINUX_ARCH)","um")
 	@mkdir -p $(LINUX_BUILD_DIR)
 	@mkdir -p $(TARGET_OUT_STAGING)/usr/src/linux-headers
 	@echo "Installing linux kernel headers"
@@ -275,6 +276,9 @@ $(LINUX_HEADERS_DONE_FILE): | $(LINUX_BUILD_DIR)/.config
 				$(TARGET_OUT_STAGING)/usr/$(header); \
 		fi; \
 	)
+else
+	@echo "um arch doesn't allow installing headers"
+endif
 	@echo "Installing linux kernel headers: done"
 	@touch $@
 
