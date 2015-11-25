@@ -84,7 +84,8 @@ LINUX_MAKE_ARGS := \
 	-C $(LOCAL_PATH) \
 	INSTALL_MOD_PATH="$(TARGET_OUT_STAGING)" \
 	INSTALL_HDR_PATH="$(TARGET_OUT_STAGING)/usr/src/linux-headers" \
-	O="$(LINUX_BUILD_DIR)"
+	O="$(LINUX_BUILD_DIR)" \
+	$(TARGET_LINUX_MAKE_BUILD_ARGS)
 
 # Headers to be copied in $(TARGET_OUT_STAGING)/usr
 LINUX_EXPORTED_HEADERS_OVER := \
@@ -258,6 +259,7 @@ endif
 .PHONY: linux-headers
 linux-headers: $(LINUX_HEADERS_DONE_FILE)
 $(LINUX_HEADERS_DONE_FILE): | $(LINUX_BUILD_DIR)/.config
+ifneq ("$(LINUX_ARCH)","um")
 	@mkdir -p $(LINUX_BUILD_DIR)
 	@mkdir -p $(TARGET_OUT_STAGING)/usr/src/linux-headers
 	@echo "Installing linux kernel headers"
@@ -274,6 +276,9 @@ $(LINUX_HEADERS_DONE_FILE): | $(LINUX_BUILD_DIR)/.config
 				$(TARGET_OUT_STAGING)/usr/$(header); \
 		fi; \
 	)
+else
+	@echo "um arch doesn't allow installing headers"
+endif
 	@echo "Installing linux kernel headers: done"
 	@touch $@
 
