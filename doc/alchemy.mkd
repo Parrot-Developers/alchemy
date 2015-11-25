@@ -193,6 +193,8 @@ conflict with other build systems (android for example).
   shall be the one with the `.dtb` extension. Default is empty.
 * `TARGET_LINUX_GENERATE_UIMAGE` : generate a u-boot image of linux.
   </br>Default is `0`
+* `TARGET_LINUX_MAKE_BUILD_ARGS` : Additional variables to be given as
+  parameters to the kernel build commands (using make).
 
 ### Darwin specific
 
