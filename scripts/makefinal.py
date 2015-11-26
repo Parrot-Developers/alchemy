@@ -47,7 +47,8 @@ EXCLUDE_DIRS = {
 # Files to always exclude
 EXCLUDE_FILES_ALWAYS = [
 	".gitignore",
-	"THIS_IS_NOT_THE_DIRECTORY_FOR_NATIVE_CHROOT"]
+	"THIS_IS_NOT_THE_DIRECTORY_FOR_NATIVE_CHROOT",
+	"vmlinux"]
 
 # Files to exclude depending on mode
 EXCLUDE_FILES = {
@@ -65,11 +66,6 @@ EXCLUDE_FILTERS = {
 }
 
 EXCLUDE_FILTERS_PYTHON = [".py", ".pyc", ".pyo"]
-
-# Files to keep in boot directory
-BOOT_FILES = [
-	"zImage", "*.dtb", "*.conf",
-]
 
 # Linux folders/links
 LINUX_BASIC_SKEL = [
@@ -436,13 +432,6 @@ def processDir(rootDir, options, withEmptyDir, copyType, forceCopy=False):
 			if os.path.splitext(srcFileName)[1] in EXCLUDE_FILTERS[options.mode]:
 				logging.debug("Exclude file : %s", relPath)
 				continue
-
-			# Only keep some files in boot dir
-			if relPath.startswith("boot"):
-				baseName = os.path.basename(relPath)
-				if not any([fnmatch.fnmatch(baseName, pattern) for pattern in BOOT_FILES]):
-					logging.debug("Exclude file : %s", relPath)
-					continue
 
 			# go
 			if copyType == CopyType.ALL \

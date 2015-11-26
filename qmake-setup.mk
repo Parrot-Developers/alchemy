@@ -54,8 +54,10 @@ TARGET_QT_SDKROOT ?= $(shell shopt -s nullglob ;                       \
 
 # Define QMake path accordingly
 ifneq ("$(TARGET_QT_SDKROOT)","")
-TARGET_QT_SDK ?= $(TARGET_QT_SDKROOT)/$(TARGET_QT_VERSION)/$(TARGET_QT_PLATFORM)
-QTSDK_QMAKE ?= $(TARGET_QT_SDK)/bin/qmake
+  TARGET_QT_SDK ?= $(TARGET_QT_SDKROOT)/$(TARGET_QT_VERSION)/$(TARGET_QT_PLATFORM)
+endif
+ifneq ("$(TARGET_QT_SDK)","")
+  QTSDK_QMAKE ?= $(TARGET_QT_SDK)/bin/qmake
 endif
 
 # Use qmake from PATH in last resort, on host build

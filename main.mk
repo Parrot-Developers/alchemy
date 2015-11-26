@@ -13,7 +13,7 @@
 # Alchemy version
 ALCHEMY_VERSION_MAJOR := 1
 ALCHEMY_VERSION_MINOR := 2
-ALCHEMY_VERSION_REV   := 0
+ALCHEMY_VERSION_REV   := 1
 ALCHEMY_VERSION := $(ALCHEMY_VERSION_MAJOR).$(ALCHEMY_VERSION_MINOR).$(ALCHEMY_VERSION_REV)
 
 # Make sure SHELL is correctly set
@@ -374,7 +374,7 @@ else
 # warnings due to the fact that no module could be registered. Another parsing
 # of Alchemy will anyway be triggered after generation of the cache.
 ifeq ("$(wildcard $(USER_MAKEFILES_CACHE))","")
-  CONFIG_GLOBAL_FILE_AVAILABLE := 0
+  SKIP_CONFIG_CHECK := 1
 endif
 
 # Include makefile containing all available makefiles
@@ -491,7 +491,7 @@ $(foreach __mod,$(ALL_MODULES), \
 				$(eval ALL_BUILD_MODULES_HOST += $(__mod)) \
 			), \
 			$(if $(call is-not-item-in-list,$(__mod),$(ALL_BUILD_MODULES)), \
-				$(warning $(__mod) is not enabled in the config) \
+				$(info $(__mod) is not enabled in the config) \
 				$(eval ALL_BUILD_MODULES += $(__mod) \
 					$(call module-get-all-depends,$(__mod)) \
 				) \
@@ -686,6 +686,9 @@ include $(BUILD_SYSTEM)/help.mk
 .PHONY: post-build
 post-build: $(__modlist)
 all: post-build
+
+.PHONY: pre-final
+pre-final: post-build
 
 # Depends on this to be executed AFTER final directory has been done
 # If 'final' is not given in goals, this is a no op

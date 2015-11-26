@@ -52,15 +52,16 @@ define qmake_gen_deps
 	@( \
 		echo "equals(TEMPLATE, lib) {"; \
 		echo "    target.path = $(if $(__qmake_has_qt_sysroot),$(TARGET_OUT_STAGING))/$(TARGET_DEFAULT_LIB_DESTDIR)"; \
+		$(if $(call streq,$(TARGET_FORCE_STATIC),1),echo "    CONFIG += staticlib";) \
 		echo "} else {"; \
 		echo "    target.path = $(if $(__qmake_has_qt_sysroot),$(TARGET_OUT_STAGING))/$(TARGET_DEFAULT_BIN_DESTDIR)"; \
 		echo "}"; \
 		echo "INSTALLS += target"; \
 		echo "INCLUDEPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "DEPENDPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
-		echo "QMAKE_CFLAGS += $(PRIVATE_CFLAGS) $(qmake_global_cflags)"; \
-		echo "QMAKE_CXXFLAGS += $(PRIVATE_CFLAGS) $(qmake_global_cflags) $(PRIVATE_CXXFLAGS) $(TARGET_GLOBAL_CXXFLAGS)"; \
-		echo "LIBS += $(PRIVATE_LDFLAGS) $(qmake_global_ldflags)"; \
+		echo "QMAKE_CFLAGS += $(qmake_global_cflags) $(PRIVATE_CFLAGS)"; \
+		echo "QMAKE_CXXFLAGS += $(qmake_global_cflags) $(TARGET_GLOBAL_CXXFLAGS) $(PRIVATE_CFLAGS) $(PRIVATE_CXXFLAGS)"; \
+		echo "LIBS += $(qmake_global_ldflags) $(PRIVATE_LDFLAGS)"; \
 		echo "LIBS += $(foreach __lib, $(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES), -force_load $(__lib))"; \
 		echo "LIBS += $(PRIVATE_ALL_STATIC_LIBRARIES)"; \
 		echo "LIBS += $(PRIVATE_ALL_SHARED_LIBRARIES)"; \
@@ -72,7 +73,7 @@ define qmake_gen_deps
 		echo "QMAKE_IOS_SIMULATOR_ARCHS = $(filter-out -arch,$(APPLE_ARCH))"; \
 		echo "QMAKE_IOS_DEPLOYMENT_TARGET = $(TARGET_IPHONE_VERSION)"; \
 		echo "QMAKE_MACOSX_DEPLOYMENT_TARGET = $(TARGET_MACOS_VERSION)"; \
-		echo "deployement.files = $(shell find $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_LIB_DESTDIR) -name '*.dylib' -type f -maxdepth 1)"; \
+		echo "deployement.files = $(shell find $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_LIB_DESTDIR) -maxdepth 1 -name '*.dylib' -type f)"; \
 		echo "deployement.path = Contents/Frameworks/"; \
 		echo "QMAKE_BUNDLE_DATA += deployement"; \
 	) >> $(PRIVATE_ALCHEMY_PRI_FILE)
@@ -86,21 +87,22 @@ define qmake_gen_deps
 	@( \
 		echo "equals(TEMPLATE, lib) {"; \
 		echo "    target.path = $(if $(__qmake_has_qt_sysroot),$(TARGET_OUT_STAGING))/$(TARGET_DEFAULT_LIB_DESTDIR)"; \
+		$(if $(call streq,$(TARGET_FORCE_STATIC),1),echo "    CONFIG += staticlib";) \
 		echo "} else {"; \
 		echo "    target.path = $(if $(__qmake_has_qt_sysroot),$(TARGET_OUT_STAGING))/$(TARGET_DEFAULT_BIN_DESTDIR)"; \
 		echo "}"; \
 		echo "INSTALLS += target"; \
 		echo "INCLUDEPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "DEPENDPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
-		echo "QMAKE_CFLAGS += $(PRIVATE_CFLAGS) $(TARGET_GLOBAL_CFLAGS)"; \
-		echo "QMAKE_CXXFLAGS += $(PRIVATE_CFLAGS) $(TARGET_GLOBAL_CFLAGS) $(PRIVATE_CXXFLAGS) $(TARGET_GLOBAL_CXXFLAGS)"; \
-		echo "LIBS += $(PRIVATE_LDFLAGS) $(TARGET_GLOBAL_LDFLAGS)"; \
+		echo "QMAKE_CFLAGS += $(TARGET_GLOBAL_CFLAGS) $(PRIVATE_CFLAGS)"; \
+		echo "QMAKE_CXXFLAGS += $(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CXXFLAGS) $(PRIVATE_CFLAGS) $(PRIVATE_CXXFLAGS)"; \
+		echo "LIBS += $(TARGET_GLOBAL_LDFLAGS) $(PRIVATE_LDFLAGS)"; \
 		echo "LIBS += -Wl,--whole-archive $(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES) -Wl,--no-whole-archive"; \
 		echo "LIBS += $(PRIVATE_ALL_STATIC_LIBRARIES)"; \
 		echo "LIBS += $(PRIVATE_ALL_SHARED_LIBRARIES)"; \
 		echo "LIBS += $(PRIVATE_LDLIBS)"; \
 		echo "LIBS += $(TARGET_GLOBAL_LDLIBS_SHARED)"; \
-		echo "ANDROID_EXTRA_LIBS = $(shell find $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_LIB_DESTDIR) -name 'lib*.so' -type f -maxdepth 1)"; \
+		echo "ANDROID_EXTRA_LIBS = $(shell find $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_LIB_DESTDIR) -maxdepth 1 -name 'lib*.so' -type f)"; \
 	) >> $(PRIVATE_ALCHEMY_PRI_FILE)
 endef
 

@@ -56,23 +56,29 @@ LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs json)
 $(call local-register-prebuilt-overridable)
 endif
 
+ifeq ("$(shell pkg-config --exists glib-2.0 gobject-2.0 gio-2.0; echo $$?)","0")
 include $(CLEAR_VARS)
 LOCAL_MODULE := glib
 LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags glib-2.0 gobject-2.0 gio-2.0)
 LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs glib-2.0 gobject-2.0 gio-2.0)
 $(call local-register-prebuilt-overridable)
+endif
 
+ifeq ("$(shell pkg-config --exists glesv2; echo $$?)","0")
 include $(CLEAR_VARS)
 LOCAL_MODULE := opengles
 LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags glesv2)
 LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs glesv2)
 $(call local-register-prebuilt-overridable)
+endif
 
+ifeq ("$(shell pkg-config --exists gl; echo $$?)","0")
 include $(CLEAR_VARS)
 LOCAL_MODULE := opengl
 LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags gl)
 LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs gl)
 $(call local-register-prebuilt-overridable)
+endif
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libjpeg-turbo
@@ -84,11 +90,13 @@ LOCAL_MODULE := libtiff
 LOCAL_EXPORT_LDLIBS := -ltiff
 $(call local-register-prebuilt-overridable)
 
+ifeq ("$(shell pkg-config --exists libpng; echo $$?)","0")
 include $(CLEAR_VARS)
 LOCAL_MODULE := libpng
 LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags libpng)
 LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs libpng)
 $(call local-register-prebuilt-overridable)
+endif
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := opencv
@@ -155,45 +163,57 @@ LOCAL_EXPORT_LDLIBS := -llapack
 LOCAL_LIBRARIES := libblas
 $(call local-register-prebuilt-overridable)
 
+ifeq ("$(shell pkg-config --exists flann; echo $$?)","0")
 include $(CLEAR_VARS)
 LOCAL_MODULE := flann
 LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags flann)
 LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs flann)
 $(call local-register-prebuilt-overridable)
+endif
 
+ifeq ("$(shell pkg-config --exists glew; echo $$?)","0")
 include $(CLEAR_VARS)
 LOCAL_MODULE := glew
 LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags glew)
 LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs glew)
 $(call local-register-prebuilt-overridable)
+endif
 
+ifeq ("$(shell pkg-config --exists glu; echo $$?)","0")
 include $(CLEAR_VARS)
 LOCAL_MODULE := glu
 LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags glu)
 LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs glu)
 $(call local-register-prebuilt-overridable)
+endif
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := glm
 $(call local-register-prebuilt-overridable)
 
+ifeq ("$(shell pkg-config --exists sdl; echo $$?)","0")
 include $(CLEAR_VARS)
 LOCAL_MODULE := sdl
 LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags sdl)
 LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs sdl)
 $(call local-register-prebuilt-overridable)
+endif
 
+ifeq ("$(shell pkg-config --exists SDL_image; echo $$?)","0")
 include $(CLEAR_VARS)
 LOCAL_MODULE := sdl-image
 LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags SDL_image)
 LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs SDL_image)
 $(call local-register-prebuilt-overridable)
+endif
 
+ifeq ("$(shell pkg-config --exists freetype2; echo $$?)","0")
 include $(CLEAR_VARS)
 LOCAL_MODULE := freetype
 LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags freetype2)
 LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs freetype2)
 $(call local-register-prebuilt-overridable)
+endif
 
 ifeq ("$(shell pkg-config --exists libcrypto; echo $$?)","0")
 include $(CLEAR_VARS)

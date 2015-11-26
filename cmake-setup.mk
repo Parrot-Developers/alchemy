@@ -32,6 +32,11 @@ CMAKE_CONFIGURE_ARGS := \
 CMAKE_MAKE_ARGS := \
 	DESTDIR="$(TARGET_AUTOTOOLS_INSTALL_DESTDIR)"
 
+# Force static compilation if required
+ifeq ("$(TARGET_FORCE_STATIC)","1")
+  CMAKE_CONFIGURE_ARGS += DBUILD_SHARED_LIBS=OFF
+endif
+
 # Quiet/Verbose flags
 ifeq ("$(V)","0")
   CMAKE_MAKE_ARGS += -s --no-print-directory

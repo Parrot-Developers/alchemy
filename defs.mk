@@ -141,15 +141,16 @@ remove-trailing-slash = $(strip $(patsubst %/,%,$1))
 ## Use some colors if requested.
 ###############################################################################
 
-# Forcing using /bin/echo ensures -e option exists and do what is expected
+# Using $'string' format to allow color escaping compatible with mac and linux
+# Double $ is for make interpretation
 ifeq ("$(USE_COLORS)","1")
-  CLR_DEFAULT := $(shell /bin/echo -e "\033[00m")
-  CLR_RED     := $(shell /bin/echo -e "\033[31m")
-  CLR_GREEN   := $(shell /bin/echo -e "\033[32m")
-  CLR_YELLOW  := $(shell /bin/echo -e "\033[33m")
-  CLR_BLUE    := $(shell /bin/echo -e "\033[34m")
-  CLR_PURPLE  := $(shell /bin/echo -e "\033[35m")
-  CLR_CYAN    := $(shell /bin/echo -e "\033[36m")
+  CLR_DEFAULT := $(shell echo $$'\033[00m')
+  CLR_RED     := $(shell echo $$'\033[31m')
+  CLR_GREEN   := $(shell echo $$'\033[32m')
+  CLR_YELLOW  := $(shell echo $$'\033[33m')
+  CLR_BLUE    := $(shell echo $$'\033[34m')
+  CLR_PURPLE  := $(shell echo $$'\033[35m')
+  CLR_CYAN    := $(shell echo $$'\033[36m')
 else
   CLR_DEFAULT :=
   CLR_RED     :=
@@ -730,6 +731,17 @@ __module-compute-depends-static-internal = \
 			$(call __module-compute-depends-static,$(__mod),$2) \
 		) \
 	)
+
+# When forcing static libraries, take into account external libraries as well
+# Otherwise assume they are mostly shared libraries
+ifeq ("$(TARGET_FORCE_STATIC)","1")
+__module-compute-depends-static-internal += \
+	$(foreach __mod,$(__modules.$1.EXTERNAL_LIBRARIES), \
+		$(if $(call is-module-registered,$(__mod)), \
+			$(call __module-compute-depends-static,$(__mod),$2) \
+		) \
+	)
+endif
 
 # Compute dependencies for link. It simply aggregate (and sort) dependencies
 # $1 : module name.

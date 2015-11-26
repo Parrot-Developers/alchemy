@@ -77,7 +77,7 @@ HOST_AUTOTOOLS_CONFIGURE_ENV := \
 	MANIFEST_TOOL=":" \
 	CPPFLAGS="$(HOST_AUTOTOOLS_CPPFLAGS)" \
 	CFLAGS="$(HOST_AUTOTOOLS_CFLAGS)" \
-	CPPFLAGS="$(HOST_AUTOTOOLS_CXXFLAGS)" \
+	CXXFLAGS="$(HOST_AUTOTOOLS_CXXFLAGS)" \
 	LDFLAGS="$(HOST_GLOBAL_LDFLAGS) $(HOST_GLOBAL_LDLIBS)" \
 	DYN_LDFLAGS="$(HOST_GLOBAL_LDFLAGS_SHARED) $(HOST_GLOBAL_LDLIBS_SHARED)" \
 	BISON_PATH="$(BISON_PATH)" \
@@ -206,6 +206,13 @@ else
   TARGET_AUTOTOOLS_CONFIGURE_ARGS += \
 	--build="$(GNU_BUILD_NAME)" \
 	--host="$(GNU_TARGET_NAME)"
+endif
+
+# Force static compilation if required
+ifeq ("$(TARGET_FORCE_STATIC)","1")
+  TARGET_AUTOTOOLS_CONFIGURE_ARGS += \
+	--enable-static \
+	--disable-shared
 endif
 
 # For cross-compilation, use /usr as prefix and install in our staging dir

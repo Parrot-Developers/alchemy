@@ -91,16 +91,24 @@ conflict with other build systems (android for example).</p>
 <li><code>android</code> : alias for <code>linux</code> OS with <code>android</code> flavour. <code>TARGET_ARCH</code> defaults to <code>arm</code>.</li>
 <li><code>iphone</code> : alias for <code>darwin</code> OS with <code>iphoneos</code> flavour.</li>
 <li><code>iphonesimulator</code> : alias for <code>darwin</code> OS with <code>iphonesimulator</code> flavour.</li>
-<li><code>parrot</code> : alias for <code>linux</code> OS with <code>parrot</code> flavour. <code>TARGET_ARCH</code> defaults to <code>arm</code>.
+<li><code>parrot</code> : alias for <code>linux</code> OS with <code>parrot</code> flavour. <code>TARGET_ARCH</code> defaults to <code>arm</code>.</li>
+<li><code>yocto</code> : alias for <code>linux</code> OS with <code>yocto</code> flavour. <code>TARGET_ARCH</code> defaults to <code>arm</code>.
 </br>Default is <code>linux</code> on linux hosts, and <code>darwin</code> on mac hosts.</li>
 </ul></li>
-<li><code>TARGET_OS_FLAVOUR</code> : Flavour of the OS, depending on <code>TARGET_OS</code>.
-For <code>linux</code> :
+<li><p><code>TARGET_OS_FLAVOUR</code> : Flavour of the OS, depending on <code>TARGET_OS</code>.</p>
+
+<p>For <code>linux</code> :</p>
+
 <ul>
 <li><code>parrot</code> for linux-only product.</li>
 <li><code>android</code> for android products.</li>
-<li><code>native</code> or <code>native-chroot</code> for pc.
-For <code>darwin</code> :</li>
+<li><code>native</code> or <code>native-chroot</code> for pc.</li>
+<li><code>yocto</code> for build with Yocto SDK.</li>
+</ul>
+
+<p>For <code>darwin</code> :</p>
+
+<ul>
 <li><code>iphoneos</code> for iOS devices.</li>
 <li><code>iphonesimulator</code> for iOS simulator.</li>
 <li><code>native</code> for mac.
@@ -172,6 +180,8 @@ the toolchain and merges an external skeleton with other essential files
 provided by the product.
 </br>Default is <code>$(TARGET_OUT)/final</code>.
 </br>Note: setting this variable is deprecated</li>
+<li><code>TARGET_OUT_GCOV</code> : Full path to folder where the gcno files will be put.
+</br>Default is <code>$(TARGET_OUT)/gcov</code>.</li>
 <li><code>TARGET_CONFIG_DIR</code> : Full path to folder where the configuration files are
 stored. If not set, it is assumed that there will be no configurable module
 and everything will be built.
@@ -212,11 +222,14 @@ kernel. During cpio image generation, the kernel will be re-linked to add it
 inside. Also, required options are internally set in linux config. Although
 only the copy in build directory is modified, the original one is not touched.
 </br>Default is <code>0</code></li>
-<li><code>TARGET_LINUX_DEVICE_TREE</code> : name of a device tree to append to kernel image.
-It shall be in <code>$(LINUX_BUILD_DIR)/arch/$(TARGET_ARCH)/boot/dts</code>. The name
-shall be the one with the <code>.dtb</code> extension. Default is empty.</li>
+<li><code>TARGET_LINUX_DEVICE_TREE_NAMES</code> : list of device tree name to copy in boot
+directory. It shall be in <code>$(LINUX_BUILD_DIR)/arch/$(TARGET_ARCH)/boot/dts</code>.
+The names shall be the ones with the <code>.dtb</code> extension. Default is empty.</li>
 <li><code>TARGET_LINUX_GENERATE_UIMAGE</code> : generate a u-boot image of linux.
 </br>Default is <code>0</code></li>
+<li><code>TARGET_LINUX_IMAGE</code> : linux image to generate and copy in boot directory.
+</br>Default is <code>zImage</code> for arm, <code>bzImage</code> for <code>x86</code> and <code>x64</code>,
+<code>Image</code> for <code>aarch64</code></li>
 <li><code>LOCAL_LINUX_MAKE_BUILD_ARGS</code> : Additional variables to be given as
 parameters to the kernel build commands (using make).</li>
 </ul>
@@ -253,6 +266,20 @@ it when targetting Android.</li>
 <li><code>TARGET_ANDROID_STL</code> : specify the C++ Standard Template Library implementation to use. The NDK supports multiple STL implementations, which can be selected with this variable. Supported values are : <code>gnustl</code>, the GNU libstdc++; <code>libc++</code>, LLVM's libc++; and <code>stlport</code>.
 </br>Default is the GNU libstdc++.</li>
 <li><code>TARGET_ANDROID_SHARED_STL</code> : by default, Android NDK uses a static version of the C++ Standard library, which works only when generating a single shared library or executable. Setting this variable to <code>1</code> switches to a shared library version of the STL, which is needed if the project contains multiple shared libraries or executables. In that case, the shared library must be copied to the target device.</li>
+</ul></li>
+</ul>
+
+<h3>Yocto specific</h3>
+
+<p>Alchemy supports building by using Yocto SDK.</p>
+
+<ul>
+<li>These options can be defined for Yocto build:
+<ul>
+<li><code>TARGET_YOCTO_VERSION</code> : Yocto version.
+</br>Default is <code>1.8</code></li>
+<li><code>TARGET_YOKTO_SDK</code> : Path of Yocto SDK to use.
+</br>Default tries to auto-detect the SDK from a few somewhat standard location (<code>/opt/poky*</code>, <code>~/Library/poky*</code>, <code>~/poky*</code>, ...)</li>
 </ul></li>
 </ul>
 
@@ -296,10 +323,13 @@ mode, not the other way.</li>
 <h3>Other variables</h3>
 
 <ul>
-<li><code>TARGET_PBUILD_FORCE_STATIC</code> : Can be set to <code>1</code> to force the compilation of
-static libraries even if module requested to build a dynamic one. Mainly here
-to compile ecos target and prepare the transition from monolithic SoftAT
-executable to separate shared libraries.
+<li><code>TARGET_FORCE_STATIC</code> : Can be set to <code>1</code> to force the compilation of libraries
+as static even if module requested to build a shared one. This option impacts
+all modules (internal AND external).
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_PBUILD_FORCE_STATIC</code> : Similar to <code>TARGET_FORCE_STATIC</code> but module
+shall also set <code>LOCAL_PBUILD_ALLOW_FORCE_STATIC</code> to <code>1</code> to be compiled as static.
+This option only impacts modules of class <code>SHARED</code> and <code>LIBRARY</code>.
 </br>Default is <code>0</code>.</li>
 <li><code>TARGET_PBUILD_HOOK_USE_DESCRIBE</code> : Can be set to <code>1</code> to save tags of libraries
 used in binary. It can be retrieved at run time with pal function

@@ -14,6 +14,9 @@ endif
 # Force arm mode
 TARGET_DEFAULT_ARM_MODE := arm
 
+# Force static compilation
+TARGET_FORCE_STATIC := 1
+
 TARGET_GLOBAL_C_INCLUDES += \
 	$(TARGET_OUT_STAGING)/ecos/include
 

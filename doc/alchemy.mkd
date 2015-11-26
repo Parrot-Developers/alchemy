@@ -84,12 +84,16 @@ conflict with other build systems (android for example).
   * `iphone` : alias for `darwin` OS with `iphoneos` flavour.
   * `iphonesimulator` : alias for `darwin` OS with `iphonesimulator` flavour.
   * `parrot` : alias for `linux` OS with `parrot` flavour. `TARGET_ARCH` defaults to `arm`.
+  * `yocto` : alias for `linux` OS with `yocto` flavour. `TARGET_ARCH` defaults to `arm`.
   </br>Default is `linux` on linux hosts, and `darwin` on mac hosts.
 * `TARGET_OS_FLAVOUR` : Flavour of the OS, depending on `TARGET_OS`.
+
   For `linux` :
   * `parrot` for linux-only product.
   * `android` for android products.
   * `native` or `native-chroot` for pc.
+  * `yocto` for build with Yocto SDK.
+
   For `darwin` :
   * `iphoneos` for iOS devices.
   * `iphonesimulator` for iOS simulator.
@@ -153,6 +157,8 @@ conflict with other build systems (android for example).
   provided by the product.
   </br>Default is `$(TARGET_OUT)/final`.
   </br>Note: setting this variable is deprecated
+* `TARGET_OUT_GCOV` : Full path to folder where the gcno files will be put.
+  </br>Default is `$(TARGET_OUT)/gcov`.
 * `TARGET_CONFIG_DIR` : Full path to folder where the configuration files are
   stored. If not set, it is assumed that there will be no configurable module
   and everything will be built.
@@ -188,11 +194,14 @@ conflict with other build systems (android for example).
   inside. Also, required options are internally set in linux config. Although
   only the copy in build directory is modified, the original one is not touched.
   </br>Default is `0`
-* `TARGET_LINUX_DEVICE_TREE` : name of a device tree to append to kernel image.
-  It shall be in `$(LINUX_BUILD_DIR)/arch/$(TARGET_ARCH)/boot/dts`. The name
-  shall be the one with the `.dtb` extension. Default is empty.
+* `TARGET_LINUX_DEVICE_TREE_NAMES` : list of device tree name to copy in boot
+  directory. It shall be in `$(LINUX_BUILD_DIR)/arch/$(TARGET_ARCH)/boot/dts`.
+  The names shall be the ones with the `.dtb` extension. Default is empty.
 * `TARGET_LINUX_GENERATE_UIMAGE` : generate a u-boot image of linux.
   </br>Default is `0`
+* `TARGET_LINUX_IMAGE` : linux image to generate and copy in boot directory.
+  </br>Default is `zImage` for arm, `bzImage` for `x86` and `x64`,
+  `Image` for `aarch64`
 * `TARGET_LINUX_MAKE_BUILD_ARGS` : Additional variables to be given as
   parameters to the kernel build commands (using make).
 
@@ -223,6 +232,15 @@ it when targetting Android.
   * `TARGET_ANDROID_STL` : specify the C++ Standard Template Library implementation to use. The NDK supports multiple STL implementations, which can be selected with this variable. Supported values are : `gnustl`, the GNU libstdc++; `libc++`, LLVM's libc++; and `stlport`.
   </br>Default is the GNU libstdc++.
   * `TARGET_ANDROID_SHARED_STL` : by default, Android NDK uses a static version of the C++ Standard library, which works only when generating a single shared library or executable. Setting this variable to `1` switches to a shared library version of the STL, which is needed if the project contains multiple shared libraries or executables. In that case, the shared library must be copied to the target device.
+
+### Yocto specific
+Alchemy supports building by using Yocto SDK.
+
+* These options can be defined for Yocto build:
+  * `TARGET_YOCTO_VERSION` : Yocto version.
+  </br>Default is `1.8`
+  * `TARGET_YOKTO_SDK` : Path of Yocto SDK to use.
+  </br>Default tries to auto-detect the SDK from a few somewhat standard location (`/opt/poky*`, `~/Library/poky*`, `~/poky*`, ...)
 
 ### Global flags for tools.
 Normally not needed, default values are determined based on target setting.
@@ -257,10 +275,13 @@ Mainly used by the android wrapper.
 
 ### Other variables
 
-* `TARGET_PBUILD_FORCE_STATIC` : Can be set to `1` to force the compilation of
-  static libraries even if module requested to build a dynamic one. Mainly here
-  to compile ecos target and prepare the transition from monolithic SoftAT
-  executable to separate shared libraries.
+* `TARGET_FORCE_STATIC` : Can be set to `1` to force the compilation of libraries
+  as static even if module requested to build a shared one. This option impacts
+  all modules (internal AND external).
+  </br>Default is `0`.
+* `TARGET_PBUILD_FORCE_STATIC` : Similar to `TARGET_FORCE_STATIC` but module
+  shall also set `LOCAL_PBUILD_ALLOW_FORCE_STATIC` to `1` to be compiled as static.
+  This option only impacts modules of class `SHARED` and `LIBRARY`.
   </br>Default is `0`.
 * `TARGET_PBUILD_HOOK_USE_DESCRIBE` : Can be set to `1` to save tags of libraries
   used in binary. It can be retrieved at run time with pal function

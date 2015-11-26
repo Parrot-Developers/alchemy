@@ -7,6 +7,18 @@ import xml.parsers
 import moduledb
 from xml.sax.saxutils import escape
 
+
+def getRealSourceDir(src_dir):
+	real_src_dir = src_dir
+	(head, tail) = os.path.split(src_dir)
+	if tail == "":
+		(head, tail) = os.path.split(head)
+
+	if tail.lower() == "build" or tail.lower() == "alchemy":
+		real_src_dir = head
+
+	return real_src_dir
+
 #===============================================================================
 # Get Module sources directories including generated files
 #===============================================================================
@@ -17,7 +29,7 @@ def getModuleSourceDirs(self, module, build_dir):
 	if "ARCHIVE" in module.fields:
 		src_dir = build_dir + "/" + module.name + "/" + module.fields["ARCHIVE_SUBDIR"]
 	else:
-		src_dir = module.fields["PATH"]
+		src_dir = getRealSourceDir(module.fields["PATH"])
 
 	dirs.append(src_dir)
 
@@ -38,19 +50,20 @@ class Project(object):
 		self.modules = modules
 		self.depends = [modules[dep] for dep in self.module.fields.get("depends", "").split()]
 		self.depends_all = [modules[dep] for dep in self.module.fields.get("depends.all", "").split()]
+		self.depends_headers = [modules[dep] for dep in self.module.fields.get("depends.headers", "").split()]
 		self.link_depends = {}
 
 		if options.linkdeps_full:
-			depends = self.depends_all
+			depends = self.depends_all + self.depends_headers
 		else:
-			depends = self.depends
+			depends = self.depends + self.depends_headers
 
 		# populate link dependencies only for direct dependencies
 		for dep in depends:
 			if "ARCHIVE" in dep.fields:
 				src_dir = modules.targetVars["OUT_BUILD"] + "/" + dep.name + "/" + dep.fields["ARCHIVE_SUBDIR"]
 			else:
-				src_dir = dep.fields["PATH"]
+				src_dir = getRealSourceDir(dep.fields["PATH"])
 
 			addDepend = True
 			for d in self.link_depends.keys() + [self.module.fields["PATH"]]:

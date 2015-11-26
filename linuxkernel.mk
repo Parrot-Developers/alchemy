@@ -111,13 +111,31 @@ LINUX_EXPORTED_HEADERS_OVER := \
 	include/linux/iio/events.h \
 	include/linux/iio/types.h
 
+# Linux image to generate
+ifndef TARGET_LINUX_IMAGE
+  ifeq ("$(TARGET_LINUX_GENERATE_UIMAGE)","1")
+    TARGET_LINUX_IMAGE := uImage
+  else ifeq ("$(TARGET_LINUX_ARCH)","x86")
+    TARGET_LINUX_IMAGE := bzImage
+  else ifeq ("$(TARGET_LINUX_ARCH)","x86")
+    TARGET_LINUX_IMAGE := bzImage
+  else ifeq ("$(TARGET_LINUX_ARCH)","arm")
+    TARGET_LINUX_IMAGE := zImage
+  else ifeq ("$(TARGET_LINUX_ARCH)","aarch64")
+    TARGET_LINUX_IMAGE := Image
+  else
+    TARGET_LINUX_IMAGE := zImage
+  endif
+endif
+
 # Macro to copy a kernel image from boot directory to staging directory
 # $1 image file to copy from arch/boot directory
 linux-copy-image = \
-	if [ -f $(LINUX_BUILD_DIR)/arch/$(LINUX_SRCARCH)/boot/$1 ]; then \
-		mkdir -p $(TARGET_OUT_STAGING)/boot; \
-		cp -af $(LINUX_BUILD_DIR)/arch/$(LINUX_SRCARCH)/boot/$1 $(TARGET_OUT_STAGING)/boot; \
-	fi;
+	$(if $(call streq,$(TARGET_LINUX_IMAGE),$1), \
+		if [ -f $(LINUX_BUILD_DIR)/arch/$(LINUX_SRCARCH)/boot/$1 ]; then \
+			cp -af $(LINUX_BUILD_DIR)/arch/$(LINUX_SRCARCH)/boot/$1 $(TARGET_OUT_STAGING)/boot; \
+		fi; \
+	)
 
 define linux-copy-images
 	$(Q) $(call linux-copy-image,uImage)
@@ -240,13 +258,16 @@ endif
 ifneq ("$(TARGET_LINUX_GENERATE_UIMAGE)","0")
 	$(Q) $(MAKE) $(LINUX_MAKE_ARGS) uImage
 endif
+ifeq ("$(TARGET_LINUX_IMAGE)","uImage")
+	$(Q) $(MAKE) $(LINUX_MAKE_ARGS) uImage
+endif
+	@mkdir -p $(TARGET_OUT_STAGING)/boot
 	$(call linux-copy-images)
-ifneq ("$(TARGET_LINUX_DEVICE_TREE)","")
-	$(Q)cat $(TARGET_OUT_STAGING)/boot/zImage \
-		$(LINUX_BUILD_DIR)/arch/$(LINUX_SRCARCH)/boot/dts/$(TARGET_LINUX_DEVICE_TREE) \
-		> $(TARGET_OUT_STAGING)/boot/zImage_$(TARGET_LINUX_DEVICE_TREE)
-	$(Q)cp -af $(LINUX_BUILD_DIR)/arch/$(LINUX_SRCARCH)/boot/dts/$(TARGET_LINUX_DEVICE_TREE) \
-		$(TARGET_OUT_STAGING)/boot/
+ifneq ("$(TARGET_LINUX_DEVICE_TREE_NAMES)","")
+	$(Q)for f in $(TARGET_LINUX_DEVICE_TREE_NAMES); do \
+		cp -af $(LINUX_BUILD_DIR)/arch/$(LINUX_SRCARCH)/boot/dts/$$f \
+			$(TARGET_OUT_STAGING)/boot/; \
+	done
 endif
 	$(Q)cp -af $(LINUX_BUILD_DIR)/vmlinux $(TARGET_OUT_STAGING)/boot
 	$(call linux-gen-sdk)

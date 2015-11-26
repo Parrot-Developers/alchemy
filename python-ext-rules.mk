@@ -7,7 +7,17 @@
 ###############################################################################
 
 # Python executable
-python_exe := $(HOST_OUT_STAGING)/usr/bin/python3
+ifneq ("$(call is-module-in-build-config,python3)","")
+  python_exe := $(HOST_OUT_STAGING)/usr/bin/python3
+else ifeq ("$(TARGET_OS)-$(TARGET_OS_FLAVOUR)","$(HOST_OS)-native")
+  python_exe = $(realpath $(shell which python))
+else
+  python_exe :=
+endif
+
+ifeq ("$(python_exe)","")
+  $(error $(LOCAL_MODULE): python not found.)
+endif
 
 built_file := $(build_dir)/$(LOCAL_MODULE).built
 

@@ -13,7 +13,7 @@ endif
 
 # check if we want to force static libraries
 force_static := 0
-ifeq ("$(TARGET_OS)","ecos")
+ifeq ("$(TARGET_FORCE_STATIC)","1")
   force_static := 1
 else ifeq ("$(TARGET_PBUILD_FORCE_STATIC)","1")
   ifeq ("$(LOCAL_PBUILD_ALLOW_FORCE_STATIC)","1")
@@ -42,6 +42,9 @@ ifeq ("$(LOCAL_MODULE_FILENAME)","")
   else
     LOCAL_MODULE_FILENAME := $(LOCAL_MODULE)$(suffix)
   endif
+else ifeq ("$(force_static)","1")
+  LOCAL_MODULE_FILENAME := $(LOCAL_MODULE_FILENAME:.so=$(TARGET_STATIC_LIB_SUFFIX))
+  LOCAL_MODULE_FILENAME := $(LOCAL_MODULE_FILENAME:$(TARGET_SHARED_LIB_SUFFIX)=$(TARGET_STATIC_LIB_SUFFIX))
 endif
 
 $(module-add)

@@ -97,6 +97,8 @@ ifeq ("$(TARGET_LIBC)","")
     TARGET_LIBC := native
   else ifeq ("$(TARGET_OS_FLAVOUR)","native-chroot")
     TARGET_LIBC := native
+  else ifeq ("$(TARGET_OS_FLAVOUR)","yocto")
+    TARGET_LIBC := yocto
   else
     TARGET_LIBC := eglibc
   endif
@@ -230,7 +232,7 @@ $(error Unable to find compiler: $(TARGET_CC))
 endif
 
 # TODO: remove when not used anymore
-TARGET_COMPILER_PATH := $(shell PARAM=$(TARGET_CC);echo $${PARAM%/bin*})
+TARGET_COMPILER_PATH := $(shell PARAM="$(TARGET_CC)";echo $${PARAM%/bin*})
 
 # Machine targetted by toolchain to be used by autotools and libc installation
 ifndef TOOLCHAIN_TARGET_NAME
