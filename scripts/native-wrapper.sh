@@ -2,7 +2,7 @@
 
 # This script assumes it is copied in the staging or final dir
 # Folders bin, usr/bin, lib, /usr/lib are subdirectories there
-# 
+#
 # If sourced, PATH and LD_LIBRARY_PATH are updated so programs can be executed
 # from shell.
 #
@@ -11,7 +11,14 @@
 
 
 # Get full path to this script (either when executed or sourced)
-SCRIPT_PATH=$(cd $(dirname ${BASH_SOURCE}) && pwd)
+if [ -n "$ZSH_VERSION" ]; then
+	# this line permits the script to be sourced from a ZSH shell
+	SCRIPT_PATH=$(cd $(dirname ${(%):-%N}) && pwd)
+else
+	# assume Bash
+	SCRIPT_PATH=$(cd $(dirname ${BASH_SOURCE}) && pwd)
+fi
+
 SYSROOT=${SCRIPT_PATH}
 
 # Restore previous variables

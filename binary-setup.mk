@@ -40,14 +40,14 @@ $(call check-pwd-is-top-dir)
 $(Q)$(CCACHE) $(PRIVATE_CXX) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
 	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES)) \
-	$(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CXXFLAGS) $(WARNINGS_CXXFLAGS) \
+	$(filter-out -std=%,$(TARGET_GLOBAL_CFLAGS)) $(TARGET_GLOBAL_CXXFLAGS) $(WARNINGS_CXXFLAGS) \
 	$(TARGET_GLOBAL_CXXFLAGS_$(PRIVATE_COMPILER_FLAVOUR)) \
-	$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_COMPILER_FLAVOUR)) \
+	$(filter-out -std=%,$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_COMPILER_FLAVOUR))) \
 	$(WARNINGS_CXXFLAGS_$(PRIVATE_COMPILER_FLAVOUR)) \
-	$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_ARCH)) \
-	$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_ARCH)_$(PRIVATE_COMPILER_FLAVOUR)) \
+	$(filter-out -std=%,$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_ARCH))) \
+	$(filter-out -std=%,$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_ARCH)_$(PRIVATE_COMPILER_FLAVOUR))) \
 	$(PRIVATE_PCH_INCLUDE) \
-	$(PRIVATE_CFLAGS) $(PRIVATE_CXXFLAGS) \
+	$(filter-out -std=%,$(PRIVATE_CFLAGS)) $(PRIVATE_CXXFLAGS) \
 	-c -MMD -MP -MF $(@:.o=.d) -MT $@ -o $@ \
 	$(call path-from-top,$<)
 $(call fix-deps-file,$(@:.o=.d))
@@ -75,6 +75,29 @@ $(Q)$(CCACHE) $(PRIVATE_CC) \
 $(call fix-deps-file,$(@:.o=.d))
 endef
 
+ ###############################################################################
+## Commands to compile a Objective-C file.
+###############################################################################
+
+define transform-m-to-o
+$(call print-banner1,"$(PRIVATE_ARCH) OBJC",$(PRIVATE_MODULE),$(call path-from-top,$<))
+$(call check-pwd-is-top-dir)
+@mkdir -p $(dir $@)
+$(Q)$(CCACHE) $(PRIVATE_CC) \
+	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES)) \
+	$(TARGET_GLOBAL_CFLAGS) $(WARNINGS_CFLAGS) \
+	$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_COMPILER_FLAVOUR)) \
+	$(WARNINGS_CFLAGS_$(PRIVATE_COMPILER_FLAVOUR)) \
+	$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_ARCH)) \
+	$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_ARCH)_$(PRIVATE_COMPILER_FLAVOUR)) \
+	$(TARGET_GLOBAL_OBJCFLAGS) \
+	$(PRIVATE_CFLAGS) $(PRIVATE_OBJCFLAGS) \
+	-c -MMD -MP -MF $(@:.o=.d) -MT $@ -o $@ \
+	$(call path-from-top,$<)
+	$(call fix-deps-file,$(@:.o=.d))
+endef
+
 ###############################################################################
 ## Commands to compile a S file.
 ###############################################################################
@@ -86,11 +109,13 @@ $(call check-pwd-is-top-dir)
 $(Q)$(CCACHE) $(PRIVATE_CC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
 	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES)) \
+	$(TARGET_GLOBAL_ASFLAGS) \
 	$(TARGET_GLOBAL_CFLAGS) $(WARNINGS_CFLAGS) \
 	$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_COMPILER_FLAVOUR)) \
 	$(WARNINGS_CFLAGS_$(PRIVATE_COMPILER_FLAVOUR)) \
 	$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_ARCH)) \
 	$(TARGET_GLOBAL_CFLAGS_$(PRIVATE_ARCH)_$(PRIVATE_COMPILER_FLAVOUR)) \
+	$(PRIVATE_ASFLAGS) \
 	$(PRIVATE_CFLAGS) \
 	-c -MMD -MP -MF $(@:.o=.d) -MT $@ -o $@ \
 	$(call path-from-top,$<)
@@ -156,7 +181,7 @@ $(call check-pwd-is-top-dir)
 $(Q)$(PRIVATE_CXX) \
 	$(TARGET_GLOBAL_LDFLAGS_SHARED) \
 	$(TARGET_GLOBAL_LDFLAGS_$(PRIVATE_COMPILER_FLAVOUR)) \
-	-Wl,-map -Wl,$(basename $@).map \
+	$(if $(call streq,$(USE_LINK_MAP_FILE),1),-Wl$(comma)-map$(comma)$(basename $@).map) \
 	-shared \
 	-Wl,-dead_strip \
 	-Wl,-install_name,$(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_LIB_DESTDIR)/$(notdir $@) \
@@ -183,7 +208,7 @@ $(call check-pwd-is-top-dir)
 $(Q)$(PRIVATE_CXX) \
 	$(TARGET_GLOBAL_LDFLAGS_SHARED) \
 	$(TARGET_GLOBAL_LDFLAGS_$(PRIVATE_COMPILER_FLAVOUR)) \
-	-Wl,-Map -Wl,$(basename $@).map \
+	$(if $(call streq,$(USE_LINK_MAP_FILE),1),-Wl$(comma)-Map$(comma)$(basename $@).map) \
 	-shared \
 	-Wl,-soname -Wl,$(notdir $@) \
 	-Wl,--no-undefined \
@@ -220,7 +245,7 @@ $(call check-pwd-is-top-dir)
 $(Q)$(PRIVATE_CXX) \
 	$(TARGET_GLOBAL_LDFLAGS) \
 	$(TARGET_GLOBAL_LDFLAGS_$(PRIVATE_COMPILER_FLAVOUR)) \
-	-Wl,-map -Wl,$(basename $@).map \
+	$(if $(call streq,$(USE_LINK_MAP_FILE),1),-Wl$(comma)-map$(comma)$(basename $@).map) \
 	-Wl,-dead_strip \
 	$(PRIVATE_LDFLAGS) \
 	$(PRIVATE_ALL_OBJECTS) \
@@ -245,7 +270,7 @@ $(call check-pwd-is-top-dir)
 $(Q)$(PRIVATE_CXX) \
 	$(TARGET_GLOBAL_LDFLAGS) \
 	$(TARGET_GLOBAL_LDFLAGS_$(PRIVATE_COMPILER_FLAVOUR)) \
-	-Wl,-Map -Wl,$(basename $@).map \
+	$(if $(call streq,$(USE_LINK_MAP_FILE),1),-Wl$(comma)-Map$(comma)$(basename $@).map) \
 	-Wl,--gc-sections \
 	-Wl,--as-needed \
 	$(PRIVATE_LDFLAGS) \

@@ -163,6 +163,14 @@ LOCAL_EXPORT_LDLIBS := -llapack
 LOCAL_LIBRARIES := libblas
 $(call local-register-prebuilt-overridable)
 
+ifeq ("$(shell pkg-config --exists ncurses; echo $$?)","0")
+include $(CLEAR_VARS)
+LOCAL_MODULE := ncurses
+LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags ncurses)
+LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs ncurses)
+$(call local-register-prebuilt-overridable)
+endif
+
 ifeq ("$(shell pkg-config --exists flann; echo $$?)","0")
 include $(CLEAR_VARS)
 LOCAL_MODULE := flann

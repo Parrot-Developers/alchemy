@@ -79,6 +79,7 @@ conflict with other build systems (android for example).
 * `TARGET_OS` : Specify the OS of the target. Possible values are :
   * `linux`.
   * `ecos`.
+  * `baremetal`.
   * `darwin`.
   * `android` : alias for `linux` OS with `android` flavour. `TARGET_ARCH` defaults to `arm`.
   * `iphone` : alias for `darwin` OS with `iphoneos` flavour.
@@ -132,6 +133,7 @@ conflict with other build systems (android for example).
   * `armv7a-neon`
   * `tegrak1`
   * `tegrax1`
+  * `arm7tdmi`
   </br>Default is empty (no specific optimization activated).
 * `TARGET_PRODUCT`: Name of the product. Mainly used for determining some other
   default values.
@@ -248,6 +250,7 @@ Mainly used by the android wrapper.
 
 * `TARGET_GLOBAL_C_INCLUDES` : List of full path to directories to add for all
   file compiled. The -I prefix will be appended so do not put it.
+* `TARGET_GLOBAL_ASFLAGS` : Flags to pass to the assembler.
 * `TARGET_GLOBAL_CFLAGS` : Flags to pass to the C **and** C++ compiler.
 * `TARGET_GLOBAL_CXXFLAGS` : Flags to pass to the C++ compiler only.
 * `TARGET_GLOBAL_ARFLAGS` : Flags to pass to the archive maker.
@@ -259,6 +262,7 @@ Mainly used by the android wrapper.
 * `TARGET_GLOBAL_LDLIBS_SHARED` : Additional libraries to use when linking
   libraries.
 * `TARGET_GLOBAL_PCH_FLAGS` : Flags to pass when precompiling headers.
+* `TARGET_GLOBAL_OBJCFLAGS` : Flags to pass to the Objective-C compiler.
 
 ### Specific flags for arm targets.
 Normally not needed, default values are determined based on target setting.
@@ -934,10 +938,12 @@ specifying path under the `atom.mk`.
 **Note** : The build directory and `LOCAL_PATH` are automatically added during
 compilation
 
-#### `LOCAL_CFLAGS`, `LOCAL_CXXFLAGS`
+#### `LOCAL_ASFLAGS`, `LOCAL_CFLAGS`, `LOCAL_CXXFLAGS`, `LOCAL_OBJCFLAGS`
 
-Flags to be passed during the compilation of source files. `LOCAL_CFLAGS` is
-given to **all** files, whereas `LOCAL_CXXFLAGS` is given only to `c++` files
+Flags to be passed during the compilation of source files. `LOCAL_ASFLAGS` is
+given only to `asm` files. `LOCAL_CFLAGS` is given to **all** files, whereas
+`LOCAL_CXXFLAGS` is given only to `c++` files and `LOCAL_OBJCFLAGS` to
+objective-C files.
 
 **Note** : some warning flags are automatically added by the build system,
 please do not add/remove any to let the build system decides which flags are
@@ -998,6 +1004,11 @@ when needed.
 
 If set to `1`, the module output file will not be copied in staging directory.
 This allow customization of this step by the `atom.mk`.
+
+#### `LOCAL_LDSCRIPT`
+
+Optional linker script for an `EXECUTABLE` module. The path shall be relative
+to `LOCAL_PATH`. This is usually only used for `baremetal` target OS modules.
 
 ### Autotools modules
 
@@ -1070,6 +1081,7 @@ In the environment, the following variables are set during the call to configure
 * `OBJDUMP`
 * `CC_FOR_BUILD`
 * `CPPFLAGS`
+* `ASFLAGS`
 * `CFLAGS`
 * `CXXFLAGS`
 * `LDFLAGS`
@@ -1125,9 +1137,6 @@ In the definition of custom commands, the following points shall be noted :
 
 * `PRIVATE_ARCHIVE` : Full path to the archive file specified in
   `LOCAL_AUTOTOOLS_ARCHIVE`.
-* `PRIVATE_UNPACK_DIR` : Full path to where the archive has been extracted
-  (usually the build directory). This is also where the directory specified in
-  `LOCAL_AUTOTOOLS_SUBDIR` will be found.
 * `PRIVATE_SRC_DIR` : Full path to the source directory of the module. For
   modules with an archive to be unpacked, it is the same as `PRIVATE_OBJ_DIR`.
 * `PRIVATE_OBJ_DIR` : Full path to the directory where the module will be
@@ -1144,6 +1153,7 @@ In the definition of custom commands, the following points shall be noted :
 Some variables containing generic content can also be used :
 
 * `TARGET_AUTOTOOLS_CPPFLAGS`
+* `TARGET_AUTOTOOLS_ASFLAGS`
 * `TARGET_AUTOTOOLS_CFLAGS`
 * `TARGET_AUTOTOOLS_CXXFLAGS`
 * `TARGET_AUTOTOOLS_LDFLAGS`
@@ -1323,6 +1333,7 @@ customized before invoking `alchemy`. For the meaning, see the corresponding
 * `HOST_OUT_BUILD` : `$(TARGET_OUT)/build-host`
 * `HOST_OUT_STAGING` : `$(TARGET_OUT)/staging-host`
 * `HOST_GLOBAL_C_INCLUDES` :
+* `HOST_GLOBAL_ASFLAGS` : empty
 * `HOST_GLOBAL_CFLAGS` : `-pipe -O2 -g0`
 * `HOST_GLOBAL_CXXFLAGS` : empty
 * `HOST_GLOBAL_ARFLAGS` : `rcs`

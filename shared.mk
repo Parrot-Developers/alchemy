@@ -43,6 +43,9 @@ ifeq ("$(LOCAL_MODULE_FILENAME)","")
 else ifeq ("$(force_static)","1")
   LOCAL_MODULE_FILENAME := $(LOCAL_MODULE_FILENAME:.so=$(TARGET_STATIC_LIB_SUFFIX))
   LOCAL_MODULE_FILENAME := $(LOCAL_MODULE_FILENAME:$(TARGET_SHARED_LIB_SUFFIX)=$(TARGET_STATIC_LIB_SUFFIX))
+else
+  # In case the module specified a .so extension, put the correct one
+  LOCAL_MODULE_FILENAME := $(LOCAL_MODULE_FILENAME:.so=$(TARGET_SHARED_LIB_SUFFIX))
 endif
 
 $(module-add)

@@ -45,7 +45,7 @@ else
 endif
 
 # Try to auto-detect Qt SDK path
-QT_SDK_DEFAULT_PATHS = /opt/Qt* /opt/QT* /Applications/Qt*
+QT_SDK_DEFAULT_PATHS := /opt/Qt* /opt/QT* /Applications/Qt* ~/Qt*
 TARGET_QT_SDKROOT ?= $(shell shopt -s nullglob ;                       \
                              for path in $(QT_SDK_DEFAULT_PATHS) ; do  \
                                  if [ -e $$path/$(TARGET_QT_VERSION)/$(TARGET_QT_PLATFORM)/bin/qmake ]; then   \

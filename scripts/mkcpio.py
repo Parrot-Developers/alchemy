@@ -65,7 +65,7 @@ class Cpio(object):
                 len(filePath) + 1, 0))
         self.write(buf)
         self.write(filePath + "\0")
-        self.align4()
+        self.align512()
         self.inode += 1
 
 #===============================================================================

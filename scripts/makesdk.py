@@ -27,12 +27,6 @@ class Context(object):
 		self.headerLibs = []
 
 #===============================================================================
-# Escape quotes in string.
-#===============================================================================
-def escapeStr(s):
-	return s.replace("\"", "\\\"")
-
-#===============================================================================
 # Similar to shutil.copytree but does not fail if destination exists
 # Also, the ignore argument is removed
 #===============================================================================
@@ -235,7 +229,7 @@ def processModule(ctx, module, headersOnly=False):
 			"EXPORT_CFLAGS", "EXPORT_CXXFLAGS"]
 	for field in fields:
 		if field in module.fields and module.fields[field] :
-			ctx.atom.write("LOCAL_%s := %s\n" % (field, escapeStr(module.fields[field])))
+			ctx.atom.write("LOCAL_%s := %s\n" % (field, module.fields[field]))
 
 	if module.name.startswith("host."):
 		ctx.atom.write("LOCAL_HOST_MODULE := %s\n" % module.name[5:])
@@ -379,9 +373,6 @@ def writeTargetSetupVars(ctx, name):
 		for dirPath in ctx.sdkDirs:
 			val = val.replace(dirPath, "$(LOCAL_PATH)")
 		val = val.replace(ctx.stagingDir, "$(LOCAL_PATH)")
-		# Escape quotes
-		if name == "GLOBAL_CFLAGS" or name == "GLOBAL_CXXFLAGS":
-			val = val.replace("\"", "\\\"")
 		ctx.setup.write("TARGET_%s :=" % name)
 		for field in val.split():
 			if field.startswith("-"):

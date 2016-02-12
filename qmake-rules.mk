@@ -60,7 +60,7 @@ define qmake_gen_deps
 		echo "INCLUDEPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "DEPENDPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "QMAKE_CFLAGS += $(qmake_global_cflags) $(PRIVATE_CFLAGS)"; \
-		echo "QMAKE_CXXFLAGS += $(qmake_global_cflags) $(TARGET_GLOBAL_CXXFLAGS) $(PRIVATE_CFLAGS) $(PRIVATE_CXXFLAGS)"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(qmake_global_cflags)) $(TARGET_GLOBAL_CXXFLAGS) $(filter-out -std=%,$(PRIVATE_CFLAGS)) $(PRIVATE_CXXFLAGS)"; \
 		echo "LIBS += $(qmake_global_ldflags) $(PRIVATE_LDFLAGS)"; \
 		echo "LIBS += $(foreach __lib, $(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES), -force_load $(__lib))"; \
 		echo "LIBS += $(PRIVATE_ALL_STATIC_LIBRARIES)"; \
@@ -95,7 +95,7 @@ define qmake_gen_deps
 		echo "INCLUDEPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "DEPENDPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "QMAKE_CFLAGS += $(TARGET_GLOBAL_CFLAGS) $(PRIVATE_CFLAGS)"; \
-		echo "QMAKE_CXXFLAGS += $(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CXXFLAGS) $(PRIVATE_CFLAGS) $(PRIVATE_CXXFLAGS)"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(TARGET_GLOBAL_CFLAGS)) $(TARGET_GLOBAL_CXXFLAGS) $(filter-out -std=%,$(PRIVATE_CFLAGS)) $(PRIVATE_CXXFLAGS)"; \
 		echo "LIBS += $(TARGET_GLOBAL_LDFLAGS) $(PRIVATE_LDFLAGS)"; \
 		echo "LIBS += -Wl,--whole-archive $(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES) -Wl,--no-whole-archive"; \
 		echo "LIBS += $(PRIVATE_ALL_STATIC_LIBRARIES)"; \

@@ -190,21 +190,12 @@ else
 	@touch $(DUMP_DATABASE_XML_FILE)
 ifdef __dump-xml-with-info
 	@# Force passing TARGET_ARCH because it was unexported in setup.mk
-	@# FIXME: backslashes seems lost in the process...
 	+@( \
 		tmpfile=$$(mktemp tmp.XXXXXXXXXX); \
 		$(filter-out $(MAKECMDGOALS),$(ALCHEMAKE_CMDLINE)) TARGET_ARCH=$(TARGET_ARCH) __dumping-xml=1 dump-xml &> $${tmpfile}; \
-		inxml=0; \
-		while read; do \
-			line=$${REPLY}; \
-			if [ "$${line}" = "@@@@@XML-BEGIN@@@@@" ]; then \
-				inxml=1; \
-			elif [ "$${line}" = "@@@@@XML-END@@@@@" ]; then \
-				inxml=0; \
-			elif [ "$${inxml}" = "1" ]; then \
-				echo "$${line}" >> $(DUMP_DATABASE_XML_FILE); \
-			fi; \
-		done < $${tmpfile}; \
+		n1=$$(($$(grep -hne "@@@@@XML-BEGIN@@@@@" $${tmpfile}|cut -d: -f1)+1)); \
+		n2=$$(($$(grep -hne "@@@@@XML-END@@@@@" $${tmpfile}|cut -d: -f1)-1)); \
+		sed -ne "$${n1},$${n2}p" $${tmpfile} > $(DUMP_DATABASE_XML_FILE); \
 		rm -f $${tmpfile}; \
 	)
 else

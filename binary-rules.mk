@@ -191,7 +191,7 @@ endif
 # m files
 ifneq ("$(strip $(m_objects))","")
 $(m_objects): $(build_dir)/$(obj_subdir)/%.m.o: $(LOCAL_PATH)/%.m
-	$(transform-c-to-o)
+	$(transform-m-to-o)
 ifneq ("$(skip_include_deps)","1")
 -include $(m_objects:%.o=%.d)
 endif
@@ -378,9 +378,11 @@ else
   arch := $(TARGET_ARCH)
 endif
 
+$(LOCAL_TARGETS): PRIVATE_ASFLAGS := $(LOCAL_ASFLAGS)
 $(LOCAL_TARGETS): PRIVATE_CFLAGS := $(LOCAL_CFLAGS)
 $(LOCAL_TARGETS): PRIVATE_C_INCLUDES := $(LOCAL_C_INCLUDES)
 $(LOCAL_TARGETS): PRIVATE_CXXFLAGS := $(LOCAL_CXXFLAGS)
+$(LOCAL_TARGETS): PRIVATE_OBJCFLAGS := $(LOCAL_OBJCFLAGS)
 $(LOCAL_TARGETS): PRIVATE_VALAFLAGS := $(LOCAL_VALAFLAGS)
 $(LOCAL_TARGETS): PRIVATE_VALA_SOURCES := $(addprefix $(LOCAL_PATH)/,$(vala_sources))
 $(LOCAL_TARGETS): PRIVATE_VALA_OUT_DIR := $(build_dir)/$(obj_subdir)

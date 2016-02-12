@@ -53,6 +53,10 @@ endif # ifndef __autotools-macros
 
 # Add flags in environment
 ifneq ("$(strip $(__external-add_CFLAGS))","")
+  LOCAL_AUTOTOOLS_CONFIGURE_ENV += ASFLAGS="$$ASFLAGS $(__external-add_ASFLAGS)"
+endif
+
+ifneq ("$(strip $(__external-add_CFLAGS))","")
   LOCAL_AUTOTOOLS_CONFIGURE_ENV += CFLAGS="$$CFLAGS $(__external-add_CFLAGS)"
 endif
 

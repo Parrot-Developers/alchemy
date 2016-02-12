@@ -109,7 +109,8 @@ LINUX_EXPORTED_HEADERS_OVER := \
 	include/linux/sock_diag.h \
 	include/linux/inet_diag.h \
 	include/linux/iio/events.h \
-	include/linux/iio/types.h
+	include/linux/iio/types.h \
+	include/linux/cn_proc.h
 
 # Linux image to generate
 ifndef TARGET_LINUX_IMAGE
@@ -233,6 +234,7 @@ $(if $(call streq,$(LINUX_ARCH),arm), \
 		tar -C $(LINUX_SDK_DIR) -xf -
 	$(Q) rm -f $(LINUX_BUILD_DIR)/sdksrcfiles
 	$(Q) rm -f $(LINUX_BUILD_DIR)/sdkobjfiles
+	$(Q)echo "$(LINUX_ARCH)" > $(LINUX_SDK_DIR)/linuxarch
 endef
 
 # Avoid compiling kernel at same time than header installation by adding a prerequisite
@@ -272,6 +274,7 @@ endif
 	$(Q)cp -af $(LINUX_BUILD_DIR)/vmlinux $(TARGET_OUT_STAGING)/boot
 	$(call linux-gen-sdk)
 	$(Q)cp -af $(LINUX_BUILD_DIR)/.config $(LINUX_BUILD_DIR)/linux.config
+	$(Q)echo "$(LINUX_ARCH)" > $(LINUX_BUILD_DIR)/linuxarch
 	@echo "Linux kernel built"
 	@touch $@
 
@@ -412,7 +415,7 @@ PERF_MAKE_ARGS := \
 $(PERF_BUILD_DIR)/$(LOCAL_MODULE_FILENAME):
 	@mkdir -p $(dir $@)
 	$(Q) $(PERF_MAKE_ENV) $(MAKE) $(PERF_MAKE_ARGS) \
-		ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(TARGET_CROSS) \
+		ARCH=$(TARGET_ARCH) CROSS_COMPILE=$(TARGET_CROSS) \
 		O=$(PERF_BUILD_DIR) -C $(PRIVATE_PATH)/tools/perf
 	$(Q) mkdir -p $(TARGET_OUT_STAGING)/usr/bin
 	$(Q) install -p $(PERF_BUILD_DIR)/perf $(TARGET_OUT_STAGING)/usr/bin

@@ -15,6 +15,10 @@ endif
 ###############################################################################
 
 # Add flags in arguments (ALCHEMY_EXTRA are added by the toolchain file)
+ifneq ("$(strip $(__external-add_ASFLAGS))","")
+  LOCAL_CMAKE_CONFIGURE_ARGS += -DALCHEMY_EXTRA_AS_FLAGS="$(__external-add_ASFLAGS)"
+endif
+
 ifneq ("$(strip $(__external-add_CFLAGS))","")
   LOCAL_CMAKE_CONFIGURE_ARGS += -DALCHEMY_EXTRA_C_FLAGS="$(__external-add_CFLAGS)"
 endif
@@ -26,6 +30,7 @@ endif
 ifneq ("$(strip $(__external-add_LDFLAGS))","")
   LOCAL_CMAKE_CONFIGURE_ARGS += -DALCHEMY_EXTRA_EXE_LINKER_FLAGS="$(__external-add_LDFLAGS)"
   LOCAL_CMAKE_CONFIGURE_ARGS += -DALCHEMY_EXTRA_SHARED_LINKER_FLAGS="$(__external-add_LDFLAGS)"
+  LOCAL_CMAKE_CONFIGURE_ARGS += -DALCHEMY_EXTRA_MODULE_LINKER_FLAGS="$(__external-add_LDFLAGS)"
 endif
 
 ###############################################################################

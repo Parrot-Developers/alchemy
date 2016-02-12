@@ -15,6 +15,9 @@ LINUX_MODULE_OBJ_DIR := $(call local-get-build-dir)/obj
 LINUX_MODULE_KBUILD := $(LINUX_MODULE_OBJ_DIR)/Kbuild
 LINUX_MODULE_SRC_FILES := $(addprefix $(LINUX_MODULE_OBJ_DIR)/src/, $(LOCAL_SRC_FILES))
 
+
+# LINUX_XXX variables can NOT be used here, they may not be defined yet
+# So the ARCH argument is given later when invoking make
 ifeq ("$(TARGET_OS_FLAVOUR:-chroot=)","native")
 $(LINUX_MODULE): PRIVATE_LINUX_BUILD_DIR := /lib/modules/$(shell uname -r)/build
 $(LINUX_MODULE): PRIVATE_KBUILD_FLAGS := \
@@ -28,7 +31,6 @@ $(LINUX_MODULE): PRIVATE_LINUX_BUILD_DIR := $(strip \
 		$(call module-get-build-dir,linux) \
 	))
 $(LINUX_MODULE): PRIVATE_KBUILD_FLAGS := \
-	ARCH=$(TARGET_ARCH) \
 	KERNELSRCDIR=$(PRIVATE_LINUX_BUILD_DIR) \
 	KERNELBUILDDIR=$(PRIVATE_LINUX_BUILD_DIR) \
 	INSTALL_MOD_PATH=$(TARGET_OUT_STAGING)
@@ -68,10 +70,12 @@ $(LINUX_MODULE): PRIVATE_CFLAGS := $(LOCAL_CFLAGS)
 $(LINUX_MODULE): $(LINUX_MODULE_KBUILD) $(LINUX_MODULE_SRC_FILES)
 	$(call print-banner2,"Linux module",$(PRIVATE_MODULE),$(call path-from-top,$@))
 	$(Q) $(MAKE) -C $(PRIVATE_LINUX_BUILD_DIR) M=$(PRIVATE_OBJ_DIR) \
+		$(if $(wildcard $(PRIVATE_LINUX_BUILD_DIR)/linuxarch),ARCH=$$(cat $(PRIVATE_LINUX_BUILD_DIR)/linuxarch)) \
 		$(PRIVATE_KBUILD_FLAGS) \
 		CROSS_COMPILE=$(if $(TARGET_LINUX_CROSS),$(TARGET_LINUX_CROSS),$(TARGET_CROSS)) \
 		modules
 	$(Q) $(MAKE) -C $(PRIVATE_LINUX_BUILD_DIR) M=$(PRIVATE_OBJ_DIR) \
+		$(if $(wildcard $(PRIVATE_LINUX_BUILD_DIR)/linuxarch),ARCH=$$(cat $(PRIVATE_LINUX_BUILD_DIR)/linuxarch)) \
 		$(PRIVATE_KBUILD_FLAGS) \
 		CROSS_COMPILE=$(if $(TARGET_LINUX_CROSS),$(TARGET_LINUX_CROSS),$(TARGET_CROSS)) \
 		modules_install

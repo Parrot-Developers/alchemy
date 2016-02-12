@@ -175,11 +175,13 @@ class Module:
 # Get the full path to a kconfig binary.
 #===============================================================================
 def getKconfigPath(name):
-	# Use the one in alchemy tree if available
-	binDir = os.path.join(SCRIPT_PATH, "../kconfig/bin-" + SYSTEM + "-" + ARCH)
-	path = os.path.join(binDir, name)
-	if os.path.exists(path):
-		return path
+	useInstalled = os.environ.get("KCONFIG_USE_INSTALLED", "")
+	if useInstalled != "1":
+		# Use the one in alchemy tree if available
+		binDir = os.path.join(SCRIPT_PATH, "../kconfig/bin-" + SYSTEM + "-" + ARCH)
+		path = os.path.join(binDir, name)
+		if os.path.exists(path):
+			return path
 
 	# Use the one installed on the host
 	return name + KCONFIG_INSTALLED_SUFFIX

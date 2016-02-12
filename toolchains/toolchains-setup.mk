@@ -10,6 +10,7 @@
 # Initialize target global variables.
 ###############################################################################
 TARGET_GLOBAL_C_INCLUDES ?=
+TARGET_GLOBAL_ASFLAGS ?=
 TARGET_GLOBAL_CFLAGS ?=
 TARGET_GLOBAL_CXXFLAGS ?=
 TARGET_GLOBAL_ARFLAGS ?=
@@ -68,6 +69,10 @@ ifeq ("$(TARGET_ARCH)","arm")
    include $(BUILD_SYSTEM)/toolchains/arm-setup.mk
 endif
 
+ifeq ("$(TARGET_ARCH)","avr")
+   include $(BUILD_SYSTEM)/toolchains/avr-setup.mk
+endif
+
 ifeq ("$(TARGET_ARCH)","aarch64")
   TARGET_GLOBAL_CFLAGS += -fPIC
 endif
@@ -122,6 +127,17 @@ TARGET_LIBC := ecos
 # Suffix of output
 TARGET_STATIC_LIB_SUFFIX := .a
 TARGET_SHARED_LIB_SUFFIX := .so.a
+TARGET_EXE_SUFFIX := .elf
+
+endif
+
+###############################################################################
+## Baremetal setup.
+###############################################################################
+ifeq ("$(TARGET_OS)","baremetal")
+
+# Suffix of output
+TARGET_STATIC_LIB_SUFFIX := .a
 TARGET_EXE_SUFFIX := .elf
 
 endif

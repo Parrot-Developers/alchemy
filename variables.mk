@@ -93,11 +93,17 @@ vars-LOCAL += DEPENDS_HOST_MODULES
 # Format : <fullpath> (-I will be prepended automatically)
 vars-LOCAL += C_INCLUDES
 
+# Additional flags to pass into the assembler
+vars-LOCAL += ASFLAGS
+
 # Additional flags to pass into the C or C++ compiler
 vars-LOCAL += CFLAGS
 
 # Additional flags to pass into only the C++ compiler
 vars-LOCAL += CXXFLAGS
+
+# Additional flags to pass into the Objective-C compiler
+vars-LOCAL += OBJCFLAGS
 
 # Additional flags to pass into the vala compiler
 vars-LOCAL += VALAFLAGS
@@ -243,6 +249,9 @@ vars-LOCAL += CREATE_LINKS
 #       usr/include directory of staging directory
 vars-LOCAL += INSTALL_HEADERS
 
+# Linker script
+vars-LOCAL += LDSCRIPT
+
 # Name of the doxyfile used for documentation generation
 # If none specified, LOCAL_PATH will be added to DOXYGEN_INPUT
 vars-LOCAL += DOXYFILE
@@ -345,6 +354,7 @@ vars-TARGET += RANLIB
 
 # Flags for tools
 vars-TARGET += GLOBAL_C_INCLUDES
+vars-TARGET += GLOBAL_ASFLAGS
 vars-TARGET += GLOBAL_CFLAGS
 vars-TARGET += GLOBAL_CXXFLAGS
 vars-TARGET += GLOBAL_CFLAGS_arm
@@ -364,6 +374,7 @@ vars-TARGET += GLOBAL_LDLIBS_SHARED
 vars-TARGET += GLOBAL_ARFLAGS
 vars-TARGET += GLOBAL_PCH_FLAGS
 vars-TARGET += GLOBAL_VALAFLAGS
+vars-TARGET += GLOBAL_OBJCFLAGS
 
 # Cuda
 vars-TARGET += NVCC
@@ -431,6 +442,7 @@ vars-TARGET_SETUP += RANLIB
 
 # Flags for tools
 vars-TARGET_SETUP += GLOBAL_C_INCLUDES
+vars-TARGET_SETUP += GLOBAL_ASFLAGS
 vars-TARGET_SETUP += GLOBAL_CFLAGS
 vars-TARGET_SETUP += GLOBAL_CXXFLAGS
 vars-TARGET_SETUP += GLOBAL_CFLAGS_arm
@@ -450,6 +462,7 @@ vars-TARGET_SETUP += GLOBAL_LDLIBS_SHARED
 vars-TARGET_SETUP += GLOBAL_ARFLAGS
 vars-TARGET_SETUP += GLOBAL_PCH_FLAGS
 vars-TARGET_SETUP += GLOBAL_VALAFLAGS
+vars-TARGET_SETUP += GLOBAL_OBJCFLAGS
 vars-TARGET_SETUP += LDCONFIG_DIRS
 
 # Cuda

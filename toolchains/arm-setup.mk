@@ -12,20 +12,25 @@ TARGET_DEFAULT_ARM_MODE ?= thumb
 
 # Allow mix thumb/arm mode
 ifneq ("$(TARGET_OS)","ecos")
+ifneq ("$(TARGET_OS)","baremetal")
 ifneq ("$(TARGET_DEFAULT_ARM_MODE)","arm")
   TARGET_GLOBAL_CFLAGS_gcc += -mthumb-interwork
 # This flag seems unnecessary for post v5 arch and eabi (aapcs)
 # Clang does not support it, and, yet, produces interworkable code.
 endif
 endif
+endif
 
 # Required for compilation of shared libraries
 ifneq ("$(TARGET_OS)","ecos")
+ifneq ("$(TARGET_OS)","baremetal")
   TARGET_GLOBAL_CFLAGS += -fPIC
+endif
 endif
 
 # arm v5te flags (to be used in cpu flags below)
 ifneq ("$(TARGET_OS)","ecos")
+ifneq ("$(TARGET_OS)","baremetal")
 cflags_armv5te := \
 	-march=armv5te \
 	-D__ARM_ARCH_5__ \
@@ -33,6 +38,7 @@ cflags_armv5te := \
 	-D__ARM_ARCH_5TE__
 else
 cflags_armv5te :=
+endif
 endif
 
 # armv7-a neon flags (to be used in cpu flags below)
@@ -124,6 +130,10 @@ ifeq ("$(TARGET_CPU)","tegrax1")
   TARGET_GLOBAL_NVCFLAGS += -arch=sm_53 -lineinfo -m32
 endif
 
+ifeq ("$(TARGET_CPU)","arm7tdmi")
+  TARGET_GLOBAL_CFLAGS += -mcpu=arm7tdmi
+endif
+
 # set float abi
 ifdef TARGET_FLOAT_ABI
   TARGET_GLOBAL_CFLAGS += -mfloat-abi=$(TARGET_FLOAT_ABI)
@@ -139,10 +149,11 @@ TARGET_GLOBAL_CFLAGS_arm ?= \
 	-marm \
 	-O2 \
 	-fomit-frame-pointer \
-	-fstrict-aliasing \
-	-funswitch-loops
+	-fstrict-aliasing
 
-TARGET_GLOBAL_CFLAGS_arm_gcc ?= -finline-limit=300
+TARGET_GLOBAL_CFLAGS_arm_gcc ?= \
+	-finline-limit=300 \
+	-funswitch-loops
 
 # Thumb mode specific flags
 ifneq ("$(TARGET_DEFAULT_ARM_MODE)","arm")

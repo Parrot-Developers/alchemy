@@ -37,7 +37,7 @@ oss-gen-package-from-archive = \
 oss-gen-package-from-git = \
 	$(call oss-gen-package-prepare,$1) \
 	gitdir=$(__modules.$1.PATH); \
-	gitarchive=$(OSS_PACKAGES_DIR)/git/$1-$${version}.tar.bz2; \
+	gitarchive=$(OSS_PACKAGES_DIR)/git/$1-$${version}.tar; \
 	patches=; \
 	cd $${gitdir} && git archive --prefix=$1-$${version}/ -o $${gitarchive} HEAD; \
 	tar --transform="s|[^/]*/||g" -Pcjf \
@@ -70,4 +70,10 @@ oss-packages:
 	@rm -rf $(OSS_PACKAGES_DIR)/git
 	@echo "Packages: done -> $(OSS_PACKAGES_DIR)"
 
+else
+
+# Nothing to do
+.PHONY: oss-packages
+oss-packages:
+	@echo "Packages: OSS_PACKAGES is not defined or empty"
 endif

@@ -388,7 +388,7 @@ $(call add-debug-flags)
 # Code coverage flags (for internal modules only)
 ifeq ("$(and $(call is-module-external,$(LOCAL_MODULE)),$(call strneq,$(LOCAL_MODULE_CLASS),QMAKE))","")
 ifeq ("$(USE_COVERAGE)","1")
-  LOCAL_CFLAGS  += -fprofile-arcs -ftest-coverage -O0
+  LOCAL_CFLAGS  += -fprofile-arcs -ftest-coverage -O0 -D__COVERAGE__
   LOCAL_LDFLAGS += -fprofile-arcs -ftest-coverage
   LOCAL_LDFLAGS_SHARED += -fprofile-arcs -ftest-coverage
 endif
@@ -401,11 +401,13 @@ endif
 ###############################################################################
 
 # Compilation flags
+__external-add_ASFLAGS := $(LOCAL_ASFLAGS)
 __external-add_CFLAGS := $(LOCAL_CFLAGS) $(call normalize-c-includes,$(LOCAL_C_INCLUDES))
 __external-add_CXXFLAGS := $(__external-add_CFLAGS) $(LOCAL_CXXFLAGS)
 
 # Linker flags
 __external-add_LDFLAGS :=
+
 
 # Whole static libraries
 # As one unique -Wl option otherwise libtool make a terrible mess with it
@@ -414,7 +416,9 @@ __external-add_LDFLAGS :=
 ifneq ("$(strip $(all_whole_static_libs_filename))","")
 __external-add_LDFLAGS += -Wl,--whole-archive
 $(foreach __lib,$(all_whole_static_libs_filename), \
-	$(eval __external-add_LDFLAGS := $(__external-add_LDFLAGS),-l:$(notdir $(__lib))) \
+	$(if $(filter lib%$(TARGET_STATIC_LIB_SUFFIX), $(notdir $(__lib))), \
+	$(eval __external-add_LDFLAGS := $(__external-add_LDFLAGS),-l$(patsubst lib%$(TARGET_STATIC_LIB_SUFFIX),%,$(notdir $(__lib)))), \
+	$(eval __external-add_LDFLAGS := $(__external-add_LDFLAGS),-l:$(notdir $(__lib)))) \
 )
 __external-add_LDFLAGS := $(__external-add_LDFLAGS),--no-whole-archive
 endif
@@ -424,7 +428,9 @@ endif
 # No comma separated list (like above or below !)
 ifneq ("$(strip $(all_static_libs_filename))","")
 $(foreach __lib,$(all_static_libs_filename), \
-	$(eval __external-add_LDFLAGS := $(__external-add_LDFLAGS) -l:$(notdir $(__lib))) \
+	$(if $(filter lib%$(TARGET_STATIC_LIB_SUFFIX), $(notdir $(__lib))), \
+	$(eval __external-add_LDFLAGS := $(__external-add_LDFLAGS) -l$(patsubst lib%$(TARGET_STATIC_LIB_SUFFIX),%,$(notdir $(__lib)))), \
+	$(eval __external-add_LDFLAGS := $(__external-add_LDFLAGS) -l:$(notdir $(__lib)))) \
 )
 endif
 
@@ -435,7 +441,9 @@ endif
 ifneq ("$(strip $(all_shared_libs_filename))","")
 __external-add_LDFLAGS += -Wl
 $(foreach __lib,$(all_shared_libs_filename), \
-	$(eval __external-add_LDFLAGS := $(__external-add_LDFLAGS),-l:$(notdir $(__lib))) \
+	$(if $(filter lib%$(TARGET_SHARED_LIB_SUFFIX), $(notdir $(__lib))), \
+	$(eval __external-add_LDFLAGS := $(__external-add_LDFLAGS),-l$(patsubst lib%$(TARGET_SHARED_LIB_SUFFIX),%,$(notdir $(__lib)))), \
+	$(eval __external-add_LDFLAGS := $(__external-add_LDFLAGS),-l:$(notdir $(__lib)))) \
 )
 endif
 
@@ -1144,6 +1152,11 @@ endif
 ifeq ("$(LOCAL_MODULE_CLASS)","EXECUTABLE")
 
 include $(BUILD_SYSTEM)/binary-rules.mk
+
+ifneq ("$(LOCAL_LDSCRIPT)","")
+$(LOCAL_BUILD_MODULE): $(LOCAL_PATH)/$(LOCAL_LDSCRIPT)
+$(LOCAL_BUILD_MODULE): PRIVATE_LDFLAGS += -T $(LOCAL_PATH)/$(LOCAL_LDSCRIPT)
+endif
 
 $(LOCAL_BUILD_MODULE): $(all_objects) $(all_link_libs_filenames)
 	$(transform-o-to-executable)
