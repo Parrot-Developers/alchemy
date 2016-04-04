@@ -11,8 +11,8 @@ ifndef TARGET_CROSS
   TARGET_CROSS := /opt/arm-2014q4-none-linaro/bin/arm-none-eabi-
 endif
 
-# Force arm mode
-TARGET_DEFAULT_ARM_MODE := arm
+# select arm mode only if cpu doesn't define it
+TARGET_DEFAULT_ARM_MODE ?= arm
 
 # Force static compilation
 TARGET_FORCE_STATIC := 1

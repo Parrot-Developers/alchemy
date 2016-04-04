@@ -115,7 +115,8 @@ endif
 		$(TARGET_OUT_STAGING) $(TARGET_OUT_FINAL) $(TARGET_OUT)/final.mk
 	$(Q) $(MAKE) -f $(TARGET_OUT)/final.mk
 	@mkdir -p $(TARGET_OUT_FINAL)/etc
-ifeq ("$(TARGET_LIBC)","eglibc")
+ifeq ("$(TARGET_OS)","linux")
+ifeq ("$(is-full-system)","1")
 	@if [ ! -e $(TARGET_OUT_FINAL)/etc/ld.so.conf ]; then \
 		( \
 			echo "/lib/$(TOOLCHAIN_TARGET_NAME)"; \
@@ -126,6 +127,7 @@ ifeq ("$(TARGET_LIBC)","eglibc")
 		) >> $(TARGET_OUT_FINAL)/etc/ld.so.conf; \
 	fi
 	$(Q) $(LDCONFIG) -X -r $(TARGET_OUT_FINAL)
+endif
 endif
 ifeq ("$(is-full-system)","1")
 	$(Q) $(BUILD_SYSTEM)/scripts/checkdyndeps.py $(TARGET_OUT_FINAL)

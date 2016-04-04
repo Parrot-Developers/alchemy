@@ -665,6 +665,8 @@ $(LOCAL_TARGETS): PRIVATE_CLEAN_DIRS := $(LOCAL_CLEAN_DIRS)
 $(LOCAL_TARGETS): PRIVATE_MODE := $(mode_prefix)
 $(LOCAL_TARGETS): PRIVATE_REV_FILE := $(revision_file)
 $(LOCAL_TARGETS): PRIVATE_REV_FILE_H := $(revision_file_h)
+$(LOCAL_TARGETS): PRIVATE_SRC_FILES := $(LOCAL_SRC_FILES)
+$(LOCAL_TARGETS): PRIVATE_GENERATED_SRC_FILES := $(LOCAL_GENERATED_SRC_FILES)
 
 # This is for police hooks
 $(LOCAL_TARGETS): export MODULE_NAME := $(LOCAL_MODULE)
@@ -1286,6 +1288,9 @@ define __meta-package-dep
 $1: $2
 $1-clean: $2-clean
 $1-dirclean: $2-dirclean
+$1-codecheck: $2-codecheck
+$1-doc: $2-doc
+$1-cloc: $2-cloc
 endef
 
 # Add deps for build, clean, dirclean

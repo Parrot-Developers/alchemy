@@ -100,6 +100,13 @@ ifeq ("$(TARGET_CPU)","omap4")
   TARGET_FLOAT_ABI ?= softfp
 endif
 
+# generic armv7a (without neon)
+ifeq ("$(TARGET_CPU)","armv7a")
+  TARGET_GLOBAL_CFLAGS += -march=armv7-a
+  TARGET_GLOBAL_LDFLAGS += -Wl,--fix-cortex-a8
+  TARGET_FLOAT_ABI ?= softfp
+endif
+
 # generic armv7a-neon
 ifeq ("$(TARGET_CPU)","armv7a-neon")
   TARGET_GLOBAL_CFLAGS += $(cflags_armv7a_neon)
@@ -132,6 +139,19 @@ endif
 
 ifeq ("$(TARGET_CPU)","arm7tdmi")
   TARGET_GLOBAL_CFLAGS += -mcpu=arm7tdmi
+endif
+
+ifeq ("$(TARGET_CPU)", "stm32f3")
+  TARGET_GLOBAL_CFLAGS += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16
+  TARGET_GLOBAL_LDFLAGS += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16
+  TARGET_GLOBAL_LDFLAGS += -mfloat-abi=hard
+  TARGET_FLOAT_ABI ?= hard
+endif
+
+ifeq ("$(TARGET_CPU)", "m0")
+  TARGET_GLOBAL_CFLAGS += -mcpu=cortex-m0
+  TARGET_GLOBAL_LDFLAGS += -mcpu=cortex-m0
+  TARGET_FLOAT_ABI := soft
 endif
 
 # set float abi

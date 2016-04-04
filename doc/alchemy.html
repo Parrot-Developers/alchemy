@@ -152,6 +152,7 @@ optimization and select some module (for ex: linux). Possible values are :
 <li><code>o3</code></li>
 <li><code>omap3</code></li>
 <li><code>omap4</code></li>
+<li><code>armv7a</code></li>
 <li><code>armv7a-neon</code></li>
 <li><code>tegrak1</code></li>
 <li><code>tegrax1</code></li>
@@ -1078,7 +1079,7 @@ variable <code>TARGET_PBUILD_FORCE_STATIC</code> is set. This is a ParrotBuild
 compatibility mode that allows to specify module as shared and have a fallback
 when needed.</p>
 
-<h4><code>NO_COPY_TO_STAGING</code></h4>
+<h4><code>LOCAL_NO_COPY_TO_STAGING</code></h4>
 
 <p>If set to <code>1</code>, the module output file will not be copied in staging directory.
 This allow customization of this step by the <code>atom.mk</code>.</p>

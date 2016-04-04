@@ -208,6 +208,9 @@ class Project(object):
 		crossPrefix = ''
 		if "CROSS" in self.modules.targetVars:
 			crossPrefix = os.path.basename(self.modules.targetVars["CROSS"])
+		# on Mac add homebrew path to compiler path
+		if sys.platform == "darwin":
+			crossPath = crossPath + ":/usr/local/bin"
 
 		fd.write("\t\t<cconfiguration id=\"cdt.managedbuild.toolchain.gnu.cross.base.235287930\">\n")
 		fd.write("\t\t\t<storageModule buildSystemId=\"org.eclipse.cdt.managedbuilder.core.configurationDataProvider\" id=\"cdt.managedbuild.toolchain.gnu.cross.base.235287930\" moduleId=\"org.eclipse.cdt.core.settings\" name=\"%s %s\">\n" % (product, variant))

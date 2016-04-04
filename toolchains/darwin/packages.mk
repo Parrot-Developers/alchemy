@@ -46,5 +46,12 @@ LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs json-c)
 include $(BUILD_PREBUILT)
 endif
 
+else
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := zlib
+LOCAL_EXPORT_LDLIBS := -lz
+include $(BUILD_PREBUILT)
+
 endif
 

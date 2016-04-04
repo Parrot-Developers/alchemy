@@ -38,8 +38,12 @@ TARGET_GLOBAL_PCH_FLAGS ?= -x c++-header
 TARGET_GLOBAL_CFLAGS += \
 	-pipe \
 	-g -O2 \
-	-ffunction-sections \
 	-fno-short-enums
+
+# -ffunction-sections is not compatible with clang's -fembed-bitcode
+ifeq ("$(filter -fembed-bitcode,$(TARGET_GLOBAL_CFLAGS))","")
+  TARGET_GLOBAL_CFLAGS += -ffunction-sections
+endif
 
 # TODO: check for these flags
 #TARGET_GLOBAL_CFLAGS += \

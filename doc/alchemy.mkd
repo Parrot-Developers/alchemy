@@ -130,6 +130,7 @@ conflict with other build systems (android for example).
   * `o3`
   * `omap3`
   * `omap4`
+  * `armv7a`
   * `armv7a-neon`
   * `tegrak1`
   * `tegrax1`
@@ -1000,7 +1001,7 @@ variable `TARGET_PBUILD_FORCE_STATIC` is set. This is a ParrotBuild
 compatibility mode that allows to specify module as shared and have a fallback
 when needed.
 
-#### `NO_COPY_TO_STAGING`
+#### `LOCAL_NO_COPY_TO_STAGING`
 
 If set to `1`, the module output file will not be copied in staging directory.
 This allow customization of this step by the `atom.mk`.

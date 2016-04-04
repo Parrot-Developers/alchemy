@@ -35,7 +35,8 @@ endif
 
 # Silence...
 ifeq ("$(V)","0")
-  qmake_make_arg := -s --no-print-directory
+  qmake_make_arg := --no-print-directory
+  qmake_arg := CONFIG+=silent
 endif
 
 # Generate a .pri file to be included by the .pro file with dependencies found by alchemy
@@ -108,11 +109,12 @@ endef
 
 endif
 
-# Export android NDK and SDK path
+# Export android NDK, SDK path and API level
 ifeq ("$(TARGET_OS_FLAVOUR)","android")
 QMAKE := ANDROID_NDK_ROOT=$(TARGET_ANDROID_NDK) \
     ANDROID_HOME=$(TARGET_ANDROID_SDK) \
     ANDROID_SDK_ROOT=$(TARGET_ANDROID_SDK) \
+    ANDROID_NDK_PLATFORM=android-$(TARGET_ANDROID_APILEVEL) \
     $(QMAKE)
 endif
 
@@ -140,6 +142,7 @@ $(built_file):
 		&& $(QMAKE) $(if $(call is-path-absolute,$(PRIVATE_QMAKE_PRO_FILE)), \
 						$(PRIVATE_QMAKE_PRO_FILE), \
 						$(PRIVATE_PATH)/$(PRIVATE_QMAKE_PRO_FILE)) \
+						$(qmake_arg) \
 		&& $(MAKE) $(qmake_make_arg)
 	@touch $@
 

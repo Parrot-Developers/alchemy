@@ -192,7 +192,7 @@ ifdef __dump-xml-with-info
 	@# Force passing TARGET_ARCH because it was unexported in setup.mk
 	+@( \
 		tmpfile=$$(mktemp tmp.XXXXXXXXXX); \
-		$(filter-out $(MAKECMDGOALS),$(ALCHEMAKE_CMDLINE)) TARGET_ARCH=$(TARGET_ARCH) __dumping-xml=1 dump-xml &> $${tmpfile}; \
+		$(filter-out $(MAKECMDGOALS),$(ALCHEMAKE_CMDLINE)) USE_SCAN_CACHE=1 TARGET_ARCH=$(TARGET_ARCH) __dumping-xml=1 dump-xml &> $${tmpfile}; \
 		n1=$$(($$(grep -hne "@@@@@XML-BEGIN@@@@@" $${tmpfile}|cut -d: -f1)+1)); \
 		n2=$$(($$(grep -hne "@@@@@XML-END@@@@@" $${tmpfile}|cut -d: -f1)-1)); \
 		sed -ne "$${n1},$${n2}p" $${tmpfile} > $(DUMP_DATABASE_XML_FILE); \

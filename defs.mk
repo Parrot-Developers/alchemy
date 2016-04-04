@@ -1055,7 +1055,7 @@ endef
 all-files-under = $(strip \
 	$(patsubst ./%,%, \
 		$(shell cd $(LOCAL_PATH); \
-			find $1 -name "*$2" -and -not -name ".*") \
+			find $1  -type f -name "*$2" -and -not -name ".*") \
 	))
 
 # $1 : directory relative to LOCAL_PATH to search
@@ -1311,9 +1311,8 @@ macro-exec-cmd = \
 exec-custom-macro = \
 	$(call module-restore-locals,$1) \
 	$(foreach __entry,$(LOCAL_CUSTOM_MACROS), \
-		$(eval __entry2 := $(subst :,$(space),$(__entry))) \
-		$(eval __w1 := $(word 1,$(__entry2))) \
-		$(eval __w2 := $(word 2,$(__entry2))) \
+		$(eval __w1 := $(firstword $(subst :,$(space),$(__entry)))) \
+		$(eval __w2 := $(patsubst $(__w1):%,%,$(__entry))) \
 		$(if $(call is-var-defined,$(__w1)), \
 			$(eval __tmp := $$(call $(__w1),$(__w2))) \
 			$(eval $(__tmp)) \
