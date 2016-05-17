@@ -66,7 +66,7 @@ class Project(object):
 				src_dir = getRealSourceDir(dep.fields["PATH"])
 
 			addDepend = True
-			for d in self.link_depends.keys() + [self.module.fields["PATH"]]:
+			for d in self.link_depends.keys() + [getRealSourceDir(self.module.fields["PATH"])]:
 				if src_dir.startswith(d):
 					addDepend = False
 					break
@@ -75,7 +75,7 @@ class Project(object):
 				self.link_depends[src_dir] = dep
 
 	def __genProjectFile(self, options):
-		filename = self.module.fields["PATH"] + "/.project"
+		filename = getRealSourceDir(self.module.fields["PATH"]) + "/.project"
 		sys.stderr.write("[%s]: generating '%s'\n" % (self.module.name, filename))
 		fd = open(filename, "w")
 		fd.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
@@ -299,7 +299,7 @@ class Project(object):
 		product = self.modules.targetVars["PRODUCT"]
 		variant = self.modules.targetVars["PRODUCT_VARIANT"]
 
-		filename = self.module.fields["PATH"] + "/.cproject"
+		filename = getRealSourceDir(self.module.fields["PATH"]) + "/.cproject"
 		sys.stderr.write("[%s]: generating '%s'\n" % (self.module.name, filename))
 		fd = open(filename, "w")
 

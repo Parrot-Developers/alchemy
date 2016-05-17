@@ -232,6 +232,8 @@ it when targetting Android.
   </br>Default tries to auto-detect the SDK from a few somewhat standard location (`/opt/android-sdk*`, `~/android-sdk*`, ...)
   * `TARGET_ANDROID_TOOLCHAIN` : name of the android toolchain, e.g. arm-linux-androideabi-4.7.
   </br>Default is the default toolchain for the current target architecture (`TARGET_ARCH`).
+  * `TARGET_ANDROID_TOOLCHAIN_VERSION` : version of the android toolchain, e.g. 4.8. Ignored if `TARGET_ANDROID_TOOLCHAIN` is specified.
+  </br>Default is the default toolchain version for the current target architecture (`TARGET_ARCH`).
   * `TARGET_ANDROID_STL` : specify the C++ Standard Template Library implementation to use. The NDK supports multiple STL implementations, which can be selected with this variable. Supported values are : `gnustl`, the GNU libstdc++; `libc++`, LLVM's libc++; and `stlport`.
   </br>Default is the GNU libstdc++.
   * `TARGET_ANDROID_SHARED_STL` : by default, Android NDK uses a static version of the C++ Standard library, which works only when generating a single shared library or executable. Setting this variable to `1` switches to a shared library version of the STL, which is needed if the project contains multiple shared libraries or executables. In that case, the shared library must be copied to the target device.
@@ -401,6 +403,9 @@ Mainly used by the android wrapper.
   * `firmware`: filtered according to internal heuristics suitable for embedded
     execution.
   </br>Default is `firmware`.
+* `TARGET_LINUX_RELEASE` : linux kernel release to build kernel modules against it.
+  This variable can be used only if building for `native` target.
+  </br>Default is `$(shell uname -r)`.
 
 * `USE_CLANG` : Use clang instead of gcc for compilation.
   </br>Default is `0`.
@@ -586,6 +591,7 @@ For each registered modules, following `make` targets will be available :
 * `make <module>-path` : will display the path of the module.
 * `make <module>-codecheck` : will check coding style of C source files.
 * `make <module>-cppcheck` : will check coding style of C++ source files.
+* `make <module>-valacheck` : will check coding style of Vala source files.
 * `make <module>-cloc` : will count the number of lines of code.
 
 ### Module registration
@@ -1456,6 +1462,34 @@ Ex:
 <pre>
 	static int my_function()
 	{  // NOLINT(whitespace/braces)
+</pre>
+
+## Valacheck false positives or intentional deviations
+
+You can ignore specific valacheck warnings in a Vala source code file by inserting
+a tag with the following syntax in a comment line to the line with the error:
+
+<pre>
+	NOLINT
+</pre>
+
+If you want to ignore multiple line you can use the following syntax:
+
+<pre>
+	NOLINT_START
+	...
+	NOLINT_STOP
+</pre>
+
+Ex:
+
+<pre>
+	static int my_function()
+	{  // NOLINT
+		int v1;
+	// NOLINT_START
+	int v2;
+	// NOLINT_STOP
 </pre>
 
 ## How to use it

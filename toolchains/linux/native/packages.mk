@@ -80,6 +80,14 @@ LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs gl)
 $(call local-register-prebuilt-overridable)
 endif
 
+ifeq ("$(shell pkg-config --exists egl; echo $$?)","0")
+include $(CLEAR_VARS)
+LOCAL_MODULE := egl
+LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags egl)
+LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs egl)
+$(call local-register-prebuilt-overridable)
+endif
+
 include $(CLEAR_VARS)
 LOCAL_MODULE := libjpeg-turbo
 LOCAL_EXPORT_LDLIBS := -ljpeg

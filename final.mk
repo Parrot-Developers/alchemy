@@ -109,7 +109,9 @@ endif
 __final-internal:
 	@echo "Generating final tree..."
 ifneq ("$(TARGET_OS_FLAVOUR)","native-chroot")
+ifneq ("$(TARGET_OS_FLAVOUR)","native")
 	$(Q) rm -rf $(TARGET_OUT_FINAL)
+endif
 endif
 	$(Q) $(MAKEFINAL_SCRIPT) $(MAKEFINAL_ARGS) \
 		$(TARGET_OUT_STAGING) $(TARGET_OUT_FINAL) $(TARGET_OUT)/final.mk
@@ -138,17 +140,12 @@ endif
 .PHONY: final
 final: __final-internal
 
-# Do not clean when in native or native-chroot mode
 .PHONY: final-clean
 final-clean:
-ifneq ("$(TARGET_OS_FLAVOUR)","native-chroot")
-ifneq ("$(TARGET_OS_FLAVOUR)","native")
 	@echo "Deleting final directory..."
 	$(Q)rm -rf $(TARGET_OUT_FINAL)
 	$(Q)rm -f $(TARGET_OUT)/filelist.txt
 	$(Q)rm -f $(TARGET_OUT)/final.mk
-endif
-endif
 
 ###############################################################################
 ## Script for fixing permissions on-the-fly in native final tree.
@@ -169,6 +166,11 @@ endif
 
 ###############################################################################
 ## Setup dependencies.
+## Do not clean when in native or native-chroot mode
 ###############################################################################
 __final-internal: pre-final
+ifneq ("$(TARGET_OS_FLAVOUR)","native-chroot")
+ifneq ("$(TARGET_OS_FLAVOUR)","native")
 clobber: final-clean
+endif
+endif

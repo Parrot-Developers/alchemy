@@ -84,43 +84,49 @@ def parseIdFile(filePath, kind):
 # Parse a permission line.
 #===============================================================================
 def parsePermissionLine(ctx, filePath, lineNum, line, isDefault=False):
-	# Split fields of line
-	fields = re.sub(SPACE_PATTERN, " ", line).split(" ")
-	if len(fields) >= 4:
-		try:
-			logging.info("permission %s %s %s %s",
-					fields[0], fields[1], fields[2], fields[3])
-			pattern = fields[0]
-			# Real paths are enclosed by double quotes, else this
-			# is a regex.
-			isPath = pattern[0] == '"' and pattern[-1] == '"'
-			perm = Permission()
-			perm.isDefault = isDefault
-			if not isPath:
-				# Compile pattern in a regex (remove leading
-				# '/' so that pattern matching is OK when
-				# listing a local dir, trailing '/' is only
-				# used to try match on directory only)
-				perm.pattern = pattern
-				perm.rePattern = re.compile(pattern.strip("/") + "$")
-			# Decode mode
-			perm.mode = int(fields[1], base=8)
-			# Decode user
-			if fields[2] not in ctx.users:
-				raise ValueError("Unknown user %s" % fields[2])
-			perm.uid = ctx.users[fields[2]]
-			# Decode group
-			if fields[3] not in ctx.groups:
-				raise ValueError("Unknown group %s" % fields[3])
-			perm.gid = ctx.groups[fields[3]]
-			if isPath:
-				ctx.path_permissions[pattern[1:-1].strip("/")] = perm
-			else:
-				ctx.regex_permissions.append(perm)
-		except (ValueError, re.error) as ex:
-			logging.error("%s:%d: %s", filePath, lineNum, ex)
-	else:
-		logging.warning("Skipping permission line: %s", line)
+	try:
+		# Split fields of line
+		if line.startswith('"'):
+			# support space in filename
+			file_end = line.index('"', 1) + 1
+			fields = [ line[0:file_end] ]
+			fields.extend(re.sub(SPACE_PATTERN, " ", line[file_end:]).lstrip(' ').split(" "))
+		else:
+			fields = re.sub(SPACE_PATTERN, " ", line).split(" ")
+		if len(fields) < 4:
+			logging.warning("Skipping permission line: %s", line)
+			return
+		logging.info("permission %s %s %s %s",
+				fields[0], fields[1], fields[2], fields[3])
+		pattern = fields[0]
+		# Real paths are enclosed by double quotes, else this
+		# is a regex.
+		isPath = pattern[0] == '"' and pattern[-1] == '"'
+		perm = Permission()
+		perm.isDefault = isDefault
+		if not isPath:
+			# Compile pattern in a regex (remove leading
+			# '/' so that pattern matching is OK when
+			# listing a local dir, trailing '/' is only
+			# used to try match on directory only)
+			perm.pattern = pattern
+			perm.rePattern = re.compile(pattern.strip("/") + "$")
+		# Decode mode
+		perm.mode = int(fields[1], base=8)
+		# Decode user
+		if fields[2] not in ctx.users:
+			raise ValueError("Unknown user %s" % fields[2])
+		perm.uid = ctx.users[fields[2]]
+		# Decode group
+		if fields[3] not in ctx.groups:
+			raise ValueError("Unknown group %s" % fields[3])
+		perm.gid = ctx.groups[fields[3]]
+		if isPath:
+			ctx.path_permissions[pattern[1:-1].strip("/")] = perm
+		else:
+			ctx.regex_permissions.append(perm)
+	except (ValueError, re.error) as ex:
+		logging.error("%s:%d: %s", filePath, lineNum, ex)
 
 #===============================================================================
 # Parse a permissions file to extract file pattern and associated data.

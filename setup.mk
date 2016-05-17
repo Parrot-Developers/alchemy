@@ -136,6 +136,10 @@ endif
 # firmware: filtered according to internal heuristics suitable for embedded execution
 TARGET_FINAL_MODE ?= firmware
 
+ifeq ("$(TARGET_OS_FLAVOUR:-chroot=)","native")
+  TARGET_LINUX_RELEASE ?= $(shell uname -r)
+endif
+
 ###############################################################################
 ## Toolchain setup.
 ###############################################################################
@@ -193,28 +197,21 @@ endif
 ## even if it comed from a sdk.
 ###############################################################################
 
-# Generate rules to copy content of host staging from a sdk
-# $1 : sdk dir
-# The copy will be done only when the atom.mk of the sdk is changed (which is
-# normally the case when the sdk is regenerated)
-# The copy will be triggered before the build (TARGET_GLOBAL_PREREQUISITES)
-# If several sdk are used, copy them sequentially (__sdk-copy-host-list will
-# contains previously copied sdk).
-__sdk-copy-host-list :=
-define __sdk-copy-host
-$(TARGET_OUT_BUILD)/sdk_$(subst /,_,$1).done: $1/$(USER_MAKEFILE_NAME) $(__sdk-copy-host-list)
-	@echo "Copying $1/host/ to $(HOST_OUT_STAGING)"
-	@mkdir -p $$(dir $$@)
-	@mkdir -p $(HOST_OUT_STAGING)
-	@cp -Raf $1/host/* $(HOST_OUT_STAGING)
-	@touch $$@
-TARGET_GLOBAL_PREREQUISITES += $(TARGET_OUT_BUILD)/sdk_$(subst /,_,$1).done
-__sdk-copy-host-list += $(TARGET_OUT_BUILD)/sdk_$(subst /,_,$1).done
-endef
+# Copy content of host staging from a sdk
+__sdk-copy-host = \
+	$(eval __file := $(TARGET_OUT_BUILD)/sdk_$(subst /,_,$1).done) \
+	$(shell \
+		if [ $1/$(USER_MAKEFILE_NAME) -nt $(__file) ]; then \
+			$(info Copying $1/host/ to $(HOST_OUT_STAGING)) \
+			mkdir -p $(HOST_OUT_STAGING); \
+			cp -Raf $1/host/* $(HOST_OUT_STAGING); \
+			touch $(__file); \
+		fi \
+	)
 
 $(foreach __dir,$(TARGET_SDK_DIRS), \
 	$(if $(wildcard $(__dir)/host), \
-		$(eval $(call __sdk-copy-host,$(__dir))) \
+		$(call __sdk-copy-host,$(__dir)) \
 	) \
 )
 

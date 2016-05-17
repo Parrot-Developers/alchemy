@@ -139,11 +139,19 @@ endef
 ###############################################################################
 ## Commands to compile a cu file (cuda).
 ###############################################################################
+# NVCC dependencies generation have to be done in separate phase than compilation.
 define transform-cu-to-o
 $(call print-banner1,"Cuda",$(PRIVATE_MODULE),$(call path-from-top,$<))
 $(call check-pwd-is-top-dir)
 @mkdir -p $(dir $@)
 $(if $(TARGET_NVCC),$(empty),@echo "TARGET_NVCC is not defined"; exit 1)
+$(Q) $(TARGET_NVCC) \
+	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES)) \
+	$(TARGET_GLOBAL_NVCFLAGS) \
+	$(PRIVATE_NVCFLAGS) \
+	-ccbin $(TARGET_CC) -M -MT $@ -o $(@:.o=.d)\
+	$(call path-from-top,$<)
 $(Q) $(TARGET_NVCC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
 	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES)) \

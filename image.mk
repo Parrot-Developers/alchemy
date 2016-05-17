@@ -38,6 +38,14 @@ define gen-image
 			$(MKFS_SCRIPT) --fstype $1 $3 $2
 endef
 
+# Extract some part of the TARGET_IMAGE_OPTIONS variables
+# $1 : option to extract (argument shall be enclosed betwwen double quotes)
+# TARGET_IMAGE_OPTIONS := \
+#	--mkubifs="-m 0x800 -e 0x1f000 -c 2047 -x none -F" \
+#	--ubinize="-p 0x20000 -m 0x800 -s 2048 $(TARGET_CONFIG_DIR)/ubinize.cfg"
+image-extract-args = \
+	`echo '$(TARGET_IMAGE_OPTIONS)' | sed -e 's%.*$1="\([^"]\+\)".*%\1%'`
+
 ###############################################################################
 ## Generate image in plf format.
 ## $1: image file name.
@@ -65,6 +73,30 @@ endif
 endef
 
 ###############################################################################
+## Generate image in ubi format.
+## $1: image file name.
+## TODO: pass options properly
+## TODO: generate cfg with relative file paths
+###############################################################################
+MKUBIFS ?= $(wildcard /usr/sbin/mkfs.ubifs)
+UBINIZE ?= $(wildcard /usr/sbin/ubinize)
+
+define gen-image-ubi
+	@if [ -z "$(MKUBIFS)" -o -z "$(UBINIZE)" ]; then \
+		echo "Missing mkfs.ubifs/ubinize tools"; \
+		exit 1; \
+	fi
+	$(Q) chmod -R g-w,o-w $(TARGET_OUT_FINAL)
+	$(Q) fakeroot $(MKUBIFS) \
+		$(call image-extract-args,--mkubifs) \
+		-r $(TARGET_OUT_FINAL) \
+		$1.ubifs
+	$(Q) cd $(TARGET_OUT) && $(UBINIZE) \
+		-o $1 \
+		$(call image-extract-args,--ubinize)
+endef
+
+###############################################################################
 ## Specialized macros.
 ## $1: image file name.
 ###############################################################################
@@ -75,7 +107,7 @@ gen-image-ext3 = $(call gen-image,ext3,$1,$(TARGET_IMAGE_OPTIONS))
 gen-image-ext4 = $(call gen-image,ext4,$1,$(TARGET_IMAGE_OPTIONS))
 
 ###############################################################################
-## Generate rules to buil an image.
+## Generate rules to build an image.
 ## $1: image type.
 ###############################################################################
 define image-rules
@@ -113,6 +145,7 @@ $(eval $(call image-rules,cpio))
 $(eval $(call image-rules,ext2))
 $(eval $(call image-rules,ext3))
 $(eval $(call image-rules,ext4))
+$(eval $(call image-rules,ubi))
 
 # Clean all images (used in image-rules macro)
 .PHONY: image-all-clean

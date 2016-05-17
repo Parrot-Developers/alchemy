@@ -57,9 +57,13 @@ ifeq ("$(wildcard $(TARGET_ANDROID_NDK))","")
   $(error No Android NDK found, use Alchemy-raptor package or set your Android NDK path in the TARGET_ANDROID_NDK variable)
 endif
 
+TARGET_ANDROID_TOOLCHAIN_VERSION ?= \
+	$(shell . $(TARGET_ANDROID_NDK)/build/tools/dev-defaults.sh && \
+		echo $$(get_default_gcc_version_for_arch $(ANDROID_ARCH)))
+
 TARGET_ANDROID_TOOLCHAIN ?= \
 	$(shell . $(TARGET_ANDROID_NDK)/build/tools/dev-defaults.sh && \
-		echo $$(get_default_toolchain_name_for_arch $(ANDROID_ARCH)))
+		echo $$(get_toolchain_name_for_arch $(ANDROID_ARCH) $(TARGET_ANDROID_TOOLCHAIN_VERSION)))
 ifeq ("$(TARGET_ANDROID_TOOLCHAIN)","")
   $(error Failed to detect Android toolchain, set the name of the toolchain in the TARGET_ANDROID_TOOLCHAIN variable)
 endif
@@ -114,7 +118,18 @@ endif
 TARGET_CROSS := $(ANDROID_TOOLCHAIN_PATH)/bin/$(ANDROID_TOOLCHAIN_PREFIX)-
 
 ifeq ("$(TARGET_ARCH)","arm")
-  TARGET_DEFAULT_LIB_DESTDIR ?= libs/armeabi-v7a
+  # Ensure Android/Arm ABI compatibility. Supported ABIs are:
+  # 	- armeabi when TARGET_CPU=''
+  # 	- armeabi-v7a when TARGET_CPU='armv7a'
+  # 	- armeabi-v7a with NEON when TARGET_CPU='armv7a-neon'
+  # as indicated here: https://developer.android.com/ndk/guides/standalone_toolchain.html#abi
+  ifeq ("$(TARGET_CPU))", "")
+    TARGET_DEFAULT_LIB_DESTDIR ?= libs/armeabi
+  else ifeq ($(filter-out armv7a armv7a-neon p7,$(TARGET_CPU)),)
+    TARGET_DEFAULT_LIB_DESTDIR ?= libs/armeabi-v7a
+  else
+    $(error "Target CPU '${TARGET_CPU}' does not support Android ABI Compatibility for ARM.")
+  endif
 else ifeq ("$(TARGET_ARCH)","aarch64")
   TARGET_DEFAULT_LIB_DESTDIR ?= libs/arm64-v8a
 else ifeq ("$(TARGET_ARCH)","x86")

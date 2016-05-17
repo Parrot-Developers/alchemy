@@ -911,6 +911,9 @@ cppcheck_files += $(foreach __inc,$(data_c_includes),$(wildcard $(__inc)/*.hpp))
 cppcheck_files += $(foreach __inc,$(data_c_includes),$(wildcard $(__inc)/*.hh))
 cppcheck_files += $(foreach __inc,$(data_c_includes),$(wildcard $(__inc)/*.hxx))
 
+# Checkvalastyle is only for vala files
+valacheck_files := $(filter %.vala,$(data_src_files))
+
 # Cloc
 cloc_files := $(data_src_files)
 cloc_files += $(foreach __inc,$(data_c_includes),$(wildcard $(__inc)/*.h))
@@ -921,6 +924,7 @@ cloc_files += $(foreach __inc,$(data_c_includes),$(wildcard $(__inc)/*.hxx))
 # Sort to have unique names
 codecheck_files := $(sort $(codecheck_files))
 cppcheck_files := $(sort $(cppcheck_files))
+valacheck_files := $(sort $(valacheck_files))
 cloc_files := $(sort $(cloc_files))
 
 .PHONY: $(LOCAL_MODULE)-codecheck
@@ -928,7 +932,6 @@ $(LOCAL_MODULE)-codecheck:
 	@echo "$(PRIVATE_MODULE): Checking files...";
 	@$(BUILD_SYSTEM)/scripts/checkpatch.pl \
 		--no-tree --no-summary --terse --show-types -f \
-		--ignore SPLIT_STRING \
 		$(PRIVATE_CODECHECK_ARGS) $(PRIVATE_CODECHECK_FILES) \
 	|| true;
 
@@ -943,6 +946,13 @@ $(LOCAL_MODULE)-cppcheck:
 			$(PRIVATE_CPPCHECK_ARGS) $$f \
 		|| true; \
 	done
+
+.PHONY: $(LOCAL_MODULE)-valacheck
+$(LOCAL_MODULE)-valacheck:
+	@echo "$(PRIVATE_MODULE): Checking files ...";
+	@$(BUILD_SYSTEM)/scripts/checkvalastyle.pl \
+		$(PRIVATE_VALACHECK_ARGS) $(PRIVATE_VALACHECK_FILES) \
+	|| true;
 
 .PHONY: $(LOCAL_MODULE)-cloc
 $(LOCAL_MODULE)-cloc:
@@ -960,11 +970,19 @@ $(LOCAL_MODULE)-codecheck: PRIVATE_MODULE := $(LOCAL_MODULE)
 $(LOCAL_MODULE)-codecheck: PRIVATE_BUILD_DIR := $(build_dir)
 $(LOCAL_MODULE)-codecheck: PRIVATE_CODECHECK_FILES := $(codecheck_files)
 $(LOCAL_MODULE)-codecheck: PRIVATE_CODECHECK_ARGS := $(LOCAL_CODECHECK_ARGS)
+ifneq ("$(LOCAL_MODULE)","linux")
+$(LOCAL_MODULE)-codecheck: PRIVATE_CODECHECK_ARGS += --ignore SPLIT_STRING,PREFER_ALIGNED,PREFER_PACKED
+endif
 
 $(LOCAL_MODULE)-cppcheck: PRIVATE_MODULE := $(LOCAL_MODULE)
 $(LOCAL_MODULE)-cppcheck: PRIVATE_BUILD_DIR := $(build_dir)
 $(LOCAL_MODULE)-cppcheck: PRIVATE_CPPCHECK_FILES := $(cppcheck_files)
 $(LOCAL_MODULE)-cppcheck: PRIVATE_CPPCHECK_ARGS := $(LOCAL_CPPCHECK_ARGS)
+
+$(LOCAL_MODULE)-valacheck: PRIVATE_MODULE := $(LOCAL_MODULE)
+$(LOCAL_MODULE)-valacheck: PRIVATE_BUILD_DIR := $(build_dir)
+$(LOCAL_MODULE)-valacheck: PRIVATE_VALACHECK_FILES := $(valacheck_files)
+$(LOCAL_MODULE)-valacheck: PRIVATE_VALACHECK_ARGS := $(LOCAL_VALACHECK_ARGS)
 
 $(LOCAL_MODULE)-cloc: PRIVATE_MODULE := $(LOCAL_MODULE)
 $(LOCAL_MODULE)-cloc: PRIVATE_BUILD_DIR := $(build_dir)

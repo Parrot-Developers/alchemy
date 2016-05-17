@@ -24,6 +24,7 @@ help:
 	@echo "  <module>-clean     : clean specified module."
 	@echo "  <module>-codecheck : check C coding rules for the specified module."
 	@echo "  <module>-cppcheck  : check C++ coding rules for the specified module."
+	@echo "  <module>-valacheck : check VALA coding rules for the specified module."
 	@echo "  <module>-cloc      : count number of lines of code with cloc."
 	@echo "  <module>-doc       : generate a documentation for the specified module."
 	@echo "  <module>-dirclean  : clean specified module and delete its build directory."

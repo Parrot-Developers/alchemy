@@ -19,7 +19,7 @@ LINUX_MODULE_SRC_FILES := $(addprefix $(LINUX_MODULE_OBJ_DIR)/src/, $(LOCAL_SRC_
 # LINUX_XXX variables can NOT be used here, they may not be defined yet
 # So the ARCH argument is given later when invoking make
 ifeq ("$(TARGET_OS_FLAVOUR:-chroot=)","native")
-$(LINUX_MODULE): PRIVATE_LINUX_BUILD_DIR := /lib/modules/$(shell uname -r)/build
+$(LINUX_MODULE): PRIVATE_LINUX_BUILD_DIR := /lib/modules/$(TARGET_LINUX_RELEASE)/build
 $(LINUX_MODULE): PRIVATE_KBUILD_FLAGS := \
 	INSTALL_MOD_PATH=$(TARGET_OUT_STAGING)
 else

@@ -266,6 +266,8 @@ it when targetting Android.</li>
 </br>Default tries to auto-detect the SDK from a few somewhat standard location (<code>/opt/android-sdk*</code>, <code>~/android-sdk*</code>, ...)</li>
 <li><code>TARGET_ANDROID_TOOLCHAIN</code> : name of the android toolchain, e.g. arm-linux-androideabi-4.7.
 </br>Default is the default toolchain for the current target architecture (<code>TARGET_ARCH</code>).</li>
+<li><code>TARGET_ANDROID_TOOLCHAIN_VERSION</code> : version of the android toolchain, e.g. 4.8. Ignored if <code>TARGET_ANDROID_TOOLCHAIN</code> is specified.
+</br>Default is the default toolchain version for the current target architecture (<code>TARGET_ARCH</code>).</li>
 <li><code>TARGET_ANDROID_STL</code> : specify the C++ Standard Template Library implementation to use. The NDK supports multiple STL implementations, which can be selected with this variable. Supported values are : <code>gnustl</code>, the GNU libstdc++; <code>libc++</code>, LLVM's libc++; and <code>stlport</code>.
 </br>Default is the GNU libstdc++.</li>
 <li><code>TARGET_ANDROID_SHARED_STL</code> : by default, Android NDK uses a static version of the C++ Standard library, which works only when generating a single shared library or executable. Setting this variable to <code>1</code> switches to a shared library version of the STL, which is needed if the project contains multiple shared libraries or executables. In that case, the shared library must be copied to the target device.</li>
@@ -450,14 +452,16 @@ forms <code>tar.gz</code>, <code>cpio.gz</code>, <code>ext2.gz</code>, <code>ext
 <li><code>--size &lt;val&gt; [&lt;unit&gt;]</code> : size of image (for <code>ext</code> format), unit is <code>K</code>, <code>M</code>, <code>G</code>
 </br>Default is empty.</li>
 </ul></li>
-<li><p><code>TARGET_FINAL_MODE</code>: how to create the final directory. Supported value:</p>
-
+<li><code>TARGET_FINAL_MODE</code>: how to create the final directory. Supported value:
 <ul>
 <li><code>full</code>: nothing is filtered.</li>
 <li><code>firmware</code>: filtered according to internal heuristics suitable for embedded
 execution.
 </br>Default is <code>firmware</code>.</li>
 </ul></li>
+<li><p><code>TARGET_LINUX_RELEASE</code> : linux kernel release to build kernel modules against it.
+This variable can be used only if building for <code>native</code> target.
+</br>Default is <code>$(shell uname -r)</code>.</p></li>
 <li><p><code>USE_CLANG</code> : Use clang instead of gcc for compilation.
 </br>Default is <code>0</code>.</p></li>
 <li><code>USE_CCACHE</code> : Use ccache to speed up compilation.
@@ -649,6 +653,7 @@ unpacked sources and applied patches will be kept in the build directory.</li>
 <li><code>make &lt;module&gt;-path</code> : will display the path of the module.</li>
 <li><code>make &lt;module&gt;-codecheck</code> : will check coding style of C source files.</li>
 <li><code>make &lt;module&gt;-cppcheck</code> : will check coding style of C++ source files.</li>
+<li><code>make &lt;module&gt;-valacheck</code> : will check coding style of Vala source files.</li>
 <li><code>make &lt;module&gt;-cloc</code> : will count the number of lines of code.</li>
 </ul>
 
@@ -1575,6 +1580,34 @@ suppresses errors of all categories on that line.</p>
 <pre>
     static int my_function()
     {  // NOLINT(whitespace/braces)
+</pre>
+
+<h2>Valacheck false positives or intentional deviations</h2>
+
+<p>You can ignore specific valacheck warnings in a Vala source code file by inserting
+a tag with the following syntax in a comment line to the line with the error:</p>
+
+<pre>
+    NOLINT
+</pre>
+
+<p>If you want to ignore multiple line you can use the following syntax:</p>
+
+<pre>
+    NOLINT_START
+    ...
+    NOLINT_STOP
+</pre>
+
+<p>Ex:</p>
+
+<pre>
+    static int my_function()
+    {  // NOLINT
+        int v1;
+    // NOLINT_START
+    int v2;
+    // NOLINT_STOP
 </pre>
 
 <h2>How to use it</h2>

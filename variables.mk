@@ -263,6 +263,7 @@ vars-LOCAL += DOXYGEN_INPUT
 # Arguments to pass to code checker (linux checkpatch by default)
 vars-LOCAL += CODECHECK_ARGS
 vars-LOCAL += CPPCHECK_ARGS
+vars-LOCAL += VALACHECK_ARGS
 
 # Other variables used internally
 vars-LOCAL += BUILD_MODULE
@@ -297,6 +298,7 @@ vars-TARGET += USE_CXX_EXCEPTIONS
 vars-TARGET += CPU_HAS_SSE2
 vars-TARGET += CPU_HAS_SSSE3
 vars-TARGET += CPU_HAS_NEON
+vars-TARGET += FLOAT_ABI
 
 # Folders
 vars-TARGET += OUT
@@ -425,6 +427,7 @@ vars-TARGET_SETUP += CPU
 vars-TARGET_SETUP += LIBC
 vars-TARGET_SETUP += DEFAULT_ARM_MODE
 vars-TARGET_SETUP += USE_CXX_EXCEPTIONS
+vars-TARGET_SETUP += FLOAT_ABI
 
 # Tools
 vars-TARGET_SETUP += CROSS
