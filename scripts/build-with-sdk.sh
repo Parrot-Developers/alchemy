@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
-SCRIPT_PATH=$(cd $(dirname $0) && pwd)
+SCRIPT_PATH=$(cd $(dirname $0) && pwd -P)
 
 # Determine ALCHEMY_HOME
 if [ "${ALCHEMY_HOME}" = "" ]; then

@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-function usage()
+usage()
 {
 	echo ""
 	echo "Apply a set of patch files on a source tree."
@@ -17,10 +17,10 @@ if [ "$#" -lt "2" ]; then
 fi
 
 # Get arguments
-readonly targetdir=$1
-readonly patchdir=$2
+targetdir=$1
+patchdir=$2
 shift 2
-readonly patchfiles="$@"
+patchfiles="$@"
 
 # Check validity of given directories
 if [ ! -d "${targetdir}" ] ; then

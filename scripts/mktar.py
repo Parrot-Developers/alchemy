@@ -5,7 +5,7 @@
 import os
 import stat
 import tarfile
-from cStringIO import StringIO
+import io
 
 # Convert a stat type to a tarfile type
 # Note: socket are not supported
@@ -38,9 +38,9 @@ def processTree(tarfd, tree):
         content = None
         if stat.S_IFMT(child.st.st_mode) == stat.S_IFREG:
             info.size = child.dataSize
-            content = StringIO(child.getData())
+            content = io.BytesIO(child.getData())
         elif stat.S_IFMT(child.st.st_mode) == stat.S_IFLNK:
-            info.linkname = child.getData()
+            info.linkname = child.getData().decode("UTF-8")
 
         # Add file and itd content
         tarfd.addfile(info, content)

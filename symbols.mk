@@ -9,19 +9,14 @@
 SYMBOLS_FILE := $(TARGET_OUT)/symbols-$(TARGET_PRODUCT_FULL_NAME).tar
 MAKESYMBOLS_SCRIPT := $(BUILD_SYSTEM)/scripts/makesymbols.py
 
-# Determine chroot path of the target
-SYMBOLS_ROOT :=
-ifeq ("$(TARGET_CHROOT)","1")
-  ifneq ("$(TARGET_IMAGE_PATH_MAP_FILE)","")
-    SYMBOLS_ROOT := $(shell awk '{ if ($$1 ~ /^\/$$/ ){print $$3;}}' $(TARGET_IMAGE_PATH_MAP_FILE))
-  endif
+ifneq ("$(V)","0")
+  MAKESYMBOLS_SCRIPT += -v
 endif
 
 .PHONY: __symbols-tar-internal
 __symbols-tar-internal: symbols-clean
 	@echo "Symbols: start"
-	$(Q) $(MAKESYMBOLS_SCRIPT) $(TARGET_OUT_STAGING) $(SYMBOLS_FILE) \
-		--symbols-root=$(SYMBOLS_ROOT)
+	$(Q) $(MAKESYMBOLS_SCRIPT) $(TARGET_OUT_STAGING) $(SYMBOLS_FILE)
 
 # Tar archive, no compression
 .PHONY: symbols-tar

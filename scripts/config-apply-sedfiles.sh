@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-function usage()
+usage()
 {
 	echo ""
 	echo "Apply a set of sed files to a config."
@@ -13,7 +13,7 @@ function usage()
 }
 
 # Activate verbose mode
-if [ "$1" == "-v" ]; then
+if [ "$1" = "-v" ]; then
 	readonly VERBOSE=1
 	shift
 else
@@ -34,7 +34,7 @@ shift 2
 readonly CONFIG_OUT_FILE_TMP=$(mktemp tmp.XXXXXXXXXX)
 
 # Log something if verbose mode is activated
-function logv()
+logv()
 {
 	if [ "${VERBOSE}" != "0" ]; then
 		echo "$@" >&2
@@ -45,7 +45,7 @@ function logv()
 cp -f ${CONFIG_IN_FILE} ${CONFIG_OUT_FILE_TMP}
 
 # Apply sed files
-for f in $*; do
+for f in "$@"; do
 	logv "Apply $f on ${CONFIG_IN_FILE} to ${CONFIG_OUT_FILE}"
 	sed --file=$f -i.bak ${CONFIG_OUT_FILE_TMP}
 	rm -f ${CONFIG_OUT_FILE_TMP}.bak
@@ -57,7 +57,7 @@ if ! test -f ${CONFIG_OUT_FILE} ; then
 	# Output does not exist
 	logv "Output does not exist"
 	mv -f ${CONFIG_OUT_FILE_TMP} ${CONFIG_OUT_FILE}
-elif ! cmp ${CONFIG_OUT_FILE_TMP} ${CONFIG_OUT_FILE} &>/dev/null ; then
+elif ! cmp ${CONFIG_OUT_FILE_TMP} ${CONFIG_OUT_FILE} >/dev/null 2>&1 ; then
 	# Output has changed since last time
 	logv "Output has changed"
 	mv -f ${CONFIG_OUT_FILE_TMP} ${CONFIG_OUT_FILE}
@@ -66,4 +66,3 @@ else
 	logv "Output is the same"
 	rm -f ${CONFIG_OUT_FILE_TMP}
 fi
-

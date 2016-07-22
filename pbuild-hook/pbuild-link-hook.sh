@@ -1,12 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 
 # Check argument count, do NOT display anything on stdout
 if [ $# -lt 5 ]; then
 	exit 0
 fi
-
-# Get full path to this script
-SCRIPT_PATH=$(cd $(dirname $0) && pwd)
 
 # Get parameters
 NM=$1
@@ -15,7 +12,7 @@ MODULE_NAME=$3
 OUT_DIR=$(dirname $4)
 DEPS_DATA=$5
 shift 5
-OBJECTS=$*
+OBJECTS="$@"
 
 OUT_SRC=${OUT_DIR}/pbuild_link_hook.cpp
 OUT_OBJ=${OUT_DIR}/pbuild_link_hook.o
@@ -29,7 +26,7 @@ touch ${OUT_SRC}
 ###############################################################################
 ## Write in output.
 ###############################################################################
-function outwrite()
+outwrite()
 {
 	echo "$1" >> ${OUT_SRC}
 }
@@ -133,9 +130,7 @@ if [ "${DEPS_DATA}" != "" ]; then
 	outwrite "static struct pal_lib_desc_data lib_desc_data[] = {"
 	for x in ${DEPS_DATA}; do
 		lib=$(echo "${x}" | cut -d: -f1)
-		path=$(echo "${x}" | cut -d: -f2)
-		pattern=$(echo "${lib}" | cut -d- -f1)
-		desc=$(cd ${path} && ${SCRIPT_PATH}/describe.sh)
+		desc=$(echo "${x}" | cut -d: -f2)
 		outwrite "    {\"${lib}\", \"${desc}\", 0},"
 	done
 	outwrite "    {0, 0, 0}"
@@ -166,7 +161,6 @@ if [ "${DEPS_DATA}" != "" ]; then
 	# End of anonymous namespace
 	outwrite "}"
 	outwrite ""
-
 fi
 
 ###############################################################################
@@ -178,4 +172,3 @@ ${CC} -o ${OUT_OBJ} -c ${OUT_SRC}
 
 # Print it so it will be added in the link
 echo ${OUT_OBJ}
-

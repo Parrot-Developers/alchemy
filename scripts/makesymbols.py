@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys, os, logging
-import optparse
+import argparse
 import tarfile
 
 #===============================================================================
@@ -42,19 +42,17 @@ def getFileList(stagingDir):
 
 #===============================================================================
 #===============================================================================
-def createTarFile(outTarFile, fileList, stagingDir, symbolsRoot):
+def createTarFile(outTarFile, fileList, stagingDir):
     # Create tar file
     try:
         tarfd = tarfile.open(outTarFile, "w")
     except tarfile.TarError as ex:
-        logging.error("Failed to create file: %s ([err=%d] %s)",
-            outTarFile, ex.errno, ex.strerror)
+        logging.error("Failed to create file: %s (%s)", outTarFile, str(ex))
         sys.exit(1)
 
-    symbolsRoot = symbolsRoot.strip("/")
     for filePath in fileList:
         fileRelPath = os.path.relpath(filePath, stagingDir)
-        fileName = os.path.join("symbols", symbolsRoot, fileRelPath)
+        fileName = os.path.join("symbols", fileRelPath)
         logging.info("Adding %s", fileRelPath)
         tarfd.add(name=filePath, arcname=fileName)
 
@@ -64,46 +62,37 @@ def createTarFile(outTarFile, fileList, stagingDir, symbolsRoot):
 # Main function.
 #===============================================================================
 def main():
-    (options, args) = parseArgs()
+    options = parseArgs()
     setupLog(options)
 
-    stagingDir = args[0]
-    outTarFile = args[1]
-
-    fileList = getFileList(stagingDir)
-    createTarFile(outTarFile, fileList, stagingDir, options.symbolsRoot)
+    fileList = getFileList(options.stagingDir)
+    createTarFile(options.outTarFile, fileList, options.stagingDir)
 
 #===============================================================================
 # Setup option parser and parse command line.
 #===============================================================================
 def parseArgs():
     # Setup parser
-    usage = "usage: %prog [options] <staging-dir> <out-tar-file>"
-    parser = optparse.OptionParser(usage=usage)
+    parser = argparse.ArgumentParser()
 
-    # Main options
-    parser.add_option("--symbols-root",
-        dest="symbolsRoot",
-        default="",
-        help="Extra root directory name to add in tar file")
+    # Positional arguments
+    parser.add_argument("stagingDir", help="Staging directory")
+    parser.add_argument("outTarFile", help="OUtput tar file")
 
     # Other options
-    parser.add_option("-q",
+    parser.add_argument("-q",
         dest="quiet",
         action="store_true",
         default=False,
         help="be quiet")
-    parser.add_option("-v",
+    parser.add_argument("-v",
         dest="verbose",
         action="count",
         default=0,
         help="verbose output (more verbose if specified twice)")
 
-    # Parse arguments and check validity
-    (options, args) = parser.parse_args()
-    if len(args) != 2:
-        parser.error("Bad number of arguments")
-    return (options, args)
+    # Parse arguments
+    return parser.parse_args()
 
 #===============================================================================
 # Setup logging system.
@@ -120,7 +109,7 @@ def setupLog(options):
     logging.addLevelName(logging.DEBUG, "D")
 
     # Setup log level
-    if options.quiet == True:
+    if options.quiet:
         logging.getLogger().setLevel(logging.CRITICAL)
     elif options.verbose >= 2:
         logging.getLogger().setLevel(logging.DEBUG)

@@ -18,7 +18,7 @@ without having to write complicated makefile/autoconfo.ac) and buildroot
 * building static/shared libraries and executables from source code.
 * building autotools/cmake from archives or source tree.
 * building qmake applications.
-* building for linux/ios/macos/android/mingw32 targets.
+* building for linux/ios/macos/android/windows targets.
 * building on linux/macos hosts.
 
 `Alchemy` uses gnu make and shell/python scripts to do the job. The

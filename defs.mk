@@ -21,6 +21,8 @@ comma := ,
 colon := :
 left-paren := (
 right-paren := )
+percent := %
+currency := $(shell echo $$'\xa4')
 
 # True/False values. Any non-empty test is considered as True
 true := T
@@ -133,9 +135,38 @@ str-starts-with = $(strip $(call not,$(patsubst $2%,,$1)))
 # $2 : suffix to check
 str-ends-with = $(strip $(call not,$(patsubst %$2,,$1)))
 
+# Remove leading '/' from a path
+# $1 : input string
+remove-leading-slash = $(strip $(patsubst /%,%,$1))
+
 # Remove trailing '/' from a path
 # $1 : input string
 remove-trailing-slash = $(strip $(patsubst %/,%,$1))
+
+# Remove leading and trailing '/' from a path
+# $1 : input string
+remove-slash = $(strip $(patsubst /%,%,$(patsubst %/,%,$1)))
+
+###############################################################################
+## Call a function(macro) for each variable in a variable list.
+## A variable list is a list of ';' separated <var>=<value> pairs.
+## $1 : variable list
+## $2 : function(macro) to call.
+##      First argument will be <var>, second will be <value>
+##
+## How it works:
+## - We replace spaces by a special character (currency).
+## - then we replace ';' by space and do a foreach on it.
+## - We spit the <var>=<value> pairs at the '=' to get the 2 components.
+## - We call the provided function(macro) with the 2 components.
+###############################################################################
+var-list-foreach = \
+	$(foreach __vlf_entry,$(subst ;,$(space),$(subst $(space),$(currency),$1)), \
+		$(eval __vlf_entry2 := $(subst $(currency),$(space),$(__vlf_entry))) \
+		$(eval __vlf_w1 := $(firstword $(subst =,$(space),$(__vlf_entry2)))) \
+		$(eval __vlf_w2 := $(patsubst $(__vlf_w1)=%,%,$(__vlf_entry2))) \
+		$(call $2,$(__vlf_w1),$(__vlf_w2)) \
+	)
 
 ###############################################################################
 ## Use some colors if requested.
@@ -213,9 +244,11 @@ module-add = \
 	$(if $(LOCAL_HOST_MODULE), \
 		$(if $(or $(call streq,$(LOCAL_MODULE_CLASS),AUTOTOOLS), \
 				$(call streq,$(LOCAL_MODULE_CLASS),CUSTOM), \
+				$(call streq,$(LOCAL_MODULE_CLASS),EXECUTABLE), \
+				$(call streq,$(LOCAL_MODULE_CLASS),STATIC_LIBRARY), \
 				$(call streq,$(LOCAL_MODULE_CLASS),PREBUILT)), \
 			$(eval LOCAL_MODULE := host.$(LOCAL_MODULE)), \
-			$(error $(LOCAL_PATH): Only AUTOTOOLS/CUSTOM/PREBUILT supported for host modules) \
+			$(error $(LOCAL_PATH): Only AUTOTOOLS/CUSTOM/EXECUTABLE/STATIC_LIBRARY/PREBUILT supported for host modules) \
 		) \
 	) \
 	$(eval __mod := $(LOCAL_MODULE)) \
@@ -245,6 +278,7 @@ module-add = \
 		) \
 	) \
 	$(if $(call streq,$(__add),1), \
+		$(compat-check) \
 		$(eval __modules += $(__mod)) \
 		$(foreach __local,$(vars-LOCAL), \
 			$(eval __modules.$(__mod).$(__local) := $(LOCAL_$(__local))) \
@@ -297,7 +331,8 @@ is-targets-in-make-goals = $(strip \
 ## $1 : module to check.
 ###############################################################################
 is-module-in-make-goals = $(strip \
-	$(call is-targets-in-make-goals,$1 $1-clean $1-dirclean $1-path $1-codecheck $1-cloc $1-doc $1-cppcheck $1-valacheck))
+	$(call is-targets-in-make-goals,$1 $1-clean $1-dirclean $1-path $1-cloc $1-doc \
+		$(call codecheck-get-targets,$1)))
 
 ###############################################################################
 ## Check if a module is registered. It simply verifies that the variable
@@ -321,6 +356,8 @@ is-module-external = $(strip \
 		$(call streq,$(__class),GENERIC), \
 		$(call streq,$(__class),CUSTOM) \
 		$(call streq,$(__class),META_PACKAGE) \
+		$(call streq,$(__class),LINUX) \
+		$(call streq,$(__class),LINUX_MODULE) \
 	))
 
 ###############################################################################
@@ -376,13 +413,15 @@ __modules-get-required-host-direct = $(strip $(sort \
 ## not actually in it).
 ## If no global configuration file present, always return true (unless if was
 ## forcibly disabled).
+## FIXME: do NOT require module to be registered (in some cases it can be called
+## before the module is registered)
 ###############################################################################
 is-module-in-build-config = $(strip \
 	$(if $(call is-module-registered,$1), \
 		$(if $(call is-module-prebuilt,$1), \
 			$(true) \
 			, \
-			$(if $(call streq,$(CONFIG_GLOBAL_FILE_AVAILABLE),1), \
+			$(if $(call streq,$(GLOBAL_CONFIG_FILE_AVAILABLE),1), \
 				$(eval __var := CONFIG_ALCHEMY_BUILD_$(call module-get-define,$1)) \
 				$(if $(call is-var-defined,$(__var)), \
 					$(if $($(__var)),$(true),$(false)) \
@@ -734,14 +773,14 @@ __module-compute-depends-static-internal = \
 
 # When forcing static libraries, take into account external libraries as well
 # Otherwise assume they are mostly shared libraries
-ifeq ("$(TARGET_FORCE_STATIC)","1")
 __module-compute-depends-static-internal += \
-	$(foreach __mod,$(__modules.$1.EXTERNAL_LIBRARIES), \
-		$(if $(call is-module-registered,$(__mod)), \
-			$(call __module-compute-depends-static,$(__mod),$2) \
+	$(if $(call streq,$(TARGET_FORCE_STATIC),1), \
+		$(foreach __mod,$(__modules.$1.EXTERNAL_LIBRARIES), \
+			$(if $(call is-module-registered,$(__mod)), \
+				$(call __module-compute-depends-static,$(__mod),$2) \
+			) \
 		) \
 	)
-endif
 
 # Compute dependencies for link. It simply aggregate (and sort) dependencies
 # $1 : module name.
@@ -854,6 +893,10 @@ module-get-link-depends = \
 module-get-all-depends = \
 	$(__modules.$1.depends.all)
 
+# Get headers dependencies
+module-get-headers-depends = \
+	$(__modules.$1.depends.headers)
+
 # Get direct dependencies
 module-get-depends = \
 	$(__modules.$1.depends)
@@ -878,8 +921,14 @@ module-get-build-dir = $(strip \
 	))
 
 # Get build directory of a host module
-# $1 : nomalized host moduel (without 'host.' prefix)
+# $1 : normalized host module (without 'host.' prefix)
 module-get-build-dir-host = $(strip $(HOST_OUT_BUILD)/$1)
+
+
+# Get build directory of a module
+# It handle host/target modules
+# $2: name to retreive (built, installed...)
+module-get-stamp-file = $(call module-get-build-dir,$1)/$1.$2.stamp
 
 # Get build file name of a module
 # It handle host/target modules
@@ -901,6 +950,25 @@ module-get-staging-filename = $(strip \
 		$(if $(__modules.$1.SDK), \
 			$(__modules.$1.SDK)/$(__modules.$1.DESTDIR)/$(__modules.$1.MODULE_FILENAME), \
 			$(TARGET_OUT_STAGING)/$(__modules.$1.DESTDIR)/$(__modules.$1.MODULE_FILENAME) \
+		) \
+	))
+
+# Get build file name for the static lib when the module is a generic lib (both shared/static).
+module-get-static-lib-build-filename = $(strip \
+	$(subst $(TARGET_SHARED_LIB_SUFFIX),$(TARGET_STATIC_LIB_SUFFIX), \
+		$(call module-get-build-filename,$1) \
+	))
+
+# Get staging file name for the static lib when the module is a generic lib (both shared/static).
+module-get-static-lib-staging-filename = $(strip \
+	$(if $(call streq,$(__modules.$1.DESTDIR),$(TARGET_DEFAULT_BIN_DESTDIR)), \
+		$(subst $(TARGET_DEFAULT_BIN_DESTDIR),$(TARGET_DEFAULT_LIB_DESTDIR), \
+			$(subst $(TARGET_SHARED_LIB_SUFFIX),$(TARGET_STATIC_LIB_SUFFIX), \
+				$(call module-get-staging-filename,$1) \
+			) \
+		), \
+		$(subst $(TARGET_SHARED_LIB_SUFFIX),$(TARGET_STATIC_LIB_SUFFIX), \
+			$(call module-get-staging-filename,$1) \
 		) \
 	))
 
@@ -931,16 +999,19 @@ __git-rev-compute = \
 	$(eval __data := $(shell cd $1 && git rev-parse --show-toplevel HEAD 2>/dev/null)) \
 	$(eval __top-level := $(word 1,$(__data))) \
 	$(eval __sha1 := $(word 2,$(__data))) \
+	$(eval __url := $(shell cd $1 && git ls-remote --get-url $$(git remote 2>/dev/null | head -n1) 2>/dev/null)) \
 	$(if $(__top-level), \
 		$(eval __desc := $(shell cd $(__top-level) && git describe --tags --always 2>/dev/null)) \
 		$(if $(wildcard $(__top-level)/.gitmodules),$(empty), \
 			$(eval __git-rev-cache.$(__top-level).sha1 := $(__sha1)) \
 			$(eval __git-rev-cache.$(__top-level).desc := $(__desc)) \
+			$(eval __git-rev-cache.$(__top-level).url := $(__url)) \
 			$(eval __git-rev-cache += $(__top-level)) \
 		) \
 		, \
 		$(eval __sha1 := $(empty)) \
 		$(eval __desc := $(empty)) \
+		$(eval __url := $(empty)) \
 	)
 
 # Search in cache if directory has already on of its parent in the cache
@@ -955,6 +1026,7 @@ __git-rev-get = \
 					$(call not,$(patsubst $(__top-level)/%,,$1/))), \
 				$(eval __sha1 := $(__git-rev-cache.$(__top-level).sha1)) \
 				$(eval __desc := $(__git-rev-cache.$(__top-level).desc)) \
+				$(eval __url := $(__git-rev-cache.$(__top-level).url)) \
 				$(eval __found := $(true)) \
 			) \
 		) \
@@ -975,8 +1047,10 @@ module-compute-revision = \
 		$(call __git-rev-get,$(__path)) \
 		$(if $(__sha1),$(empty),$(eval __sha1 := unknown)) \
 		$(if $(__desc),$(empty),$(eval __desc := unknown)) \
+		$(if $(__url),$(empty),$(eval __url := unknown)) \
 		$(eval __modules.$1.REVISION := $(__sha1)) \
 		$(eval __modules.$1.REVISION_DESCRIBE := $(__desc)) \
+		$(eval __modules.$1.REVISION_URL := $(__url)) \
 		$(if $(call strneq,$(V),0),$(info Revision of $1: $(__sha1) / $(__desc))) \
 	) \
 
@@ -987,6 +1061,10 @@ module-get-revision = $(strip $(module-compute-revision)$(__modules.$1.REVISION)
 # Get revision (with git describe) of one module
 # $1 : module name.
 module-get-revision-describe = $(strip $(module-compute-revision)$(__modules.$1.REVISION_DESCRIBE))
+
+# Get revision url of one module
+# $1 : module name.
+module-get-revision-url = $(strip $(module-compute-revision)$(__modules.$1.REVISION_URL))
 
 # Get last revision of one module. It is found in a generated file that may
 # not exist so the result can be empty.
@@ -1018,6 +1096,20 @@ generate-last-revision-file = \
 	) \
 
 endif
+
+###############################################################################
+## Register a prebuilt module using pkg-config
+## $1 : name of the alchemy module
+## $2 : name of the pkg-config module (can specify several separaed by space)
+###############################################################################
+register-prebuilt-pkg-config-module = \
+	$(if $(call streq,$(shell pkg-config --exists $2; echo $$?),0), \
+		$(eval include $(CLEAR_VARS)) \
+		$(eval LOCAL_MODULE := $1) \
+		$(eval LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags $2)) \
+		$(eval LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs $2)) \
+		$(call local-register-prebuilt-overridable) \
+	)
 
 ###############################################################################
 ## Generate autoconf.h file from config file.
@@ -1129,6 +1221,8 @@ normalize-c-includes-rel = $(strip \
 
 # Same as normalize-c-includes but uses the -isystem instead of -I flag
 # Note gcc 4.4.3 of android seems to mess things up when this flag is uses in C++
+# FIXME : adding a space between -isystem an the patch causes troubles when invoking
+# clangs' cpp (preprocessor) under darwin at least.
 normalize-system-c-includes = $(strip \
 	$(if $(call streq,$(TARGET_CC_VERSION),4.4.3), \
 		$(call normalize-c-includes,$1), \
@@ -1140,6 +1234,8 @@ normalize-system-c-includes = $(strip \
 
 # Same as normalize-c-includes-rel but uses the -isystem instead of -I flag
 # Note gcc 4.4.3 of android seems to mess things up when this flag is uses in C++
+# FIXME : the extra space does not cause too much troubles for relative path it is
+# not used with the preprocessor (autotools only)
 normalize-system-c-includes-rel = $(strip \
 	$(if $(call streq,$(TARGET_CC_VERSION),4.4.3), \
 		$(call normalize-c-includes-rel,$1), \
@@ -1183,7 +1279,13 @@ install-headers-setup = \
 		$(eval __pair2 := $(subst :,$(space),$(__pair))) \
 		$(eval __w1 := $(word 1,$(__pair2))) \
 		$(eval __w2 := $(word 2,$(__pair2))) \
-		$(if $(__w2),$(empty),$(eval __w2 := usr/include/)) \
+		$(if $(__w2),$(empty), \
+			$(if $(call is-module-host,$1), \
+				$(eval __w2 := $(HOST_ROOT_DESTDIR)/include/) \
+				, \
+				$(eval __w2 := $(TARGET_ROOT_DESTDIR)/include/) \
+			) \
+		) \
 		$(eval __src := $(call copy-get-src-path,$(__w1))) \
 		$(if $(call is-module-host,$1), \
 			$(eval __dst := $(call copy-get-dst-path-host,$(__w2))), \
@@ -1218,6 +1320,47 @@ conditional-libraries-setup = \
 			) \
 		) \
 	)
+
+###############################################################################
+## Check compatibility variables
+###############################################################################
+compat-check = \
+	$(call __compat-check-var,AUTOTOOLS_ARCHIVE,ARCHIVE) \
+	$(call __compat-check-var,AUTOTOOLS_VERSION,ARCHIVE_VERSION) \
+	$(call __compat-check-var,AUTOTOOLS_SUBDIR,ARCHIVE_SUBDIR) \
+	$(call __compat-check-var,AUTOTOOLS_PATCHES,ARCHIVE_PATCHES) \
+	$(call __compat-check-var,AUTOTOOLS_COPY_TO_BUILD_DIR,COPY_TO_BUILD_DIR) \
+	$(call __compat-check-macro,AUTOTOOLS_CMD_UNPACK,ARCHIVE_CMD_UNPACK) \
+	$(call __compat-check-macro,AUTOTOOLS_CMD_POST_UNPACK,ARCHIVE_CMD_POST_UNPACK) \
+	$(call __compat-check-macro,AUTOTOOLS_CMD_CONFIGURE,CMD_CONFIGURE) \
+	$(call __compat-check-macro,AUTOTOOLS_CMD_BUILD,CMD_BUILD) \
+	$(call __compat-check-macro,AUTOTOOLS_CMD_INSTALL,CMD_INSTALL) \
+	$(call __compat-check-macro,AUTOTOOLS_CMD_CLEAN,CMD_CLEAN) \
+	$(call __compat-check-macro,AUTOTOOLS_CMD_POST_CONFIGURE,CMD_POST_CONFIGURE) \
+	$(call __compat-check-macro,AUTOTOOLS_CMD_POST_BUILD,CMD_POST_BUILD) \
+	$(call __compat-check-macro,AUTOTOOLS_CMD_POST_INSTALL,CMD_POST_INSTALL) \
+	$(call __compat-check-macro,AUTOTOOLS_CMD_POST_CLEAN,CMD_POST_CLEAN) \
+	$(call __compat-check-macro,CMAKE_CMD_CONFIGURE,CMD_CONFIGURE) \
+	$(call __compat-check-macro,CMAKE_CMD_BUILD,CMD_BUILD) \
+	$(call __compat-check-macro,CMAKE_CMD_INSTALL,CMD_INSTALL) \
+	$(call __compat-check-macro,CMAKE_CMD_CLEAN,CMD_CLEAN) \
+	$(call __compat-check-macro,CMAKE_CMD_POST_CONFIGURE,CMD_POST_CONFIGURE) \
+	$(call __compat-check-macro,CMAKE_CMD_POST_BUILD,CMD_POST_BUILD) \
+	$(call __compat-check-macro,CMAKE_CMD_POST_INSTALL,CMD_POST_INSTALL) \
+	$(call __compat-check-macro,CMAKE_CMD_POST_CLEAN,CMD_POST_CLEAN) \
+	$(call __compat-check-var,CODECHECK_ARGS,CODECHECK_C_ARGS) \
+	$(call __compat-check-var,CPPCHECK_ARGS,CODECHECK_CXX_ARGS) \
+	$(call __compat-check-var,VALACHECK_ARGS,CODECHECK_VALA_ARGS)
+
+# $1 : compat variable to check
+# $2 : new variable name
+__compat-check-var = \
+	$(if $(LOCAL_$1),$(eval LOCAL_$2 := $(LOCAL_$1)))
+
+# $1 : compat macro to check
+# $2 : new macro name
+__compat-check-macro = \
+	$(if $(value LOCAL_$1),$(call macro-copy,LOCAL_$2,LOCAL_$1))
 
 ###############################################################################
 ## Filter a list of modules tp keep only internal or external ones.
@@ -1288,6 +1431,8 @@ macro-exec-cmd = \
 		$(if $2,$($2)) \
 	)
 
+macro-has-cmd = $(or $(value __modules.$(PRIVATE_MODULE).$1),$(value $2))
+
 ###############################################################################
 ## Call custom macros.
 ## $1 : module name
@@ -1305,7 +1450,7 @@ macro-exec-cmd = \
 ## is expected before the call is made.
 ## After we still 'eval' the result that can contains additional rules.
 ##
-## Note: you can add $(info xx$(__tmp)xx) before the sencon eval to debug what
+## Note: you can add $(info xx$(__tmp)xx) before the second eval to debug what
 ## is internally generated by the macro call.
 ###############################################################################
 exec-custom-macro = \
@@ -1347,21 +1492,11 @@ check-custom-macro = \
 ## message displayed when used while TARGET_DEFAULT_ARM_MODE is 'arm'.
 ###############################################################################
 
-# Old variables still suported but no more in vars-LOCAL or macros-LOCAL
-__compat-vars-LOCAL := \
-	AUTOTOOLS_ARCHIVE \
-	AUTOTOOLS_VERSION \
-	AUTOTOOLS_SUBDIR \
-	AUTOTOOLS_PATCHES \
-	AUTOTOOLS_CMD_UNPACK \
-	AUTOTOOLS_CMD_POST_UNPACK \
-	AUTOTOOLS_COPY_TO_BUILD_DIR \
-
 # All allowed variables
 __all-vars-LOCAL := \
 	$(vars-LOCAL) \
 	$(macros-LOCAL) \
-	$(__compat-vars-LOCAL)
+	$(compat-vars-LOCAL)
 
 # Get all defined LOCAL_XXX variables
 __get-defined-local-vars = $(filter LOCAL_%,$(.VARIABLES))
@@ -1438,7 +1573,7 @@ link-hook = $(strip \
 		$(eval __depsdata := $(empty)) \
 		$(if $(call streq,$(TARGET_PBUILD_HOOK_USE_DESCRIBE),1), \
 			$(foreach __lib,$(sort $1 $(__modules.$1.depends.all)), \
-				$(eval __depsdata += $(__lib):$(__modules.$(__lib).PATH)) \
+				$(eval __depsdata += $(__lib):$(call module-get-revision-describe,$(__lib))) \
 			)\
 		) \
 		$(shell $(BUILD_SYSTEM)/pbuild-hook/pbuild-link-hook.sh \
@@ -1470,24 +1605,6 @@ $(eval __depsdata := $(subst $(space),\n,$(strip $(__depsdata))))
 endef
 
 ###############################################################################
-## Add a section in a binary with a build id.
-## This is a `sha1` of all sections that are loadable at runtime and with data
-## in the binary. This section is kept after stripping and the `sha1` can be
-## recomputed on the original and stripped binary and still produce the same
-## `sha1`. This can be used to identify the non-stripped binary based on the
-## stripped one.
-## Note : shall only be used in a rule because it uses $@
-###############################################################################
-
-define add-buildid-section
-@( \
-	$(BUILD_SYSTEM)/scripts/addbuildid.py \
-	--objcopy=$(PRIVATE_OBJCOPY) \
-	--section-name=$(TARGET_BUILDID_SECTION_NAME) $@ \
-)
-endef
-
-###############################################################################
 ## Copy license files from $1 to $2.
 ## It will copy [.]MODULE_LICENSE* and [.]MODULE_NAME* files, as well as
 ## NOTICE or COPYING files to help police.
@@ -1504,6 +1621,13 @@ define copy-license-files
 )
 endef
 
+define delete-license-files
+@( \
+	files="$(wildcard $(addprefix $1/,$(__license-pattern)))"; \
+	if [ "$${files}" != "" ]; then rm -f $${files}; fi; \
+)
+endef
+
 ###############################################################################
 ## Fix a .d file with compilation dependencies.
 ## It will ensure that full paths are specified.
@@ -1515,6 +1639,22 @@ define fix-deps-file
 		-e 's| \([^/\\: ]\)| $(TOP_DIR)/\1|g' \
 		-e 's|^\([^/\\: ]\)|$(TOP_DIR)/\1|g' \
 		$1 && rm -f $1.bak) \
+)
+endef
+
+###############################################################################
+## Update a file with another one if it does not exists or the contents has
+## changed.
+## $1 : file to create.
+## $2 : other file with new contents.
+###############################################################################
+define update-file-if-needed
+@( \
+	mkdir -p $(dir $1); \
+	if [ ! -f $1 ]; then mv $2 $1; \
+	elif ! cmp -s $2 $1 &>/dev/null; then mv $2 $1; \
+	else rm -f $2; \
+	fi; \
 )
 endef
 

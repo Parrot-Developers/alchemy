@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/sh
 
 # This script assumes it is copied in the staging or final dir
 # Folders bin, usr/bin, lib, /usr/lib are subdirectories there
 
 # Get full path to this script
-SCRIPT_PATH=$(cd $(dirname $0) && pwd)
+SCRIPT_PATH=$(cd $(dirname $0) && pwd -P)
 SYSROOT=${SCRIPT_PATH}
 
 # sanity check
@@ -100,7 +100,7 @@ done
 
 # Need to be root to chroot, but then go back to initial user
 if [ "${OPT_ROOT}" = "0" ]; then
-	sudo chroot --userspec=${UID}:${UID} ${SYSROOT} ${OPT_PROG}
+	sudo chroot --userspec=$(id -u):$(id -g) ${SYSROOT} ${OPT_PROG}
 else
 	sudo chroot ${SYSROOT} ${OPT_PROG}
 fi

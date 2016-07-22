@@ -1,33 +1,41 @@
-#!/bin/bash -e
+#!/bin/sh
 
-# Autodetect target os
-export TARGET_OS=$(uname -s | awk '{print tolower($$0)}')
+set -e
 
-# Autodetect target architecture
-if [ "${TARGET_ARCH}" = "" ]; then
-	dummy=$(gcc -dumpmachine | grep 64)
-	if [ "$?" == "0" ]; then
-		export TARGET_ARCH=x64
-	else
-		export TARGET_ARCH=x86
-	fi
+SCRIPT_PATH=$(cd $(dirname $0) && pwd -P)
+
+export ALCHEMY_HOME=${SCRIPT_PATH}/..
+export ALCHEMY_WORKSPACE_DIR=${SCRIPT_PATH}
+
+HOST_OS=$(${ALCHEMY_HOME}/scripts/host.py OS)
+HOST_ARCH=$(${ALCHEMY_HOME}/scripts/host.py ARCH)
+
+# Use gmake under bsd
+if [ "${MAKE}" = "" ]; then
+	case ${HOST_OS} in
+		*bsd*)
+			export MAKE=gmake
+		;;
+	esac
 fi
 
-# Expor some settings
-export TARGET_OUT=out-${TARGET_OS}-${TARGET_ARCH}
-export TARGET_OUT_BUILD=${TARGET_OUT}/build
-export TARGET_OUT_STAGING=${TARGET_OUT}/staging
-export TARGET_OUT_FINAL=bin-${TARGET_OS}-${TARGET_ARCH}
+# Autodetect target os/arch
+export TARGET_OS=${HOST_OS}
+export TARGET_OS_FLAVOUR=native
+if [ "${TARGET_ARCH}" = "" ]; then
+	export TARGET_ARCH=${HOST_ARCH}
+fi
+export TARGET_OUT=${SCRIPT_PATH}/out/${TARGET_OS}-${TARGET_ARCH}
+export TARGET_DEFAULT_ARM_MODE=arm
 
 # Execute makefile
-if [ "$1" = "clean" ]; then
-	make -f ../main.mk clean
-elif [ "$1" = "clobber" ]; then
-	make -f ../main.mk clobber
+if [ "$1" = "" ]; then
+	${ALCHEMY_HOME}/scripts/alchemake all final
+	mkdir -p bin-${TARGET_OS}-${TARGET_ARCH}
+	cp -af ${TARGET_OUT}/final/usr/bin/*conf* bin-${TARGET_OS}-${TARGET_ARCH}
+elif [ "$1" = "clean" ]; then
+	${ALCHEMY_HOME}/scripts/alchemake "$@"
 	rm -rf ${TARGET_OUT}
 else
-	make -f ../main.mk all
-	make -f ../main.mk final
-	rm -f ${TARGET_OUT_FINAL}/native-wrapper.sh
+	${ALCHEMY_HOME}/scripts/alchemake "$@"
 fi
-

@@ -375,370 +375,370 @@ DF_1_DISPRELPND = 0x00010000  # Disp reloc applied at run-time.
 #===============================================================================
 #===============================================================================
 class ElfError(Exception):
-	pass
+    pass
 
 #===============================================================================
 # The ELF file header. This appears at the start of every ELF file.
 #===============================================================================
 class ElfEhdr(object):
-	size32 = 52
-	size64 = 64
-	def __init__(self, buf):
-		# Read e_ident first so we can get information
-		self.e_ident = struct.unpack("%dB" % EI_NIDENT, buf[0:EI_NIDENT])
-		if self.e_ident[EI_MAG0] != ELFMAG0 \
-				or self.e_ident[EI_MAG1] != ELFMAG1 \
-				or self.e_ident[EI_MAG2] != ELFMAG2 \
-				or self.e_ident[EI_MAG3] != ELFMAG3:
-			raise ElfError("Bad magic in Ehdr")
+    size32 = 52
+    size64 = 64
+    def __init__(self, buf):
+        # Read e_ident first so we can get information
+        self.e_ident = struct.unpack("%dB" % EI_NIDENT, buf[0:EI_NIDENT])
+        if self.e_ident[EI_MAG0] != ELFMAG0 \
+                or self.e_ident[EI_MAG1] != ELFMAG1 \
+                or self.e_ident[EI_MAG2] != ELFMAG2 \
+                or self.e_ident[EI_MAG3] != ELFMAG3:
+            raise ElfError("Bad magic in Ehdr")
 
-		# Check encoding
-		if not self.isLSB() or self.isMSB():
-			raise ElfError("Bad encoding in Ehdr")
+        # Check encoding
+        if not self.isLSB() or self.isMSB():
+            raise ElfError("Bad encoding in Ehdr")
 
-		# Setup format based on class
-		if self.is32Bit():
-			fmt = self.getFmtPrefix() + "HHIIIIIHHHHHH"
-			self.size = ElfEhdr.size32
-		elif self.is64Bit():
-			fmt = self.getFmtPrefix() + "HHIQQQIHHHHHH"
-			self.size = ElfEhdr.size64
-		else:
-			raise ElfError("Bad class in Ehdr")
+        # Setup format based on class
+        if self.is32Bit():
+            fmt = self.getFmtPrefix() + "HHIIIIIHHHHHH"
+            self.size = ElfEhdr.size32
+        elif self.is64Bit():
+            fmt = self.getFmtPrefix() + "HHIQQQIHHHHHH"
+            self.size = ElfEhdr.size64
+        else:
+            raise ElfError("Bad class in Ehdr")
 
-		# Save fields (same order for 32-bit/64-bit)
-		fields = struct.unpack(fmt, buf[EI_NIDENT:self.size])
-		self.e_type = fields[0]       # Object file type
-		self.e_machine = fields[1]    # Architecture
-		self.e_version = fields[2]    # Object file version
-		self.e_entry = fields[3]      # Entry point virtual address
-		self.e_phoff = fields[4]      # Program header table file offset
-		self.e_shoff = fields[5]      # Section header table file offset
-		self.e_flags = fields[6]      # Processor-specific flags
-		self.e_ehsize = fields[7]     # ELF header size in bytes
-		self.e_phentsize = fields[8]  # Program header table entry size
-		self.e_phnum = fields[9]      # Program header table entry count
-		self.e_shentsize = fields[10] # Section header table entry size
-		self.e_shnum = fields[11]     # Section header table entry count
-		self.e_shstrndx = fields[12]  # Section header string table index
+        # Save fields (same order for 32-bit/64-bit)
+        fields = struct.unpack(fmt, buf[EI_NIDENT:self.size])
+        self.e_type = fields[0]       # Object file type
+        self.e_machine = fields[1]    # Architecture
+        self.e_version = fields[2]    # Object file version
+        self.e_entry = fields[3]      # Entry point virtual address
+        self.e_phoff = fields[4]      # Program header table file offset
+        self.e_shoff = fields[5]      # Section header table file offset
+        self.e_flags = fields[6]      # Processor-specific flags
+        self.e_ehsize = fields[7]     # ELF header size in bytes
+        self.e_phentsize = fields[8]  # Program header table entry size
+        self.e_phnum = fields[9]      # Program header table entry count
+        self.e_shentsize = fields[10] # Section header table entry size
+        self.e_shnum = fields[11]     # Section header table entry count
+        self.e_shstrndx = fields[12]  # Section header string table index
 
-	def isLSB(self):
-		return self.e_ident[EI_DATA] == ELFDATA2LSB
-	def isMSB(self):
-		return self.e_ident[EI_DATA] == ELFDATA2MSB
-	def is32Bit(self):
-		return self.e_ident[EI_CLASS] == ELFCLASS32
-	def is64Bit(self):
-		return self.e_ident[EI_CLASS] == ELFCLASS64
-	def getFmtPrefix(self):
-		return "<" if self.isLSB() else ">"
+    def isLSB(self):
+        return self.e_ident[EI_DATA] == ELFDATA2LSB
+    def isMSB(self):
+        return self.e_ident[EI_DATA] == ELFDATA2MSB
+    def is32Bit(self):
+        return self.e_ident[EI_CLASS] == ELFCLASS32
+    def is64Bit(self):
+        return self.e_ident[EI_CLASS] == ELFCLASS64
+    def getFmtPrefix(self):
+        return "<" if self.isLSB() else ">"
 
-	def __str__(self):
-		return \
-				"{e_type=0x%x, e_machine=0x%x, e_version=0x%x, e_entry=0x%x, " \
-				"e_phoff=0x%x, e_shoff=0x%x, e_flags=0x%x, e_ehsize=0x%x, " \
-				"e_phentsize=0x%x, e_phnum=0x%x, e_shentsize=0x%x, " \
-				"e_shnum=0x%x, e_shstrndx=0x%x}" % \
-				(self.e_type, self.e_machine, self.e_version, self.e_entry,
-				self.e_phoff, self.e_shoff, self.e_flags, self.e_ehsize,
-				self.e_phentsize, self.e_phnum, self.e_shentsize,
-				self.e_shnum, self.e_shstrndx)
+    def __str__(self):
+        return \
+                "{e_type=0x%x, e_machine=0x%x, e_version=0x%x, e_entry=0x%x, " \
+                "e_phoff=0x%x, e_shoff=0x%x, e_flags=0x%x, e_ehsize=0x%x, " \
+                "e_phentsize=0x%x, e_phnum=0x%x, e_shentsize=0x%x, " \
+                "e_shnum=0x%x, e_shstrndx=0x%x}" % \
+                (self.e_type, self.e_machine, self.e_version, self.e_entry,
+                self.e_phoff, self.e_shoff, self.e_flags, self.e_ehsize,
+                self.e_phentsize, self.e_phnum, self.e_shentsize,
+                self.e_shnum, self.e_shstrndx)
 
 #===============================================================================
 # Section header.
 #===============================================================================
 class ElfShdr(object):
-	size32 = 40
-	size64 = 64
-	def __init__(self, elf, idx, buf):
-		self.idx = idx
-		self.namestr = None
+    size32 = 40
+    size64 = 64
+    def __init__(self, elf, idx, buf):
+        self.idx = idx
+        self.namestr = None
 
-		# Setup format
-		if elf.ehdr.is32Bit():
-			fmt = elf.ehdr.getFmtPrefix() + "IIIIIIIIII"
-			self.size = ElfPhdr.size32
-		else:
-			fmt = elf.ehdr.getFmtPrefix() + "IIQQQQIIQQ"
-			self.size = ElfPhdr.size64
+        # Setup format
+        if elf.ehdr.is32Bit():
+            fmt = elf.ehdr.getFmtPrefix() + "IIIIIIIIII"
+            self.size = ElfPhdr.size32
+        else:
+            fmt = elf.ehdr.getFmtPrefix() + "IIQQQQIIQQ"
+            self.size = ElfPhdr.size64
 
-		# Save fields (same order for 32-bit/64-bit)
-		fields = struct.unpack(fmt, buf)
+        # Save fields (same order for 32-bit/64-bit)
+        fields = struct.unpack(fmt, buf)
 
-		self.sh_name = fields[0]      # Section name (string tbl index)
-		self.sh_type = fields[1]      # Section type
-		self.sh_flags = fields[2]     # Section flags
-		self.sh_addr = fields[3]      # Section virtual addr at execution
-		self.sh_offset = fields[4]    # Section file offset
-		self.sh_size = fields[5]      # Section size in bytes
-		self.sh_link = fields[6]      # Link to another section
-		self.sh_info = fields[7]      # Additional section information
-		self.sh_addralign = fields[8] # Section alignment
-		self.sh_entsize = fields[9]   # Entry size if section holds table
+        self.sh_name = fields[0]      # Section name (string tbl index)
+        self.sh_type = fields[1]      # Section type
+        self.sh_flags = fields[2]     # Section flags
+        self.sh_addr = fields[3]      # Section virtual addr at execution
+        self.sh_offset = fields[4]    # Section file offset
+        self.sh_size = fields[5]      # Section size in bytes
+        self.sh_link = fields[6]      # Link to another section
+        self.sh_info = fields[7]      # Additional section information
+        self.sh_addralign = fields[8] # Section alignment
+        self.sh_entsize = fields[9]   # Entry size if section holds table
 
-	def __str__(self):
-		return \
-				"{sh_name=0x%x, sh_type=0x%x, sh_flags=0x%x, sh_addr=0x%x, " \
-				"sh_offset=0x%x, sh_size=0x%x, sh_link=0x%x, sh_info=0x%x, " \
-				"sh_addralign=0x%x, sh_entsize=0x%x, namestr='%s'}" % \
-				(self.sh_name, self.sh_type, self.sh_flags, self.sh_addr,
-				self.sh_offset, self.sh_size, self.sh_link, self.sh_info,
-				self.sh_addralign, self.sh_entsize, self.namestr)
+    def __str__(self):
+        return \
+                "{sh_name=0x%x, sh_type=0x%x, sh_flags=0x%x, sh_addr=0x%x, " \
+                "sh_offset=0x%x, sh_size=0x%x, sh_link=0x%x, sh_info=0x%x, " \
+                "sh_addralign=0x%x, sh_entsize=0x%x, namestr='%s'}" % \
+                (self.sh_name, self.sh_type, self.sh_flags, self.sh_addr,
+                self.sh_offset, self.sh_size, self.sh_link, self.sh_info,
+                self.sh_addralign, self.sh_entsize, self.namestr)
 
 #===============================================================================
 # Program segment header.
 #===============================================================================
 class ElfPhdr(object):
-	size32 = 32
-	size64 = 56
-	def __init__(self, elf, idx, buf):
-		self.idx = idx
+    size32 = 32
+    size64 = 56
+    def __init__(self, elf, idx, buf):
+        self.idx = idx
 
-		# Setup format
-		if elf.ehdr.is32Bit():
-			fmt = elf.ehdr.getFmtPrefix() + "IIIIIIII"
-			self.size = ElfPhdr.size32
-		else:
-			fmt = elf.ehdr.getFmtPrefix() + "IIQQQQQQ"
-			self.size = ElfPhdr.size64
+        # Setup format
+        if elf.ehdr.is32Bit():
+            fmt = elf.ehdr.getFmtPrefix() + "IIIIIIII"
+            self.size = ElfPhdr.size32
+        else:
+            fmt = elf.ehdr.getFmtPrefix() + "IIQQQQQQ"
+            self.size = ElfPhdr.size64
 
-		# Save fields (order depends on 32-bit/64-bit)
-		fields = struct.unpack(fmt, buf)
-		if elf.ehdr.is32Bit():
-			self.p_type = fields[0]   # Segment type
-			self.p_offset = fields[1] # Segment file offset
-			self.p_vaddr = fields[2]  # Segment virtual address
-			self.p_paddr = fields[3]  # Segment physical address
-			self.p_filesz = fields[4] # Segment size in file
-			self.p_memsz = fields[5]  # Segment size in memory
-			self.p_flags = fields[6]  # Segment flags
-			self.p_align = fields[7]  # Segment alignment
-		else:
-			self.p_type = fields[0]   # Segment type
-			self.p_flags = fields[1]  # Segment flags
-			self.p_offset = fields[2] # Segment file offset
-			self.p_vaddr = fields[3]  # Segment virtual address
-			self.p_paddr = fields[4]  # Segment physical address
-			self.p_filesz = fields[5] # Segment size in file
-			self.p_memsz = fields[6]  # Segment size in memory
-			self.p_align = fields[7]  # Segment alignment
+        # Save fields (order depends on 32-bit/64-bit)
+        fields = struct.unpack(fmt, buf)
+        if elf.ehdr.is32Bit():
+            self.p_type = fields[0]   # Segment type
+            self.p_offset = fields[1] # Segment file offset
+            self.p_vaddr = fields[2]  # Segment virtual address
+            self.p_paddr = fields[3]  # Segment physical address
+            self.p_filesz = fields[4] # Segment size in file
+            self.p_memsz = fields[5]  # Segment size in memory
+            self.p_flags = fields[6]  # Segment flags
+            self.p_align = fields[7]  # Segment alignment
+        else:
+            self.p_type = fields[0]   # Segment type
+            self.p_flags = fields[1]  # Segment flags
+            self.p_offset = fields[2] # Segment file offset
+            self.p_vaddr = fields[3]  # Segment virtual address
+            self.p_paddr = fields[4]  # Segment physical address
+            self.p_filesz = fields[5] # Segment size in file
+            self.p_memsz = fields[6]  # Segment size in memory
+            self.p_align = fields[7]  # Segment alignment
 
-	def __str__(self):
-		return \
-				"{p_type=0x%x, p_offset=0x%x, p_vaddr=0x%x, p_paddr=0x%x, " \
-				"p_filesz=0x%x, p_memsz=0x%x, p_flags=0x%x, p_align=0x%x}" % \
-				(self.p_type, self.p_offset, self.p_vaddr, self.p_paddr,
-				self.p_filesz, self.p_memsz, self.p_flags, self.p_align)
+    def __str__(self):
+        return \
+                "{p_type=0x%x, p_offset=0x%x, p_vaddr=0x%x, p_paddr=0x%x, " \
+                "p_filesz=0x%x, p_memsz=0x%x, p_flags=0x%x, p_align=0x%x}" % \
+                (self.p_type, self.p_offset, self.p_vaddr, self.p_paddr,
+                self.p_filesz, self.p_memsz, self.p_flags, self.p_align)
 
 #===============================================================================
 #===============================================================================
 class ElfSym(object):
-	size32 = 16
-	size64 = 24
-	def __init__(self, elf, idx, buf):
-		self.idx = idx
-		self.namestr = None
+    size32 = 16
+    size64 = 24
+    def __init__(self, elf, idx, buf):
+        self.idx = idx
+        self.namestr = None
 
-		# Setup format
-		if elf.ehdr.is32Bit():
-			fmt = elf.ehdr.getFmtPrefix() + "IIIBBH"
-			self.size = ElfSym.size32
-		else:
-			fmt = elf.ehdr.getFmtPrefix() + "IBBHQQ"
-			self.size = ElfSym.size64
+        # Setup format
+        if elf.ehdr.is32Bit():
+            fmt = elf.ehdr.getFmtPrefix() + "IIIBBH"
+            self.size = ElfSym.size32
+        else:
+            fmt = elf.ehdr.getFmtPrefix() + "IBBHQQ"
+            self.size = ElfSym.size64
 
-		# Save fields (order depends on 32-bit/64-bit)
-		fields = struct.unpack(fmt, buf)
-		if elf.ehdr.is32Bit():
-			self.st_name = fields[0]  # Symbol name (string tbl index)
-			self.st_value = fields[1] # Symbol value
-			self.st_size = fields[2]  # Symbol size
-			self.st_info = fields[3]  # Symbol type and binding
-			self.st_other = fields[4] # Symbol visibility
-			self.st_shndx = fields[5] # Section index
-		else:
-			self.st_name = fields[0]  # Symbol name (string tbl index)
-			self.st_info = fields[1]  # Symbol type and binding
-			self.st_other = fields[2] # Symbol visibility
-			self.st_shndx = fields[3] # Section index
-			self.st_value = fields[4] # Symbol value
-			self.st_size = fields[5]  # Symbol size
-		self.st_type = self.st_info&0xf
-		self.st_bind = (self.st_info>>4)&0xf
-		self.st_visibility = self.st_other&0x3
+        # Save fields (order depends on 32-bit/64-bit)
+        fields = struct.unpack(fmt, buf)
+        if elf.ehdr.is32Bit():
+            self.st_name = fields[0]  # Symbol name (string tbl index)
+            self.st_value = fields[1] # Symbol value
+            self.st_size = fields[2]  # Symbol size
+            self.st_info = fields[3]  # Symbol type and binding
+            self.st_other = fields[4] # Symbol visibility
+            self.st_shndx = fields[5] # Section index
+        else:
+            self.st_name = fields[0]  # Symbol name (string tbl index)
+            self.st_info = fields[1]  # Symbol type and binding
+            self.st_other = fields[2] # Symbol visibility
+            self.st_shndx = fields[3] # Section index
+            self.st_value = fields[4] # Symbol value
+            self.st_size = fields[5]  # Symbol size
+        self.st_type = self.st_info&0xf
+        self.st_bind = (self.st_info>>4)&0xf
+        self.st_visibility = self.st_other&0x3
 
-	def __str__(self):
-		return \
-				"{st_name=0x%x, st_value=0x%x, st_size=0x%x, st_type=0x%x, " \
-				"st_bind=0x%x, st_visibility=0x%x, st_shndx=0x%x, namestr='%s'}" % \
-				(self.st_name, self.st_value, self.st_size, self.st_type,
-				self.st_bind, self.st_visibility, self.st_shndx, self.namestr)
+    def __str__(self):
+        return \
+                "{st_name=0x%x, st_value=0x%x, st_size=0x%x, st_type=0x%x, " \
+                "st_bind=0x%x, st_visibility=0x%x, st_shndx=0x%x, namestr='%s'}" % \
+                (self.st_name, self.st_value, self.st_size, self.st_type,
+                self.st_bind, self.st_visibility, self.st_shndx, self.namestr)
 
 #===============================================================================
 #===============================================================================
 class ElfDyn(object):
-	size32 = 8
-	size64 = 16
-	strTags = [DT_NEEDED, DT_SONAME, DT_RPATH, DT_RUNPATH]
-	def __init__(self, elf, idx, buf):
-		self.idx = idx
-		self.valstr = None
+    size32 = 8
+    size64 = 16
+    strTags = [DT_NEEDED, DT_SONAME, DT_RPATH, DT_RUNPATH]
+    def __init__(self, elf, idx, buf):
+        self.idx = idx
+        self.valstr = None
 
-		# Setup format
-		if elf.ehdr.is32Bit():
-			fmt = elf.ehdr.getFmtPrefix() + "II"
-			self.size = ElfDyn.size32
-		else:
-			fmt = elf.ehdr.getFmtPrefix() + "QQ"
-			self.size = ElfDyn.size64
+        # Setup format
+        if elf.ehdr.is32Bit():
+            fmt = elf.ehdr.getFmtPrefix() + "II"
+            self.size = ElfDyn.size32
+        else:
+            fmt = elf.ehdr.getFmtPrefix() + "QQ"
+            self.size = ElfDyn.size64
 
-		# Save fields
-		fields = struct.unpack(fmt, buf)
-		self.d_tag = fields[0]
-		self.d_val = fields[1]
+        # Save fields
+        fields = struct.unpack(fmt, buf)
+        self.d_tag = fields[0]
+        self.d_val = fields[1]
 
-	def __str__(self):
-		if self.valstr is not None:
-			return "{d_tag=0x%x, d_val=0x%x, valstr='%s'}" % \
-					(self.d_tag, self.d_val, self.valstr)
-		else:
-			return "{d_tag=0x%x, d_val=0x%x}" % \
-					(self.d_tag, self.d_val)
+    def __str__(self):
+        if self.valstr is not None:
+            return "{d_tag=0x%x, d_val=0x%x, valstr='%s'}" % \
+                    (self.d_tag, self.d_val, self.valstr)
+        else:
+            return "{d_tag=0x%x, d_val=0x%x}" % \
+                    (self.d_tag, self.d_val)
 
 #===============================================================================
 #===============================================================================
 class Elf(object):
-	def __init__(self):
-		self.ehdr = None
-		self.phdrTable = []
-		self.shdrTable = []
-		self.symTable = []
-		self.dynsymTable = []
-		self.dynamicEntries = []
-		self._data = None
+    def __init__(self):
+        self.ehdr = None
+        self.phdrTable = []
+        self.shdrTable = []
+        self.symTable = []
+        self.dynsymTable = []
+        self.dynamicEntries = []
+        self._data = None
 
-	def loadFromFile(self, filePath):
-		elfFile = None
-		try:
-			# Open file, map it in memory and start reading it
-			elfFile = open(filePath, "rb")
-			self._data = mmap.mmap(elfFile.fileno(), 0, access=mmap.ACCESS_READ)
-			self._read()
-		except struct.error as ex:
-			raise ElfError(str(ex))
-		finally:
-			# In any case, close file
-			if elfFile:
-				elfFile.close()
+    def loadFromFile(self, filePath):
+        elfFile = None
+        try:
+            # Open file, map it in memory and start reading it
+            elfFile = open(filePath, "rb")
+            self._data = mmap.mmap(elfFile.fileno(), 0, access=mmap.ACCESS_READ)
+            self._read()
+        except struct.error as ex:
+            raise ElfError(str(ex))
+        finally:
+            # In any case, close file
+            if elfFile:
+                elfFile.close()
 
-	def close(self):
-		if self._data:
-			self._data.close()
-			self._data = None
+    def close(self):
+        if self._data:
+            self._data.close()
+            self._data = None
 
-	def _read(self):
-		self._readEhdr()
-		self._readPhdrTable()
-		self._readShdrTable()
-		for shdr in self.shdrTable:
-			shdr.namestr = self._getString(self.ehdr.e_shstrndx, shdr.sh_name)
-			if shdr.sh_type == SHT_SYMTAB:
-				self._readSymTable(shdr, self.symTable)
-			elif shdr.sh_type == SHT_DYNSYM:
-				self._readSymTable(shdr, self.dynsymTable)
-			elif shdr.sh_type == SHT_DYNAMIC:
-				self._readDynamicSection(shdr)
+    def _read(self):
+        self._readEhdr()
+        self._readPhdrTable()
+        self._readShdrTable()
+        for shdr in self.shdrTable:
+            shdr.namestr = self._getString(self.ehdr.e_shstrndx, shdr.sh_name)
+            if shdr.sh_type == SHT_SYMTAB:
+                self._readSymTable(shdr, self.symTable)
+            elif shdr.sh_type == SHT_DYNSYM:
+                self._readSymTable(shdr, self.dynsymTable)
+            elif shdr.sh_type == SHT_DYNAMIC:
+                self._readDynamicSection(shdr)
 
-	def _readEhdr(self):
-		# Give all data, we don't known yet which size to give
-		self.ehdr = ElfEhdr(self._data)
+    def _readEhdr(self):
+        # Give all data, we don't known yet which size to give
+        self.ehdr = ElfEhdr(self._data)
 
-	def _readPhdrTable(self):
-		size = ElfPhdr.size32 if self.ehdr.is32Bit() else ElfPhdr.size64
-		for i in range(0, self.ehdr.e_phnum):
-			offset = self.ehdr.e_phoff + i*self.ehdr.e_phentsize
-			phdr = ElfPhdr(self, i, self._data[offset:offset+size])
-			self.phdrTable.append(phdr)
+    def _readPhdrTable(self):
+        size = ElfPhdr.size32 if self.ehdr.is32Bit() else ElfPhdr.size64
+        for i in range(0, self.ehdr.e_phnum):
+            offset = self.ehdr.e_phoff + i*self.ehdr.e_phentsize
+            phdr = ElfPhdr(self, i, self._data[offset:offset+size])
+            self.phdrTable.append(phdr)
 
-	def _readShdrTable(self):
-		size = ElfShdr.size32 if self.ehdr.is32Bit() else ElfShdr.size64
-		for i in range(0, self.ehdr.e_shnum):
-			offset = self.ehdr.e_shoff + i*self.ehdr.e_shentsize
-			shdr = ElfShdr(self, i, self._data[offset:offset+size])
-			self.shdrTable.append(shdr)
+    def _readShdrTable(self):
+        size = ElfShdr.size32 if self.ehdr.is32Bit() else ElfShdr.size64
+        for i in range(0, self.ehdr.e_shnum):
+            offset = self.ehdr.e_shoff + i*self.ehdr.e_shentsize
+            shdr = ElfShdr(self, i, self._data[offset:offset+size])
+            self.shdrTable.append(shdr)
 
-	def _readSymTable(self, shdr, table):
-		size = ElfSym.size32 if self.ehdr.is32Bit() else ElfSym.size64
-		for i in range(0, shdr.sh_size//size):
-			offset = shdr.sh_offset + i*size
-			sym = ElfSym(self, i, self._data[offset:offset+size])
-			sym.namestr = self._getString(shdr.sh_link, sym.st_name)
-			table.append(sym)
+    def _readSymTable(self, shdr, table):
+        size = ElfSym.size32 if self.ehdr.is32Bit() else ElfSym.size64
+        for i in range(0, shdr.sh_size//size):
+            offset = shdr.sh_offset + i*size
+            sym = ElfSym(self, i, self._data[offset:offset+size])
+            sym.namestr = self._getString(shdr.sh_link, sym.st_name)
+            table.append(sym)
 
-	def _readDynamicSection(self, shdr):
-		size = ElfDyn.size32 if self.ehdr.is32Bit() else ElfDyn.size64
-		for i in range(0, shdr.sh_size//size):
-			offset = shdr.sh_offset + i*size
-			dyn = ElfDyn(self, i, self._data[offset:offset+size])
-			if dyn.d_tag in ElfDyn.strTags:
-				dyn.valstr = self._getString(shdr.sh_link, dyn.d_val)
-			self.dynamicEntries.append(dyn)
-			if dyn.d_tag == DT_NULL:
-				break
+    def _readDynamicSection(self, shdr):
+        size = ElfDyn.size32 if self.ehdr.is32Bit() else ElfDyn.size64
+        for i in range(0, shdr.sh_size//size):
+            offset = shdr.sh_offset + i*size
+            dyn = ElfDyn(self, i, self._data[offset:offset+size])
+            if dyn.d_tag in ElfDyn.strTags:
+                dyn.valstr = self._getString(shdr.sh_link, dyn.d_val)
+            self.dynamicEntries.append(dyn)
+            if dyn.d_tag == DT_NULL:
+                break
 
-	def _getString(self, idx, offset):
-		if idx >= len(self.shdrTable):
-			return None
-		shdrStr = self.shdrTable[idx]
-		if offset >= shdrStr.sh_size:
-			return None
-		start = shdrStr.sh_offset + offset
-		end = self._data.find("\x00", start, start + shdrStr.sh_size)
-		if end == -1:
-			end = start + shdrStr.sh_size
-		return self._data[start:end]
+    def _getString(self, idx, offset):
+        if idx >= len(self.shdrTable):
+            return None
+        shdrStr = self.shdrTable[idx]
+        if offset >= shdrStr.sh_size:
+            return None
+        start = shdrStr.sh_offset + offset
+        end = self._data.find(b"\x00", start, start + shdrStr.sh_size)
+        if end == -1:
+            end = start + shdrStr.sh_size
+        return self._data[start:end].decode("UTF-8")
 
-	# Compute hash of elf for section that are loadable and with data in elf.
-	# @param hash : an object from 'hashlib' that support 'update' and
-	# 'hexdigest' methods.
-	def computeHash(self, hash):
-		for shdr in self.shdrTable:
-			if (shdr.sh_flags&SHF_ALLOC) != 0 and shdr.sh_type != SHT_NOBITS:
-				start = shdr.sh_offset
-				end = shdr.sh_offset + shdr.sh_size
-				hash.update(self._data[start:end])
-		return hash.hexdigest()
+    # Compute hash of elf for section that are loadable and with data in elf.
+    # @param hash : an object from 'hashlib' that support 'update' and
+    # 'hexdigest' methods.
+    def computeHash(self, hash):
+        for shdr in self.shdrTable:
+            if (shdr.sh_flags&SHF_ALLOC) != 0 and shdr.sh_type != SHT_NOBITS:
+                start = shdr.sh_offset
+                end = shdr.sh_offset + shdr.sh_size
+                hash.update(self._data[start:end])
+        return hash.hexdigest()
 
-	def getSection(self, name):
-		for shdr in self.shdrTable:
-			if shdr.namestr == name:
-				return shdr
-		return None
+    def getSection(self, name):
+        for shdr in self.shdrTable:
+            if shdr.namestr == name:
+                return shdr
+        return None
 
-	def hasSection(self, name):
-		return self.getSection(name) != None
+    def hasSection(self, name):
+        return self.getSection(name) is not None
 
-	def __str__(self):
-		return "\n".join(["ehdr=%s" % self.ehdr] + \
-				["phdr[%d]=%s" % (phdr.idx, phdr) for phdr in self.phdrTable] + \
-				["shdr[%d]=%s" % (shdr.idx, shdr) for shdr in self.shdrTable] + \
-				["sym[%d]=%s" % (sym.idx, sym) for sym in self.symTable] + \
-				["dynsym[%d]=%s" % (sym.idx, sym) for sym in self.dynsymTable])
+    def __str__(self):
+        return "\n".join(["ehdr=%s" % self.ehdr] + \
+                ["phdr[%d]=%s" % (phdr.idx, phdr) for phdr in self.phdrTable] + \
+                ["shdr[%d]=%s" % (shdr.idx, shdr) for shdr in self.shdrTable] + \
+                ["sym[%d]=%s" % (sym.idx, sym) for sym in self.symTable] + \
+                ["dynsym[%d]=%s" % (sym.idx, sym) for sym in self.dynsymTable])
 
 #===============================================================================
 # For test.
 #===============================================================================
 if __name__ == "__main__":
-	def main():
-		import sys
-		import hashlib
-		try:
-			elf = Elf()
-			elf.loadFromFile(sys.argv[1])
-			print(elf)
-			print("md5:%s" % elf.computeHash(hashlib.md5())) # IGNORE:E1101
-			print("sha1:%s" % elf.computeHash(hashlib.sha1())) # IGNORE:E1101
-			elf.close()
-		except ElfError as ex:
-			print(ex)
-	main()
+    def main():
+        import sys
+        import hashlib
+        try:
+            elf = Elf()
+            elf.loadFromFile(sys.argv[1])
+            print(elf)
+            print("md5:%s" % elf.computeHash(hashlib.md5())) # IGNORE:E1101
+            print("sha1:%s" % elf.computeHash(hashlib.sha1())) # IGNORE:E1101
+            elf.close()
+        except ElfError as ex:
+            print(ex)
+    main()

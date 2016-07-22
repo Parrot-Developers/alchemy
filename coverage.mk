@@ -18,7 +18,7 @@ ifeq ("$(USE_COVERAGE)","1")
 ###############################################################################
 ifneq ("$(call is-module-in-build-config,boxinit)","")
 __coverage_prefix_strip := $(words $(subst /,$(space),$(TARGET_OUT_BUILD)))
-__coverage_rcfile := $(TARGET_OUT_STAGING)/etc/boxinit.d/01-gcov.rc
+__coverage_rcfile := $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_ETC_DESTDIR)/boxinit.d/01-gcov.rc
 $(__coverage_rcfile):
 	@mkdir -p $(dir $@)
 	@( \

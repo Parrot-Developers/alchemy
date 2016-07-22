@@ -24,7 +24,7 @@ without having to write complicated makefile/autoconfo.ac) and buildroot
 * building static/shared libraries and executables from source code.
 * building autotools/cmake from archives or source tree.
 * building qmake applications.
-* building for linux/ios/macos/android/mingw32 targets.
+* building for linux/ios/macos/android/windows targets.
 * building on linux/macos hosts.
 
 `Alchemy` uses gnu make and shell/python scripts to do the job. The
@@ -329,17 +329,6 @@ Mainly used by the android wrapper.
   </br>Default is `0`.
 * `TARGET_DEPENDS_SECTION_NAME` : Name of the section with dependencies
   </br>Default is `.alchemy.depends`.
-* `TARGET_ADD_BUILDID_SECTION` : Add a `build-id` section in all binaries. This
-  is a `sha1` of all sections that are loadable at runtime and with data in the
-  binary. This section is kept after stripping and the `sha1` can be recomputed
-  on the original and stripped binary and still produce the same `sha1`. This can
-  be used to identify the non-stripped binary based on the stripped one. This is
-  a feature similar to the `--build-id` option of `ld` but fixes a bug present
-  on some toolchain (arm-2009q1 for example) in which only the header of
-  sections is used, not the data of the sections.
-  </br>Default is `0`.
-* `TARGET_BUILDID_SECTION_NAME` : Name of the section with `build-id`
-  Default is `.alchemy.build-id`.
 * `TARGET_SDK_DIRS` : List of directories where to find `SDK` previously
   generated. Default is empty.
 * `TARGET_PERMISSIONS_FILES` : List of files containing permissions to apply to
@@ -355,24 +344,6 @@ Mainly used by the android wrapper.
 * `TARGET_CHROOT` : Set to 1 if the result of the compilation will be executed
   in a chroot environment. Used by some modules to adapt their configuration.
   </br>Default is `0`.
-* `TARGET_IMAGE_PATH_MAP_FILE` : File containing path mapping to be used when
-  generating the image (plf). Used by chroot targets that are not flashed in the
-  same root as the build. Format of this file is lines with 3 columns :
-  `dir target-dir mount-point`
-  * `dir` : directory prefix of chroot target.
-  * `target-dir` : real target directory.
-  * `mount-point` : directory where `target-dir` will be mounted. As it is a
-    first match list, more specific names shall be first. Example :
-  <pre>
-    /data /data/pulsar    /system/pulsar/data
-    /     /system/pulsar  /system/pulsar
-  </pre>
-  * The root of the final tree will actually be flashed in /system/pulsar (3rd
-    column is not useful here).
-  * The /data directory of the final tree will actually be flashed in /data/pulsar
-  At runtime the /data/pulsar will be mounted in /system/pulsar/data so this
-  directory needs to be created as well. Finally when the target will be executed
-  in its chroot environment, the final tree will be found correctly.
 * `TARGET_BUILD_PROPERTIES` : list of properties to put in file build.prop
   loaded by boxinit at startup. The format is a list of `<key>=<value>` pair.
   Default contains some `ro.build` keys that alchemy will put.
@@ -423,6 +394,12 @@ Mainly used by the android wrapper.
   disabled in some sdk use cases.
   </br>Default is `1`.
 * `USE_COVERAGE` : Enable options for coverage (and disable compiler optimisations).
+  </br>Default is `0`.
+* `USE_ADDRESS_SANITIZER` : Enable options for address sanitizer.
+  </br>Default is `0`.
+* `USE_MEMORY_SANITIZER` : Enable options for memory sanitizer.
+  </br>Default is `0`.
+* `USE_THREAD_SANITIZER` : Enable options for thread sanitizer.
   </br>Default is `0`.
 * `USE_AUTO_LIB_PREFIX` : Automatically add 'lib' prefix when building an library
   whose name is not specified. This is needed for dynamic libraries on some platforms.
@@ -589,9 +566,7 @@ For each registered modules, following `make` targets will be available :
 * `make <module>-dirclean` : will remove the build directory of the module.
 * `make <module>-doc` : will generate the documentation for the module.
 * `make <module>-path` : will display the path of the module.
-* `make <module>-codecheck` : will check coding style of C source files.
-* `make <module>-cppcheck` : will check coding style of C++ source files.
-* `make <module>-valacheck` : will check coding style of Vala source files.
+* `make <module>-codecheck` : will check coding style of source files.
 * `make <module>-cloc` : will count the number of lines of code.
 
 ### Module registration
@@ -868,6 +843,16 @@ For `external` modules it is a mean to instruct the build system how to link
 with them. It is however not needed to specify include directories that are
 globally available like `$(TARGET_OUT_STAGING)/usr/include`.
 
+#### `LOCAL_EXPORT_CUSTOM_VARIABLES`
+
+This variable can be used to export custom variables to be used by modules
+depending on this one. This is a list of `;` separated `<key>=<value>` pairs.
+The exported variables can be retrieved in commands of custom rules as
+`PRIVATE_CUSTOM_<key>`
+
+**Note** : If you want to use exported variables in `LOCAL_xxx` variables, you
+need to use `%{CUSTOM_<key>}` and set `LOCAL_EXPAND_CUSTOM_VARIABLES` to `1`.
+
 #### `LOCAL_ARCHIVE` `LOCAL_ARCHIVE_VERSION` `LOCAL_ARCHIVE_SUBDIR` `LOCAL_ARCHIVE_PATCHES` `LOCAL_ARCHIVE_CMD_UNPACK` `LOCAL_ARCHIVE_CMD_POST_UNPACK`
 
 `Alchemy` offer the possibility to have the source code in an archive. This is
@@ -914,6 +899,27 @@ If set to 1, all files under LOCAL_PATH will be copied to the build directory
 before the configure step. This allows modules to execute autoreconf out of the
 original source tree.
 
+#### `LOCAL_CODECHECK_xxx` `LOCAL_CODECHECK_xxx_ARGS`
+
+It is possible to customize the checker used to verify source code style.
+
+`LOCAL_CODECHECK_xxx` can be used to specify either an internal checker name or
+a custom script to use.
+
+If an external script is used, it will be given extra argument as its first
+argument and the list of files to check as its second argument.
+
+If `none` is given, the specified language check will be disabled.
+
+`LOCAL_CODECHECK_xxx_ARGS` can be used to pass extra argument to the checker script.
+
+Available languages:
+* `AS`: default checker is `none`.
+* `C`: default checker is `linux`.
+* `CXX`: default checker is `cpplint`.
+* `OBJC`: default checker is `linux`.
+* `VALA`: default checker is `valastyle`.
+
 ### Internal modules
 
 Defining an `internal` module is the preferred way of registering a module. It
@@ -927,7 +933,7 @@ Variable that can be set for internal modules :
 
 List of files to be compiled. The path shall be relative to `LOCAL_PATH`. The
 following file  extension are recognized : `.c, .cc, .cxx, .cpp, .s .S`.
- Other files will be ignored.
+Other files will be ignored.
 
 The build system checks that files actually exist and issue a warning if not.
 
@@ -1425,9 +1431,9 @@ transparent for users, dependencies shall be specified in the same way. The only
 difference is that modules from `SDK` won't appear in global config and will not
 be built.
 
-## Codecheck false positives or intentional deviations
+## Codecheck for C false positives or intentional deviations
 
-You can ignore specific codecheck warnings in a C source code file by inserting
+You can ignore specific C codecheck warnings in a C source code file by inserting
 a tag with the following syntax in a comment line just preceding the line with
 the error:
 
@@ -1435,7 +1441,7 @@ the error:
 	codecheck_ignore[TYPE1(,TYPE2...)]
 </pre>
 
-Where TYPE is the message type returned by `make <module>-codecheck`
+Where TYPE is the message type returned by `make <module>-codecheck-c`
 (for example `LONG_LINE`, `NEW_TYPEDEFS`, etc).
 
 Ex:
@@ -1444,9 +1450,9 @@ Ex:
 	typedef struct _CustomTypedef CustomTypedef; /* custom typedef for consistency with other GObjects */
 </pre>
 
-## Cppcheck false positives or intentional deviations
+## Codecheck for C++ false positives or intentional deviations
 
-You can ignore specific cppcheck warnings in a C++ source code file by inserting
+You can ignore specific c++ codecheck warnings in a C++ source code file by inserting
 a tag with the following syntax in a comment line to the line with
 the error:
 
@@ -1454,7 +1460,7 @@ the error:
 	NOLINT(category)
 </pre>
 
-Where category is the message returned by `make <module>-cppcheck`
+Where category is the message returned by `make <module>-codecheck-cxx`
 (for example `whitespace/braces`, etc).  NOLINT or NOLINT(*)
 suppresses errors of all categories on that line.
 
@@ -1464,9 +1470,9 @@ Ex:
 	{  // NOLINT(whitespace/braces)
 </pre>
 
-## Valacheck false positives or intentional deviations
+## Codecheck for Vala false positives or intentional deviations
 
-You can ignore specific valacheck warnings in a Vala source code file by inserting
+You can ignore specific vala codecheck warnings in a Vala source code file by inserting
 a tag with the following syntax in a comment line to the line with the error:
 
 <pre>

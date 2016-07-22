@@ -398,7 +398,7 @@ class ExtfsExtentHeader(ctypes.LittleEndianStructure):
 #===============================================================================
 class ExtfsJournalSuperBlock(ctypes.BigEndianStructure):
     _fields_ = [
-        ("magic" , ctypes.c_uint32),        #
+        ("magic", ctypes.c_uint32),         #
         ("blocktype", ctypes.c_uint32),     #
         ("sequence", ctypes.c_uint32),      #
         ("blocksize", ctypes.c_uint32),     # Journal device blocksize
@@ -430,9 +430,10 @@ JFS_REVOKE_BLOCK = 5
 #===============================================================================
 #===============================================================================
 class Extfs(object):
-    BLOCKSIZE = 1024
-    BLOCKS_PER_GROUP = 8192
-    INODES_PER_GROUP = 8192
+    LOG_BLOCKSIZE = 0
+    BLOCKSIZE = 1024 * (1 << LOG_BLOCKSIZE)
+    MAX_BLOCKS_PER_GROUP = BLOCKSIZE * 8
+    MAX_INODES_PER_GROUP = BLOCKSIZE * 8
     INODE_BLOCKSIZE = 512
     INOBLK = BLOCKSIZE // INODE_BLOCKSIZE
     INODE_RATIO = 4096
@@ -440,8 +441,10 @@ class Extfs(object):
 
     def __init__(self, buf, blockCount, inodeCount, reservedBlockCount, version=2):
         self.buf = buf
-        self.sb = _from_buffer(ExtfsSuperBlock, self.buf, Extfs.BLOCKSIZE)
+        self.sb = _from_buffer(ExtfsSuperBlock, self.buf, 1024)
         self.groups = []
+        logging.debug("blockCount=%d", blockCount)
+        logging.debug("inodeCount=%d", inodeCount)
 
         # Always use v2 structures
         # Inode v3 and v4 requires inode size to be 256 instead of 128
@@ -461,31 +464,57 @@ class Extfs(object):
             raise ValueError("Bad block count")
 
         firstDataBlock = 1 if (Extfs.BLOCKSIZE == 1024) else 0
+        logging.debug("firstDataBlock=%d", firstDataBlock)
 
         # Determine number of groups
-        minGroupCount = ((inodeCount + Extfs.INODES_PER_GROUP - 1) //
-                Extfs.INODES_PER_GROUP)
-        groupCount = ((blockCount - firstDataBlock + Extfs.BLOCKS_PER_GROUP - 1) //
-                Extfs.BLOCKS_PER_GROUP)
+        minGroupCount = ((inodeCount + Extfs.MAX_INODES_PER_GROUP - 1) //
+                Extfs.MAX_INODES_PER_GROUP)
+        groupCount = ((blockCount - firstDataBlock + Extfs.MAX_BLOCKS_PER_GROUP - 1) //
+                Extfs.MAX_BLOCKS_PER_GROUP)
         if groupCount < minGroupCount:
             groupCount = minGroupCount
+        logging.debug("groupCount=%d", groupCount)
 
-        # Determine number of blocks and inodes per group
+        # Determine number of blocks per group, shall be a multiple of 8
         blocksPerGroup = (blockCount - firstDataBlock + groupCount - 1) // groupCount
+        if blocksPerGroup % 8 != 0:
+            blocksPerGroup += 8 - blocksPerGroup % 8
+        logging.debug("blocksPerGroup=%d", blocksPerGroup)
+        assert blocksPerGroup <= Extfs.MAX_BLOCKS_PER_GROUP
+
+        # Determine number of inodes per group
         inodesPerGroup = (inodeCount + groupCount - 1) // groupCount
         if inodesPerGroup < 16:
             inodesPerGroup = 16
+        if inodesPerGroup > Extfs.MAX_INODES_PER_GROUP:
+            inodesPerGroup = Extfs.MAX_INODES_PER_GROUP
+        if inodesPerGroup % 8 != 0:
+            inodesPerGroup += 8 - inodesPerGroup % 8
+        logging.debug("inodesPerGroup=%d", inodesPerGroup)
 
         groupDescSize = groupCount * self.groupDescStructSize
         groupDescSize = (groupDescSize + Extfs.BLOCKSIZE - 1) // Extfs.BLOCKSIZE
         inodeTableSize = inodesPerGroup * self.inodeStructSize
         inodeTableSize = (inodeTableSize + Extfs.BLOCKSIZE - 1) // Extfs.BLOCKSIZE
+        logging.debug("groupDescSize=%d", groupDescSize)
+        logging.debug("inodeTableSize=%d", inodeTableSize)
 
-        overheadPerGroup = firstDataBlock + 2 + groupDescSize + inodeTableSize
-        if blockCount - 1 < overheadPerGroup * groupCount:
+        # Overhead per group : superblock, the block group descriptors,
+        # the block bitmap, the inode bitmap, the inode table
+        overheadPerGroup = 1 + groupDescSize + 1 + 1 + inodeTableSize
+        if blockCount - firstDataBlock < overheadPerGroup * groupCount:
             raise ValueError("Too much overhead")
-        freeBlockCount = blockCount - overheadPerGroup * groupCount - 1
+        freeBlockCount = blockCount - firstDataBlock - overheadPerGroup * groupCount
         freeBlocksPerGroup = blocksPerGroup - overheadPerGroup
+        logging.debug("overheadPerGroup=%d", overheadPerGroup)
+        logging.debug("freeBlockCount=%d", freeBlockCount)
+        logging.debug("freeBlocksPerGroup=%d", freeBlocksPerGroup)
+
+        # Check that last group has enough room for internal stuff
+        blockCountInLastGroup = (blockCount - firstDataBlock) % blocksPerGroup
+        logging.debug("blockCountInLastGroup=%d", blockCountInLastGroup)
+        if blockCountInLastGroup > 0 and blockCountInLastGroup <= overheadPerGroup:
+            raise ValueError("Last block group too small")
 
         # Create the superblock for an empty filesystem
         self.sb.inodes_count = inodesPerGroup * groupCount
@@ -494,8 +523,8 @@ class Extfs(object):
         self.sb.free_blocks_count = freeBlockCount
         self.sb.free_inodes_count = self.sb.inodes_count - EXTFS_FIRST_INO + 1
         self.sb.first_data_block = firstDataBlock
-        self.sb.log_block_size = Extfs.BLOCKSIZE >> 11
-        self.sb.log_frag_size = Extfs.BLOCKSIZE >> 11
+        self.sb.log_block_size = Extfs.LOG_BLOCKSIZE
+        self.sb.log_frag_size = self.sb.log_block_size
         self.sb.blocks_per_group = blocksPerGroup
         self.sb.frags_per_group = blocksPerGroup
         self.sb.inodes_per_group = inodesPerGroup
@@ -521,14 +550,14 @@ class Extfs(object):
             self.sb.uuid[i] = random.randint(0, 255)
 
         # Setup group descriptors
-        bbmpos = 1 + firstDataBlock + groupDescSize
+        bbmpos = firstDataBlock + 1 + groupDescSize
         ibmpos = bbmpos + 1
         itblpos = ibmpos + 1
         for i in range(0, groupCount):
-            # Get group descriptor structure
+            # Get group descriptor structure (in first block group)
             group = _from_buffer(self.groupDescStructType, self.buf,
+                    firstDataBlock * Extfs.BLOCKSIZE +
                     Extfs.BLOCKSIZE +
-                    ctypes.sizeof(ExtfsSuperBlock) +
                     i * self.groupDescStructSize)
 
             # Setup free block count
@@ -566,20 +595,20 @@ class Extfs(object):
 
             # Non-filesystem blocks
             for j in range(group.free_blocks_count + overheadPerGroup, Extfs.BLOCKSIZE * 8):
-                Extfs.allocate(bbm, j + 1)
+                Extfs.allocate(bbm, j)
 
             # System blocks
             for j in range(0, overheadPerGroup):
-                Extfs.allocate(bbm, j + 1)
+                Extfs.allocate(bbm, j)
 
             # Non-filesystem inodes
             for j in range(self.sb.inodes_per_group, Extfs.BLOCKSIZE * 8):
-                Extfs.allocate(ibm, j + 1)
+                Extfs.allocate(ibm, j)
 
             # System inodes
             if i == 0:
                 for j in range(0, EXTFS_FIRST_INO - 1):
-                    Extfs.allocate(ibm, j + 1)
+                    Extfs.allocate(ibm, j)
 
         # Make root inode and directory
         self.groups[0].free_inodes_count -= 1
@@ -605,14 +634,16 @@ class Extfs(object):
         for grp in range(1, len(self.groups)):
             # Copy super block in other groups
             srcStart = 1024
-            srcStop = srcStart + Extfs.BLOCKSIZE
-            dstStart = grp * self.sb.blocks_per_group * Extfs.BLOCKSIZE + 1024
-            dstStop = dstStart + Extfs.BLOCKSIZE
+            srcStop = srcStart + EXTFS_SUPER_BLOCK_STRUCT_SIZE
+            dstStart = (self.sb.first_data_block + grp * self.sb.blocks_per_group) \
+                    * Extfs.BLOCKSIZE
+            dstStop = dstStart + EXTFS_SUPER_BLOCK_STRUCT_SIZE
             self.buf[dstStart:dstStop] = self.buf[srcStart:srcStop]
             # Copy group descriptors in other groups
-            srcStart = (1 + self.sb.first_data_block) * Extfs.BLOCKSIZE
+            srcStart = (self.sb.first_data_block + 1) * Extfs.BLOCKSIZE
             srcStop = srcStart + groupDescSize * Extfs.BLOCKSIZE
-            dstStart = (grp * self.sb.blocks_per_group + 1 + self.sb.first_data_block) * Extfs.BLOCKSIZE
+            dstStart = (self.sb.first_data_block + 1 + grp * self.sb.blocks_per_group) \
+                    * Extfs.BLOCKSIZE
             dstStop = dstStart + groupDescSize * Extfs.BLOCKSIZE
             self.buf[dstStart:dstStop] = self.buf[srcStart:srcStop]
         self.sb.wtime = int(time.time())
@@ -620,9 +651,9 @@ class Extfs(object):
         self.sb.state = 1
 
     @staticmethod
-    def allocate(buf, item):
-        if item > 0:
-            buf[(item - 1) // 8] |= (1 << ((item - 1) % 8))
+    def allocate(buf, item=-1):
+        if item >= 0:
+            buf[item // 8] |= (1 << (item % 8))
             return item
 
         for i in range(0, len(buf)):
@@ -630,8 +661,8 @@ class Extfs(object):
             if bits != 0xff:
                 for j in range(0, 8):
                     if (bits & (1 << j)) == 0:
-                        return Extfs.allocate(buf, i * 8 + j + 1)
-        return 0
+                        return Extfs.allocate(buf, i * 8 + j)
+        return -1
 
     # Return a given block from filesystem
     def getBlock(self, blk):
@@ -708,12 +739,14 @@ class Extfs(object):
         # Try to allocate a block in same group
         grp = self.getGroupOfInode(inum)
         if self.groups[grp].free_blocks_count > 0:
-            blk = Extfs.allocate(self.getGroupBBM(grp), 0)
+            blk = Extfs.allocate(self.getGroupBBM(grp))
+            assert blk >= 0
         else:
             # Search a group with free block
             for grp in range(0, len(self.groups)):
                 if self.groups[grp].free_blocks_count > 0:
-                    blk = Extfs.allocate(self.getGroupBBM(grp), 0)
+                    blk = Extfs.allocate(self.getGroupBBM(grp))
+                    assert blk >= 0
                     break
             else:
                 logging.error("Failed to allocate block for inode : %d", inum)
@@ -721,16 +754,17 @@ class Extfs(object):
         # Update stats and return block number
         self.groups[grp].free_blocks_count -= 1
         self.sb.free_blocks_count -= 1
-        return blk + grp * self.sb.blocks_per_group
+        return self.sb.first_data_block + grp * self.sb.blocks_per_group + blk
 
     def allocNode(self):
         # Search a group with free inode
         for grp in range(0, len(self.groups)):
             if self.groups[grp].free_inodes_count > 0:
-                inum = Extfs.allocate(self.getGroupIBM(grp), 0)
+                inum = Extfs.allocate(self.getGroupIBM(grp))
+                assert inum >= 0
                 self.groups[grp].free_inodes_count -= 1
                 self.sb.free_inodes_count -= 1
-                return inum + grp * self.sb.inodes_per_group
+                return grp * self.sb.inodes_per_group + inum + 1
         logging.error("Failed to allocate inode")
         return 0
 
@@ -770,6 +804,7 @@ class Extfs(object):
     def addToDir(self, parent_inum, inum, name):
         parent_inode = self.getInode(parent_inum)
         inode = self.getInode(inum)
+        name = name.encode("UTF-8")
         nlen = len(name)
         reclen = EXTFS_DIRENTRY_STRUCT_NO_NAME_SIZE + (nlen + 3) & (~3)
         # Search a free entry in last block
@@ -937,4 +972,8 @@ def genImage(image, root, version=2):
     fs = Extfs(buf, blockCount, inodeCount, reservedBlockCount, version)
     fs.populate(EXTFS_ROOT_INO, root)
     fs.finalize()
-    buf.close()
+    try:
+        buf.close()
+    except BufferError:
+        # FIXME: 'cannot close exported pointers exist' with python3
+        pass

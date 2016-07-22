@@ -7,7 +7,7 @@
 ###############################################################################
 
 # Path of files
-BUILD_PROP_FILE := $(TARGET_OUT_STAGING)/etc/build.prop
+BUILD_PROP_FILE := $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_ETC_DESTDIR)/build.prop
 BUILD_PROP_FILE_TMP := $(TARGET_OUT_BUILD)/build.prop
 
 # Add some generic properties

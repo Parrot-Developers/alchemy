@@ -1,10 +1,11 @@
 ###############################################################################
-## @file linux/packages.mk
+## @file toolchains/linux/packages.mk
 ## @author Y.M. Morgan
-## @date 2015/04/10
+## @date 2016/03/05
 ##
-## This file contains package definition specific to linux.
+## Additional packages for linux toolchain.
 ###############################################################################
 
-# Include libc specific packages
-include $(BUILD_SYSTEM)/toolchains/$(TARGET_OS)/$(TARGET_LIBC)/packages.mk
+ifneq ("$(TARGET_LIBC)","")
+  -include $(BUILD_SYSTEM)/toolchains/$(TARGET_OS)/$(TARGET_LIBC)/packages.mk
+endif

@@ -7,15 +7,12 @@
 ###############################################################################
 
 MKFS_SCRIPT := $(BUILD_SYSTEM)/scripts/mkfs.py
-
-ifeq ("$(V)","1")
-  MKFS_SCRIPT += -v
-endif
+SPARSE_SCRIPT := $(BUILD_SYSTEM)/scripts/sparse.py
 
 # Script that will modify mode/uid/gid of files while generating the image
 FIXSTAT := $(BUILD_SYSTEM)/scripts/fixstat.py \
-	--user-file=$(TARGET_OUT_FINAL)/etc/passwd \
-	--group-file=$(TARGET_OUT_FINAL)/etc/group \
+	--user-file=$(TARGET_OUT_FINAL)/$(TARGET_DEFAULT_ETC_DESTDIR)/passwd \
+	--group-file=$(TARGET_OUT_FINAL)/$(TARGET_DEFAULT_ETC_DESTDIR)/group \
 	$(foreach __f,$(TARGET_PERMISSIONS_FILES), \
 		--permissions-file=$(__f) \
 	)
@@ -24,6 +21,13 @@ FIXSTAT := $(BUILD_SYSTEM)/scripts/fixstat.py \
 ifneq ("$(TARGET_PERMISSIONS_FILES)","")
   FIXSTAT += --use-default
 endif
+
+ifneq ("$(V)","0")
+  MKFS_SCRIPT += -v
+  SPARSE_SCRIPT += -v
+  FIXSTAT += -v
+endif
+
 
 ###############################################################################
 ## Generic image generation macro.
@@ -36,6 +40,12 @@ define gen-image
 		find . $(if $(call streq,$1,cpio),-name 'boot' -prune -o) \
 			! -name '.' -printf '%P\n' | $(FIXSTAT) | \
 			$(MKFS_SCRIPT) --fstype $1 $3 $2
+endef
+
+define gen-image-sparse
+	$(call gen-image,$1,$2.tmp,$3)
+	$(Q) $(SPARSE_SCRIPT) --sparse $2.tmp $2
+	$(Q) rm -f $2.tmp
 endef
 
 # Extract some part of the TARGET_IMAGE_OPTIONS variables
@@ -66,10 +76,6 @@ define gen-image-plf
 	$(Q) cd $(TARGET_OUT_FINAL); \
 		find . -path './boot/*' -a ! -name '*.dtb' -prune -o ! -name '.' -printf '%P\n' \
 			| $(FIXSTAT) | plfbatch '-a u_unixfile="&"' $1
-ifneq ("$(TARGET_IMAGE_PATH_MAP_FILE)","")
-	$(Q) PLFTOOL=$(PLFTOOL) $(BUILD_SYSTEM)/scripts/plfremap.py \
-		$(TARGET_IMAGE_PATH_MAP_FILE) $1
-endif
 endef
 
 ###############################################################################
@@ -105,6 +111,9 @@ gen-image-cpio = $(call gen-image,cpio,$1,$(TARGET_IMAGE_OPTIONS) --devnode "dev
 gen-image-ext2 = $(call gen-image,ext2,$1,$(TARGET_IMAGE_OPTIONS))
 gen-image-ext3 = $(call gen-image,ext3,$1,$(TARGET_IMAGE_OPTIONS))
 gen-image-ext4 = $(call gen-image,ext4,$1,$(TARGET_IMAGE_OPTIONS))
+gen-image-sext2 = $(call gen-image-sparse,ext2,$1,$(TARGET_IMAGE_OPTIONS))
+gen-image-sext3 = $(call gen-image-sparse,ext3,$1,$(TARGET_IMAGE_OPTIONS))
+gen-image-sext4 = $(call gen-image-sparse,ext4,$1,$(TARGET_IMAGE_OPTIONS))
 
 ###############################################################################
 ## Generate rules to build an image.
@@ -145,6 +154,9 @@ $(eval $(call image-rules,cpio))
 $(eval $(call image-rules,ext2))
 $(eval $(call image-rules,ext3))
 $(eval $(call image-rules,ext4))
+$(eval $(call image-rules,sext2))
+$(eval $(call image-rules,sext3))
+$(eval $(call image-rules,sext4))
 $(eval $(call image-rules,ubi))
 
 # Clean all images (used in image-rules macro)

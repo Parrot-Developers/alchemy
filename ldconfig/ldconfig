@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-SCRIPT_PATH=$(cd $(dirname $0) && pwd)
+SCRIPT_PATH=$(cd $(dirname $0) && pwd -P)
 
 if [ "$(getconf LONG_BIT)" = "64" ]; then
 	LDCONFIG=${SCRIPT_PATH}/bin-linux-x64/ldconfig

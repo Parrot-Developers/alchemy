@@ -14,10 +14,13 @@
 DUMP_DATABASE_XML_FILE := $(TARGET_OUT)/alchemy-database.xml
 
 # Mode used to dump the xml
-# Dumping with 'info' is faster than with 'echo' but requires to wrap internally
-# a call to make with the same command line
-ifdef ALCHEMAKE_CMDLINE
-  __dump-xml-with-info := 1
+# - Dumping with 'info' is faster than with 'echo' but requires to wrap internally
+#   a call to make with the same command line
+# - Dumping with 'file' is faster than with 'info' but requires make v4.0
+ifeq ("$(MAKE_HAS_FILE_FUNC)","1")
+  __dump_xml_with_file := 1
+else ifdef ALCHEMAKE_CMDLINE
+  __dump_xml_with_info := 1
 endif
 
 ###############################################################################
@@ -151,15 +154,15 @@ __echo-escape = $(subst ",\",$(subst $(dollar),\$(dollar),$(subst $(endl),\n,$(s
 
 # We use the 'endl' to force a new line when macro is expanded. This avoids the
 # need to put a ';' and a continuation line when the shell command is expanded.
-# Otherwise the length of the single line of command generated will be to big
+# Otherwise the length of the single line of command generated will be too big
 # to pass down the shell (several hundreds of KB)
 # Note: use /bin/echo to make sure we use the binary, not a shell function.
-ifdef __dump-xml-with-info
-__write-xml = \
-	$(info $1)
+ifdef __dump_xml_with_file
+  __write-xml = $1$(endl)
+else ifdef __dump_xml_with_info
+  __write-xml = $(info $1)
 else
-__write-xml = \
-	@/bin/echo -e "$(call __echo-escape,$1)" >> $(DUMP_DATABASE_XML_FILE) $(endl)
+  __write-xml = @/bin/echo -e "$(call __echo-escape,$1)" >> $(DUMP_DATABASE_XML_FILE) $(endl)
 endif
 
 ###############################################################################
@@ -175,8 +178,17 @@ dump:
 dump-depends:
 	$(call __dump-database-depends)
 
+# If we use the 'file' method, setup needs to be done in another rule to
+# guarantee execution order
+.PHONY: __dump-xml-setup
+__dump-xml-setup:
+	@echo "Database dump: start"
+	@mkdir -p $(dir $(DUMP_DATABASE_XML_FILE))
+	@rm -f $(DUMP_DATABASE_XML_FILE)
+	@touch $(DUMP_DATABASE_XML_FILE)
+
 .PHONY: dump-xml
-dump-xml:
+dump-xml: __dump-xml-setup
 ifdef __dumping-xml
 	@# Called inside a sub-make to dump using 'info' in a file
 	$(call __dump-database-setup)
@@ -184,17 +196,20 @@ ifdef __dumping-xml
 	$(call __dump-database-xml)
 	$(info @@@@@XML-END@@@@@)
 else
-	@echo "Database dump: start"
-	@mkdir -p $(dir $(DUMP_DATABASE_XML_FILE))
-	@rm -f $(DUMP_DATABASE_XML_FILE)
-	@touch $(DUMP_DATABASE_XML_FILE)
-ifdef __dump-xml-with-info
+ifdef __dump_xml_with_file
+	$(call __dump-database-setup)
+	$(file > $(DUMP_DATABASE_XML_FILE),$(call __dump-database-xml))
+else ifdef __dump_xml_with_info
 	@# Force passing TARGET_ARCH because it was unexported in setup.mk
 	+@( \
 		tmpfile=$$(mktemp tmp.XXXXXXXXXX); \
-		$(filter-out $(MAKECMDGOALS),$(ALCHEMAKE_CMDLINE)) USE_SCAN_CACHE=1 TARGET_ARCH=$(TARGET_ARCH) __dumping-xml=1 dump-xml &> $${tmpfile}; \
-		n1=$$(($$(grep -hne "@@@@@XML-BEGIN@@@@@" $${tmpfile}|cut -d: -f1)+1)); \
-		n2=$$(($$(grep -hne "@@@@@XML-END@@@@@" $${tmpfile}|cut -d: -f1)-1)); \
+		$(filter-out $(MAKECMDGOALS),$(ALCHEMAKE_CMDLINE)) \
+			USE_SCAN_CACHE=1 \
+			TARGET_ARCH=$(TARGET_ARCH) \
+			__dumping-xml=1 \
+			dump-xml &> $${tmpfile}; \
+		n1=$$(($$(grep -hne "@@@@@XML-BEGIN@@@@@" $${tmpfile} | cut -d: -f1)+1)); \
+		n2=$$(($$(grep -hne "@@@@@XML-END@@@@@" $${tmpfile} | cut -d: -f1)-1)); \
 		sed -ne "$${n1},$${n2}p" $${tmpfile} > $(DUMP_DATABASE_XML_FILE); \
 		rm -f $${tmpfile}; \
 	)
@@ -207,8 +222,6 @@ endif
 
 .PHONY: dump-xml-clean
 dump-xml-clean:
-	$(Q)rm -f $(DUMP_DATABASE_XML_FILE)
-
+	$(Q) rm -f $(DUMP_DATABASE_XML_FILE)
 
 clobber: dump-xml-clean
-

@@ -13,7 +13,7 @@
 MAKEFINAL_SCRIPT := $(BUILD_SYSTEM)/scripts/makefinal.py
 LDCONFIG := $(BUILD_SYSTEM)/ldconfig/ldconfig
 
-ifeq ("$(V)","1")
+ifneq ("$(V)","0")
   MAKEFINAL_SCRIPT += -v
 endif
 
@@ -75,25 +75,6 @@ MAKEFINAL_ARGS += \
 	--mode=$(TARGET_FINAL_MODE)
 
 ###############################################################################
-## Add a build-id section to all binaries in staging dir before copying them
-## in final tree. This section is similar to what ld -Wl,--build-id would do
-## but fixes a bug present on some version of toolchain we use (arm-20009q1 for
-## example).
-###############################################################################
-ifneq ("$(TARGET_ADD_BUILDID_SECTION)","0")
-MAKEFINAL_ARGS += \
-	--build-id \
-	--build-id-objcopy="$(TARGET_CROSS)objcopy" \
-	--build-id-section-name="$(TARGET_BUILDID_SECTION_NAME)"
-ifneq ("$(TARGET_LINUX_CROSS)","")
-ifneq ("$(TARGET_LINUX_CROSS)","$(TARGET_CROSS)")
-MAKEFINAL_ARGS += \
-	--build-id-objcopy-kernel="$(TARGET_LINUX_CROSS)objcopy"
-endif
-endif
-endif
-
-###############################################################################
 ## Internal generation of final tree.
 ##
 ## Create /etc/ld.so.conf and create cache with ldconfig
@@ -116,17 +97,17 @@ endif
 	$(Q) $(MAKEFINAL_SCRIPT) $(MAKEFINAL_ARGS) \
 		$(TARGET_OUT_STAGING) $(TARGET_OUT_FINAL) $(TARGET_OUT)/final.mk
 	$(Q) $(MAKE) -f $(TARGET_OUT)/final.mk
-	@mkdir -p $(TARGET_OUT_FINAL)/etc
+	@mkdir -p $(TARGET_OUT_FINAL)/$(TARGET_DEFAULT_ETC_DESTDIR)
 ifeq ("$(TARGET_OS)","linux")
 ifeq ("$(is-full-system)","1")
-	@if [ ! -e $(TARGET_OUT_FINAL)/etc/ld.so.conf ]; then \
+	@if [ ! -e $(TARGET_OUT_FINAL)/$(TARGET_DEFAULT_ETC_DESTDIR)/ld.so.conf ]; then \
 		( \
-			echo "/lib/$(TOOLCHAIN_TARGET_NAME)"; \
+			echo "/lib/$(TARGET_TOOLCHAIN_TRIPLET)"; \
 			echo "/lib"; \
-			echo "/usr/lib/$(TOOLCHAIN_TARGET_NAME)"; \
-			echo "/usr/lib"; \
+			echo "/$(TARGET_DEFAULT_LIB_DESTDIR)/$(TARGET_TOOLCHAIN_TRIPLET)"; \
+			echo "/$(TARGET_DEFAULT_LIB_DESTDIR)"; \
 			$(foreach __d,$(TARGET_LDCONFIG_DIRS),echo "$(__d)";) \
-		) >> $(TARGET_OUT_FINAL)/etc/ld.so.conf; \
+		) >> $(TARGET_OUT_FINAL)/$(TARGET_DEFAULT_ETC_DESTDIR)/ld.so.conf; \
 	fi
 	$(Q) $(LDCONFIG) -X -r $(TARGET_OUT_FINAL)
 endif
@@ -134,7 +115,7 @@ endif
 ifeq ("$(is-full-system)","1")
 	$(Q) $(BUILD_SYSTEM)/scripts/checkdyndeps.py $(TARGET_OUT_FINAL)
 endif
-	@echo `date +%s` > $(TARGET_OUT_FINAL)/etc/final.stamp
+	@echo `date +%s` > $(TARGET_OUT_FINAL)/$(TARGET_DEFAULT_ETC_DESTDIR)/final.stamp
 	@echo "Done generating final tree"
 
 .PHONY: final
@@ -146,23 +127,6 @@ final-clean:
 	$(Q)rm -rf $(TARGET_OUT_FINAL)
 	$(Q)rm -f $(TARGET_OUT)/filelist.txt
 	$(Q)rm -f $(TARGET_OUT)/final.mk
-
-###############################################################################
-## Script for fixing permissions on-the-fly in native final tree.
-###############################################################################
-ifeq ("$(TARGET_OS_FLAVOUR)","native-chroot")
-
-.PHONY: native-fix-script
-native-fix-script: __final-internal fixstat-script
-	$(Q) cd $(TARGET_OUT_FINAL); \
-			cat $(TARGET_OUT)/filelist.txt | \
-			$(TARGET_OUT)/fixstat.sh --generate-fix-script > \
-			$(TARGET_OUT_FINAL)/native-fixperms.sh
-	@chmod +x $(TARGET_OUT_FINAL)/native-fixperms.sh
-
-final: native-fix-script
-
-endif
 
 ###############################################################################
 ## Setup dependencies.

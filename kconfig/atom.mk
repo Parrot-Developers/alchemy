@@ -13,6 +13,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := parser
 PARSER_BUILD_DIR := $(call local-get-build-dir)
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/parser
+LOCAL_EXPORT_CFLAGS := -DKBUILD_NO_NLS
 LOCAL_SRC_FILES := parser/zconf.c
 
 # Too many warning diue to gperf generated code
@@ -33,10 +34,13 @@ $(PARSER_BUILD_DIR)/zconf.hash.c: $(LOCAL_PATH)/parser/zconf.gperf
 	@echo "Generating zconf.hash.c"
 	$(Q)gperf --readonly-tables --output-file=$@ $<
 
+ifeq ("$(BISON_BIN)","")
+  $(error 'bison' is required)
+endif
 $(PARSER_BUILD_DIR)/zconf.tab.c: $(LOCAL_PATH)/parser/zconf.y
 	@mkdir -p $(dir $@)
 	@echo "Generating zconf.tab.c"
-	$(Q)$(BISON_PATH) --debug --no-lines --name-prefix=zconf --output=$@ $<
+	$(Q)$(BISON_BIN) --debug --no-lines --name-prefix=zconf --output=$@ $<
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -48,7 +52,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := lxdialog
 
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/lxdialog
-LOCAL_EXPORT_CFLAGS := -DCURSES_LOC="<ncurses.h>"
+LOCAL_EXPORT_CFLAGS := -DCURSES_LOC="<ncurses.h>" -DKBUILD_NO_NLS
 
 LOCAL_SRC_FILES := \
 	lxdialog/checklist.c \
@@ -58,6 +62,8 @@ LOCAL_SRC_FILES := \
 	lxdialog/util.c \
 	lxdialog/yesno.c
 
+LOCAL_LIBRARIES := ncurses
+
 include $(BUILD_STATIC_LIBRARY)
 
 ###############################################################################
@@ -66,7 +72,6 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := conf
-LOCAL_DESTDIR := .
 LOCAL_SRC_FILES := conf.c
 LOCAL_LIBRARIES := parser
 
@@ -78,7 +83,6 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := mconf
-LOCAL_DESTDIR := .
 LOCAL_LDLIBS := -lncurses
 LOCAL_SRC_FILES := mconf.c
 LOCAL_LIBRARIES := parser lxdialog
@@ -91,24 +95,21 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := nconf
-LOCAL_DESTDIR := .
 LOCAL_LDLIBS := -lmenu -lpanel -lncurses
 LOCAL_SRC_FILES := nconf.c nconf.gui.c
-LOCAL_LIBRARIES := parser
-
+LOCAL_LIBRARIES := parser ncurses
 include $(BUILD_EXECUTABLE)
 
 ###############################################################################
 # qconf
 ###############################################################################
-QCONF_PKG := QtCore QtGui Qt3Support
+QCONF_PKG := QtCore QtGui
 
 ifeq ("$(shell pkg-config --exists $(QCONF_PKG); echo $$?)","0")
 
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := qconf
-LOCAL_DESTDIR := .
 QCONF_BUILD_DIR := $(call local-get-build-dir)
 LOCAL_CFLAGS := $(shell pkg-config $(QCONF_PKG) --cflags)
 LOCAL_LDLIBS := $(shell pkg-config $(QCONF_PKG) --libs)
@@ -129,4 +130,3 @@ $(QCONF_BUILD_DIR)/qconf.moc: qconf.h
 include $(BUILD_EXECUTABLE)
 
 endif
-

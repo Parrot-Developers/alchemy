@@ -27,7 +27,7 @@ without having to write complicated makefile/autoconfo.ac) and buildroot
 <li>building static/shared libraries and executables from source code.</li>
 <li>building autotools/cmake from archives or source tree.</li>
 <li>building qmake applications.</li>
-<li>building for linux/ios/macos/android/mingw32 targets.</li>
+<li>building for linux/ios/macos/android/windows targets.</li>
 <li>building on linux/macos hosts.</li>
 </ul>
 
@@ -377,17 +377,6 @@ contains the revision of the linked module itself.
 </br>Default is <code>0</code>.</li>
 <li><code>TARGET_DEPENDS_SECTION_NAME</code> : Name of the section with dependencies
 </br>Default is <code>.alchemy.depends</code>.</li>
-<li><code>TARGET_ADD_BUILDID_SECTION</code> : Add a <code>build-id</code> section in all binaries. This
-is a <code>sha1</code> of all sections that are loadable at runtime and with data in the
-binary. This section is kept after stripping and the <code>sha1</code> can be recomputed
-on the original and stripped binary and still produce the same <code>sha1</code>. This can
-be used to identify the non-stripped binary based on the stripped one. This is
-a feature similar to the <code>--build-id</code> option of <code>ld</code> but fixes a bug present
-on some toolchain (arm-2009q1 for example) in which only the header of
-sections is used, not the data of the sections.
-</br>Default is <code>0</code>.</li>
-<li><code>TARGET_BUILDID_SECTION_NAME</code> : Name of the section with <code>build-id</code>
-Default is <code>.alchemy.build-id</code>.</li>
 <li><code>TARGET_SDK_DIRS</code> : List of directories where to find <code>SDK</code> previously
 generated. Default is empty.</li>
 <li><code>TARGET_PERMISSIONS_FILES</code> : List of files containing permissions to apply to
@@ -405,26 +394,6 @@ final directory.</li>
 <li><code>TARGET_CHROOT</code> : Set to 1 if the result of the compilation will be executed
 in a chroot environment. Used by some modules to adapt their configuration.
 </br>Default is <code>0</code>.</li>
-<li><code>TARGET_IMAGE_PATH_MAP_FILE</code> : File containing path mapping to be used when
-generating the image (plf). Used by chroot targets that are not flashed in the
-same root as the build. Format of this file is lines with 3 columns :
-<code>dir target-dir mount-point</code>
-<ul>
-<li><code>dir</code> : directory prefix of chroot target.</li>
-<li><code>target-dir</code> : real target directory.</li>
-<li><code>mount-point</code> : directory where <code>target-dir</code> will be mounted. As it is a
-first match list, more specific names shall be first. Example :
-<pre>
-/data /data/pulsar    /system/pulsar/data
-/     /system/pulsar  /system/pulsar
-</pre></li>
-<li>The root of the final tree will actually be flashed in /system/pulsar (3rd
-column is not useful here).</li>
-<li>The /data directory of the final tree will actually be flashed in /data/pulsar
-At runtime the /data/pulsar will be mounted in /system/pulsar/data so this
-directory needs to be created as well. Finally when the target will be executed
-in its chroot environment, the final tree will be found correctly.</li>
-</ul></li>
 <li><code>TARGET_BUILD_PROPERTIES</code> : list of properties to put in file build.prop
 loaded by boxinit at startup. The format is a list of <code>&lt;key&gt;=&lt;value&gt;</code> pair.
 Default contains some <code>ro.build</code> keys that alchemy will put.
@@ -478,6 +447,12 @@ external modules when the related project is updated.
 disabled in some sdk use cases.
 </br>Default is <code>1</code>.</li>
 <li><code>USE_COVERAGE</code> : Enable options for coverage (and disable compiler optimisations).
+</br>Default is <code>0</code>.</li>
+<li><code>USE_ADDRESS_SANITIZER</code> : Enable options for address sanitizer.
+</br>Default is <code>0</code>.</li>
+<li><code>USE_MEMORY_SANITIZER</code> : Enable options for memory sanitizer.
+</br>Default is <code>0</code>.</li>
+<li><code>USE_THREAD_SANITIZER</code> : Enable options for thread sanitizer.
 </br>Default is <code>0</code>.</li>
 <li><code>USE_AUTO_LIB_PREFIX</code> : Automatically add 'lib' prefix when building an library
 whose name is not specified. This is needed for dynamic libraries on some platforms.
@@ -651,9 +626,7 @@ unpacked sources and applied patches will be kept in the build directory.</li>
 <li><code>make &lt;module&gt;-dirclean</code> : will remove the build directory of the module.</li>
 <li><code>make &lt;module&gt;-doc</code> : will generate the documentation for the module.</li>
 <li><code>make &lt;module&gt;-path</code> : will display the path of the module.</li>
-<li><code>make &lt;module&gt;-codecheck</code> : will check coding style of C source files.</li>
-<li><code>make &lt;module&gt;-cppcheck</code> : will check coding style of C++ source files.</li>
-<li><code>make &lt;module&gt;-valacheck</code> : will check coding style of Vala source files.</li>
+<li><code>make &lt;module&gt;-codecheck</code> : will check coding style of source files.</li>
 <li><code>make &lt;module&gt;-cloc</code> : will count the number of lines of code.</li>
 </ul>
 
@@ -943,6 +916,16 @@ system knows how to link with it and hence it is not needed to explicitly do so.
 with them. It is however not needed to specify include directories that are
 globally available like <code>$(TARGET_OUT_STAGING)/usr/include</code>.</p>
 
+<h4><code>LOCAL_EXPORT_CUSTOM_VARIABLES</code></h4>
+
+<p>This variable can be used to export custom variables to be used by modules
+depending on this one. This is a list of <code>;</code> separated <code>&lt;key&gt;=&lt;value&gt;</code> pairs.
+The exported variables can be retrieved in commands of custom rules as
+<code>PRIVATE_CUSTOM_&lt;key&gt;</code></p>
+
+<p><strong>Note</strong> : If you want to use exported variables in <code>LOCAL_xxx</code> variables, you
+need to use <code>%{CUSTOM_&lt;key&gt;}</code> and set <code>LOCAL_EXPAND_CUSTOM_VARIABLES</code> to <code>1</code>.</p>
+
 <h4><code>LOCAL_ARCHIVE</code> <code>LOCAL_ARCHIVE_VERSION</code> <code>LOCAL_ARCHIVE_SUBDIR</code> <code>LOCAL_ARCHIVE_PATCHES</code> <code>LOCAL_ARCHIVE_CMD_UNPACK</code> <code>LOCAL_ARCHIVE_CMD_POST_UNPACK</code></h4>
 
 <p><code>Alchemy</code> offer the possibility to have the source code in an archive. This is
@@ -991,6 +974,27 @@ accepts either full path or relative path to LOCAL_PATH.</p>
 before the configure step. This allows modules to execute autoreconf out of the
 original source tree.</p>
 
+<h4><code>LOCAL_CODECHECK_xxx</code> <code>LOCAL_CODECHECK_xxx_ARGS</code></h4>
+
+<p>It is possible to customize the checker used to verify source code style.</p>
+
+<p><code>LOCAL_CODECHECK_xxx</code> can be used to specify either an internal checker name or
+a custom script to use.</p>
+
+<p>If an external script is used, it will be given extra argument as its first
+argument and the list of files to check as its second argument.</p>
+
+<p>If <code>none</code> is given, the specified language check will be disabled.</p>
+
+<p><code>LOCAL_CODECHECK_xxx_ARGS</code> can be used to pass extra argument to the checker script.</p>
+
+<p>Available languages:
+* <code>AS</code>: default checker is <code>none</code>.
+* <code>C</code>: default checker is <code>linux</code>.
+* <code>CXX</code>: default checker is <code>cpplint</code>.
+* <code>OBJC</code>: default checker is <code>linux</code>.
+* <code>VALA</code>: default checker is <code>valastyle</code>.</p>
+
 <h3>Internal modules</h3>
 
 <p>Defining an <code>internal</code> module is the preferred way of registering a module. It
@@ -1004,7 +1008,7 @@ flags.</p>
 
 <p>List of files to be compiled. The path shall be relative to <code>LOCAL_PATH</code>. The
 following file  extension are recognized : <code>.c, .cc, .cxx, .cpp, .s .S</code>.
- Other files will be ignored.</p>
+Other files will be ignored.</p>
 
 <p>The build system checks that files actually exist and issue a warning if not.</p>
 
@@ -1541,9 +1545,9 @@ transparent for users, dependencies shall be specified in the same way. The only
 difference is that modules from <code>SDK</code> won't appear in global config and will not
 be built.</p>
 
-<h2>Codecheck false positives or intentional deviations</h2>
+<h2>Codecheck for C false positives or intentional deviations</h2>
 
-<p>You can ignore specific codecheck warnings in a C source code file by inserting
+<p>You can ignore specific C codecheck warnings in a C source code file by inserting
 a tag with the following syntax in a comment line just preceding the line with
 the error:</p>
 
@@ -1551,7 +1555,7 @@ the error:</p>
     codecheck_ignore[TYPE1(,TYPE2...)]
 </pre>
 
-<p>Where TYPE is the message type returned by <code>make &lt;module&gt;-codecheck</code>
+<p>Where TYPE is the message type returned by <code>make &lt;module&gt;-codecheck-c</code>
 (for example <code>LONG_LINE</code>, <code>NEW_TYPEDEFS</code>, etc).</p>
 
 <p>Ex:</p>
@@ -1561,9 +1565,9 @@ the error:</p>
     typedef struct _CustomTypedef CustomTypedef; /* custom typedef for consistency with other GObjects */
 </pre>
 
-<h2>Cppcheck false positives or intentional deviations</h2>
+<h2>Codecheck for C++ false positives or intentional deviations</h2>
 
-<p>You can ignore specific cppcheck warnings in a C++ source code file by inserting
+<p>You can ignore specific c++ codecheck warnings in a C++ source code file by inserting
 a tag with the following syntax in a comment line to the line with
 the error:</p>
 
@@ -1571,7 +1575,7 @@ the error:</p>
     NOLINT(category)
 </pre>
 
-<p>Where category is the message returned by <code>make &lt;module&gt;-cppcheck</code>
+<p>Where category is the message returned by <code>make &lt;module&gt;-codecheck-cxx</code>
 (for example <code>whitespace/braces</code>, etc).  NOLINT or NOLINT(*)
 suppresses errors of all categories on that line.</p>
 
@@ -1582,9 +1586,9 @@ suppresses errors of all categories on that line.</p>
     {  // NOLINT(whitespace/braces)
 </pre>
 
-<h2>Valacheck false positives or intentional deviations</h2>
+<h2>Codecheck for Vala false positives or intentional deviations</h2>
 
-<p>You can ignore specific valacheck warnings in a Vala source code file by inserting
+<p>You can ignore specific vala codecheck warnings in a Vala source code file by inserting
 a tag with the following syntax in a comment line to the line with the error:</p>
 
 <pre>

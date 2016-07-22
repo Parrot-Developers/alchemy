@@ -10,6 +10,11 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
+ifneq ("$(TARGET_ROOT_DESTDIR)","usr")
+  $(warning TARGET_ROOT_DESTDIR=$(TARGET_ROOT_DESTDIR))
+  $(error Installing libc is not supported if TARGET_ROOT_DESTDIR is not 'usr')
+endif
+
 LOCAL_MODULE := libc
 LOCAL_MODULE_FILENAME := $(LOCAL_MODULE).done
 
@@ -21,7 +26,7 @@ _libc_installed_file := $(call local-get-build-dir)/$(LOCAL_MODULE).installed
 _libc_sysroot := $(patsubst %/,%,$(TOOLCHAIN_LIBC))
 
 # architecture dependent sub-directory
-_libc_arch_subdir := $(TOOLCHAIN_TARGET_NAME)
+_libc_arch_subdir := $(TARGET_TOOLCHAIN_TRIPLET)
 
 # List of files to be put in /lib or /lib/<arch>
 _libc_lib_names := \
@@ -54,7 +59,7 @@ _libc_usrlib_names := \
 _libc_lib_dir := $(_libc_sysroot)/lib
 _libc_lib_arch_dir := $(_libc_sysroot)/lib/$(_libc_arch_subdir)
 ifeq ("$(TARGET_ARCH)","x64")
-_libc_lib64_dir := $(_libc_sysroot)/lib64
+  _libc_lib64_dir := $(_libc_sysroot)/lib64
 endif
 
 # 'usr/lib' directory
@@ -115,9 +120,10 @@ $(foreach __f,$(_libc_lib_names), \
 # Some toolchains, such as recent Linaro toolchains, store GCC support libraries
 # (libstdc++, libgcc_s, etc.) outside of the sysroot
 ifeq ("$(findstring libstdc++,$(_libc_usrlib_files) $(_libc_usrlib_arch_files))","")
-  _libc_support_dir_cmd := $(TARGET_CC) $(TARGET_GLOBAL_CFLAGS)
+  _libc_support_dir_cmd := $(TARGET_CC) $(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CFLAGS_$(TARGET_CC_FLAVOUR))
   ifeq ("$(TARGET_ARCH)","arm")
     _libc_support_dir_cmd += $(TARGET_GLOBAL_CFLAGS_$(TARGET_DEFAULT_ARM_MODE))
+    _libc_support_dir_cmd += $(TARGET_GLOBAL_CFLAGS_$(TARGET_DEFAULT_ARM_MODE)_$(TARGET_CC_FLAVOUR))
   endif
   _libc_support_dir_cmd += -print-file-name=libstdc++.a
   _libc_support_dir := $(wildcard $(dir $(shell $(_libc_support_dir_cmd))))

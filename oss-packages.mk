@@ -16,7 +16,7 @@ oss-gen-package-prepare = \
 	version=$(__modules.$1.ARCHIVE_VERSION); \
 	if [ "$${version}" = "" ]; then \
 		cd $(__modules.$1.PATH); \
-		version=$$($(BUILD_SYSTEM)/scripts/getversion.sh $(__modules.$1.ARCHIVE_VERSION)); \
+		version=$$($(BUILD_SYSTEM)/scripts/getversion.sh $1); \
 	fi; \
 	atom=$(wildcard $(__modules.$1.PATH)/$(USER_MAKEFILE_NAME)); \
 	config=$(wildcard $(abspath $(call module-get-config,$1))); \
