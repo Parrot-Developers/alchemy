@@ -14,8 +14,8 @@ LOCAL_SRC_FILES := strstr.c
 # force package selection
 CONFIG_ALCHEMY_BUILD_$(call get-define,$(LOCAL_MODULE)):=y
 
-# copy ld.so.preload containing libstrstr.so path
-LOCAL_COPY_FILES := ld.so.preload:etc/ld.so.preload
+# ask alchmey to add lib in /etc/ld.so.preload
+LOCAL_LDPRELOAD := /lib/libc-arm-2012-03-fix.so
 
 include $(BUILD_LIBRARY)
 

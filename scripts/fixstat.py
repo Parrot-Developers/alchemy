@@ -10,6 +10,7 @@ SPACE_PATTERN = re.compile(r"\s+")
 DEFAULT_PERMISSIONS = [
     r"/lib/ld-.*\.so.*  0755    root    root", # Linker shall be executable
     r"/lib/.*/ld-.*\.so.*  0755    root    root", # Linker shall be executable
+    r"/usr/lib/libc.so  0755    root    root", # Linker shall be executable (musl case)
     r"/sbin/.*        0755    root    root",
     r"/bin/.*         0755    root    root",
     r"/usr/sbin/.*    0755    root    root",

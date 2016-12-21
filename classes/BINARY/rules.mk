@@ -130,7 +130,7 @@ $(_binary_objects_flags): .FORCE | $(_binary_objects_flags)-dir
 ifeq ("$(MAKE_HAS_FILE_FUNC)","1")
 	$(file > $@.tmp,$(_binary-get-objects-flags))
 else
-	@echo -e "$(call __echo-escape,$(_binary-get-objects-flags))" > $@.tmp
+	@echo -e "$(call escape-echo,$(_binary-get-objects-flags))" > $@.tmp
 endif
 	@sed -i.bak -e 's/^ *//' $@.tmp && rm -f $@.tmp.bak
 	$(call update-file-if-needed,$@,$@.tmp)

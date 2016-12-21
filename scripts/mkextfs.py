@@ -722,8 +722,7 @@ class Extfs(object):
                 idx % numPerBlock
             ]
         else:
-            logging.error("Invalid inode block index : %d", idx)
-            return None
+            raise MemoryError("Invalid inode block index : %d" % idx)
 
         blockNumArray = ctypes.cast(inode.block, ctypes.POINTER(ctypes.c_uint32))
         for i in range(0, len(idxList)):
@@ -749,8 +748,7 @@ class Extfs(object):
                     assert blk >= 0
                     break
             else:
-                logging.error("Failed to allocate block for inode : %d", inum)
-                return 0
+                raise MemoryError("Failed to allocate block for inode : %d" % inum)
         # Update stats and return block number
         self.groups[grp].free_blocks_count -= 1
         self.sb.free_blocks_count -= 1
@@ -765,8 +763,7 @@ class Extfs(object):
                 self.groups[grp].free_inodes_count -= 1
                 self.sb.free_inodes_count -= 1
                 return grp * self.sb.inodes_per_group + inum + 1
-        logging.error("Failed to allocate inode")
-        return 0
+        raise MemoryError("Failed to allocate inode")
 
     def extendBlock(self, inum, data, amount, nocopy=False):
         inode = self.getInode(inum)

@@ -1,7 +1,10 @@
 ###############################################################################
-## @file toolchains/linux/native/selection.mk
+## @file toolchains/linux/yocto/flags.mk
 ## @author Y.M. Morgan
-## @date 2016/03/05
+## @date 2016/12/02
 ##
-## Setup toolchain variables.
+## Additional flags for linux/yocto toolchain.
 ###############################################################################
+
+# Assume everybody will want this
+TARGET_GLOBAL_LDLIBS += -pthread -lrt

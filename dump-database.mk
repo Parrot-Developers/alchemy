@@ -91,7 +91,7 @@ __dump-database-xml = \
 	$(call __write-xml,<alchemy>) \
 	$(call __write-xml,<target>) \
 	$(call __dump-database-var-xml,ALCHEMY_WORKSPACE_DIR,$(ALCHEMY_WORKSPACE_DIR)) \
-	$(foreach __var,$(vars-TARGET), \
+	$(foreach __var,$(vars-TARGET) LINUX_CROSS, \
 		$(call __dump-database-var-xml,$(__var),$(strip $(TARGET_$(__var)))) \
 	) \
 	$(call __write-xml,</target>) \
@@ -116,7 +116,7 @@ __dump-database-xml = \
 	$(call __write-xml,<custom-macros>) \
 	$(foreach __macro,$(__custom-macros), \
 		$(call __write-xml,$(space4)<macro name='$(__macro)'>) \
-		$(call __write-xml,$(space4)$(space4)$(call __xml-escape,$(value $(__macro)))) \
+		$(call __write-xml,$(space4)$(space4)$(call escape-xml,$(value $(__macro)))) \
 		$(call __write-xml,$(space4)</macro>) \
 	) \
 	$(call __write-xml,</custom-macros>) \
@@ -128,7 +128,7 @@ __dump-database-xml = \
 __dump-database-field-xml = \
 	$(if $2, \
 		$(call __write-xml,$(space4)$(space4)<field name='$1'>) \
-		$(call __write-xml,$(space4)$(space4)$(space4)<value>$(call __xml-escape,$2)</value>) \
+		$(call __write-xml,$(space4)$(space4)$(space4)<value>$(call escape-xml,$2)</value>) \
 		$(call __write-xml,$(space4)$(space4)</field>) \
 	) \
 
@@ -137,32 +137,19 @@ __dump-database-field-xml = \
 # $2 : variable value
 __dump-database-var-xml = \
 	$(call __write-xml,$(space4)<var name='$1'>) \
-	$(call __write-xml,$(space4)$(space4)<value>$(call __xml-escape,$2)</value>) \
+	$(call __write-xml,$(space4)$(space4)<value>$(call escape-xml,$2)</value>) \
 	$(call __write-xml,$(space4)</var>)
-
-# Escape characters for xml (escape '&' first, so in the innermost call at the end)
-# $1 : string to escape
-# Note: do NOT split the line to avoid inserting spaces in the resulting string
-__xml-escape = $(subst ",&quot;,$(subst ',&apos;,$(subst >,&gt;,$(subst <,&lt;,$(subst &,&amp;,$1)))))
-
-# Escape characters so it goes though the 'echo' correctly
-# $1 : string to escape
-# Note: do NOT split the line to avoid inserting spaces in the resulting string
-# Note: for some strange reasons, a '\' shall be written as '\\\\' to be correctly
-# interpreted. Mainly seen if a '\1' has to be written.
-__echo-escape = $(subst ",\",$(subst $(dollar),\$(dollar),$(subst $(endl),\n,$(subst \,\\\\,$1))))
 
 # We use the 'endl' to force a new line when macro is expanded. This avoids the
 # need to put a ';' and a continuation line when the shell command is expanded.
 # Otherwise the length of the single line of command generated will be too big
 # to pass down the shell (several hundreds of KB)
-# Note: use /bin/echo to make sure we use the binary, not a shell function.
 ifdef __dump_xml_with_file
   __write-xml = $1$(endl)
 else ifdef __dump_xml_with_info
   __write-xml = $(info $1)
 else
-  __write-xml = @/bin/echo -e "$(call __echo-escape,$1)" >> $(DUMP_DATABASE_XML_FILE) $(endl)
+  __write-xml = @echo -e "$(call escape-echo,$1)" >> $(DUMP_DATABASE_XML_FILE) $(endl)
 endif
 
 ###############################################################################

@@ -18,6 +18,7 @@ ifneq ("$(USE_CLANG)","1")
   HOST_RANLIB ?= ranlib
   HOST_OBJCOPY ?= objcopy
   HOST_OBJDUMP ?= objdump
+  HOST_FC ?= gfortran
 else
   HOST_CC ?= clang
   HOST_CXX ?= clang++
@@ -30,6 +31,7 @@ else
   HOST_RANLIB ?= llvm-ranlib
   HOST_OBJCOPY ?= objcopy
   HOST_OBJDUMP ?= llvm-objdump
+  HOST_FC ?= gfortran
 endif
 
 # Select correct toolchain
@@ -49,6 +51,7 @@ ifeq ("$(TARGET_OS)-$(TARGET_OS_FLAVOUR)","$(HOST_OS)-native")
   TARGET_RANLIB ?= $(HOST_RANLIB)
   TARGET_OBJCOPY ?= $(HOST_OBJCOPY)
   TARGET_OBJDUMP ?= $(HOST_OBJDUMP)
+  TARGET_FC ?= $(HOST_FC)
 else
   ifneq ("$(USE_CLANG)","1")
     TARGET_CC ?= $(TARGET_CROSS)gcc
@@ -66,6 +69,7 @@ else
   TARGET_RANLIB ?= $(TARGET_CROSS)ranlib
   TARGET_OBJCOPY ?= $(TARGET_CROSS)objcopy
   TARGET_OBJDUMP ?= $(TARGET_CROSS)objdump
+  TARGET_FC ?= $(TARGET_CROSS)gfortran
 endif
 
 # Nvidia cuda compiler
@@ -77,8 +81,9 @@ ifeq ("$(TARGET_CC_PATH)","")
   $(error Unable to find compiler: $(TARGET_CC))
 endif
 
-# Determine compiler version
+# Determine compilers version
 TARGET_CC_VERSION := $(shell $(TARGET_CC) -dumpversion)
+HOST_CC_VERSION := $(shell $(HOST_CC) -dumpversion)
 
 # TODO: remove when not used anymore
 TARGET_COMPILER_PATH := $(shell PARAM="$(TARGET_CC)";echo $${PARAM%/bin*})

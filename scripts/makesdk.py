@@ -184,6 +184,7 @@ def copyStaging(ctx, srcDir, dstDir):
         "host",
         "android",
         "toolchain",
+        "opt",
     ]
     exclude = ["*.la"]
     for dirName in dirs_to_keep:
@@ -202,7 +203,7 @@ def copySdk(ctx, srcDir, dstDir):
 #===============================================================================
 def copyHeaders(ctx, srcDir, dstDir):
     logging.debug("Copy headers: '%s' -> '%s'", srcDir, dstDir)
-    include = ["*.h", "*.hpp", "*.hh", "*.hxx", "*.doxygen", "*.inl"]
+    include = ["*.h", "*.hpp", "*.hh", "*.hxx", "*.doxygen", "*.inl", "*.ipp"]
     copyTree(ctx, srcDir, dstDir, includeExt=include)
 
 #===============================================================================
@@ -343,12 +344,31 @@ def processModule(ctx, module, headersOnly=False):
                 # path, normally the file is already copied
                 relPath = os.path.relpath(lib, ctx.stagingDir)
                 newLibs.append("$(LOCAL_PATH)/" + relPath)
+            elif lib.startswith(modulePath) and lib.endswith(".a"):
+                # lib is defined by its full name (abs dir + lib name)
+                relPath = os.path.relpath(lib, modulePath)
+                if relPath != ".":
+                    dstPath = os.path.join("usr", "lib", module.name, relPath)
+                else:
+                    dstPath = os.path.join("usr", "lib", module.name)
+                ctx.addFile(lib, os.path.join(ctx.outDir, dstPath))
+                newLibs.append("$(LOCAL_PATH)/" + dstPath)
             else:
                 newLibs.append(lib)
         # Write libs in a readable way
         ctx.atom.write("LOCAL_EXPORT_LDLIBS :=")
         for lib in newLibs:
             ctx.atom.write(" \\\n\t%s" % lib)
+        ctx.atom.write("\n")
+
+    # Custom variables
+    if "EXPORT_CUSTOM_VARIABLES" in module.fields:
+        modulePath = module.fields["PATH"]
+        custom = module.fields["EXPORT_CUSTOM_VARIABLES"]
+        # replace value of LOCAL_PATH by string "LOCAL_PATH"
+        custom = custom.replace(modulePath, "$(LOCAL_PATH)")
+        ctx.atom.write("LOCAL_EXPORT_CUSTOM_VARIABLES :=")
+        ctx.atom.write(" \\\n\t%s" % custom)
         ctx.atom.write("\n")
 
     # Include directories
@@ -452,10 +472,10 @@ def processModuleAndroid(ctx, module):
             libPath = libPath[:-3] + ".a"
             processModuleAndroidInternal(ctx, module, module.name + "-static", libPath, "STATIC")
     elif "EXPORT_LDLIBS" in module.fields:
-        # Only register single libs
+        # register all exported libs
         libNames = module.fields["EXPORT_LDLIBS"].split()
-        if len(libNames) == 1 and libNames[0].startswith("-l"):
-            libName = "lib" + libNames[0][2:]
+        for libName in ("lib" + libName[2:] for libName in libNames if libName.startswith("-l")):
+            moduleName = module.name + "-" + libName if len(libNames) > 1 else module.name
             libPathShared = None
             libPathStatic = None
             # Search shared/static lib path
@@ -468,14 +488,14 @@ def processModuleAndroid(ctx, module):
             # Register
             if libPathShared is not None and libPathStatic is not None:
                 # Both SHARED and STATIC
-                processModuleAndroidInternal(ctx, module, module.name, libPathShared, "SHARED")
-                processModuleAndroidInternal(ctx, module, module.name + "-static", libPathStatic, "STATIC")
+                processModuleAndroidInternal(ctx, module, moduleName, libPathShared, "SHARED")
+                processModuleAndroidInternal(ctx, module, moduleName + "-static", libPathStatic, "STATIC")
             elif libPathShared is not None:
                 # SHARED
-                processModuleAndroidInternal(ctx, module, module.name, libPathShared, "SHARED")
+                processModuleAndroidInternal(ctx, module, moduleName, libPathShared, "SHARED")
             elif libPathStatic is not None:
                 # STATIC
-                processModuleAndroidInternal(ctx, module, module.name, libPathStatic, "STATIC")
+                processModuleAndroidInternal(ctx, module, moduleName, libPathStatic, "STATIC")
 
 #===============================================================================
 #===============================================================================
@@ -488,20 +508,18 @@ def checkTargetVar(ctx, name):
 
 #===============================================================================
 #===============================================================================
-def writeTargetSetupVars(ctx, name):
-    val = ctx.moduledb.targetSetupVars.get(name, "")
-    if val:
-        # Replace directory path referencing previous sdk or staging directory
-        for dirPath in ctx.sdkDirs:
-            val = val.replace(dirPath, "$(LOCAL_PATH)")
-        val = val.replace(ctx.stagingDir, "$(LOCAL_PATH)")
-        ctx.setup.write("TARGET_%s :=" % name)
-        for field in val.split():
-            if field.startswith("-"):
-                ctx.setup.write(" \\\n\t%s" % field)
-            else:
-                ctx.setup.write(" %s" % field)
-        ctx.setup.write("\n\n")
+def writeTargetSetupVars(ctx, name, val):
+    # Replace directory path referencing previous sdk or staging directory
+    for dirPath in ctx.sdkDirs:
+        val = val.replace(dirPath, "$(LOCAL_PATH)")
+    val = val.replace(ctx.stagingDir, "$(LOCAL_PATH)")
+    ctx.setup.write("TARGET_%s :=" % name)
+    for field in val.split():
+        if field.startswith("-"):
+            ctx.setup.write(" \\\n\t%s" % field)
+        else:
+            ctx.setup.write(" %s" % field)
+    ctx.setup.write("\n\n")
 
 #===============================================================================
 # Main function.
@@ -548,7 +566,17 @@ def main():
 
     # Save initial TARGET_SETUP_XXX variables as TARGET_XXX
     for var in ctx.moduledb.targetSetupVars.keys():
-        writeTargetSetupVars(ctx, var)
+        val = ctx.moduledb.targetSetupVars.get(var, "")
+        if val:
+            writeTargetSetupVars(ctx, var, val)
+
+    # Add special linux variables
+    if "linux" in ctx.moduledb and ctx.moduledb["linux"].build:
+        val = ctx.moduledb.targetVars.get("LINUX_CROSS", "")
+        if val:
+            writeTargetSetupVars(ctx, "LINUX_CROSS", val)
+        ctx.setup.write("LINUX_DIR := $(LOCAL_PATH)/usr/src/linux-sdk\n\n")
+        ctx.setup.write("LINUX_BUILD_DIR := $(LOCAL_PATH)/usr/src/linux-sdk\n\n")
 
     # Process modules
     for module in ctx.moduledb:

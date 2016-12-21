@@ -20,4 +20,3 @@ endif
 
 TARGET_GLOBAL_CFLAGS += $(APPLE_ARCH) $(APPLE_MINVERSION) -isysroot $(shell xcrun --sdk $(APPLE_SDK) --show-sdk-path)
 TARGET_GLOBAL_LDFLAGS += $(APPLE_ARCH) $(APPLE_MINVERSION) -isysroot $(shell xcrun --sdk $(APPLE_SDK) --show-sdk-path)
-TARGET_GLOBAL_LDFLAGS_SHARED += $(APPLE_ARCH) $(APPLE_MINVERSION) -isysroot $(shell xcrun --sdk $(APPLE_SDK) --show-sdk-path)

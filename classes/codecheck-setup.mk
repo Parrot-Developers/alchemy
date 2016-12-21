@@ -86,8 +86,6 @@ $(LOCAL_MODULE)-codecheck-$1:
 				"$$(PRIVATE_CODECHECK_ARGS)" \
 				"$$(PRIVATE_CODECHECK_FILES)" || true \
 		) \
-		, \
-		@echo "$$(PRIVATE_MODULE): No '$1' files to check" \
 	)
 $(LOCAL_MODULE)-codecheck: $(LOCAL_MODULE)-codecheck-$1
 endef

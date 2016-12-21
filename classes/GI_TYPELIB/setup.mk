@@ -27,7 +27,7 @@ $(Q) cd $(PRIVATE_OBJ_DIR) && \
 		$(call normalize-c-includes,$(PRIVATE_C_INCLUDES)) \
 		$(filter -I%,$(TARGET_GLOBAL_CFLAGS)) \
 		$(filter -I%,$(PRIVATE_CFLAGS)) \
-		$(filter -L%,$(TARGET_GLOBAL_LDFLAGS_SHARED)) \
+		$(filter -L%,$(TARGET_GLOBAL_LDFLAGS)) \
 		$(filter -L%,$(PRIVATE_LDFLAGS)) \
 		$(PRIVATE_LDLIBS) \
 		$(PRIVATE_ALL_SOURCES)

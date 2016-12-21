@@ -42,7 +42,7 @@ $(_module_revision_h_file): .FORCE | $(_module_revision_h_file)-dir
 ifeq ("$(MAKE_HAS_FILE_FUNC)","1")
 	$(file > $@.tmp,$(_generic-get-revision-h))
 else
-	@echo -e "$(call __echo-escape,$(_generic-get-revision-h))" > $@.tmp
+	@echo -e "$(call escape-echo,$(_generic-get-revision-h))" > $@.tmp
 endif
 	@sed -i.bak -e 's/^ *//' $@.tmp && rm -f $@.tmp.bak
 	$(call update-file-if-needed,$@,$@.tmp)

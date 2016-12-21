@@ -168,17 +168,21 @@ def main():
     addFsEntries(root)
     addDevNodes(root, options.devNodes)
 
-    # Generate the oupt file
-    if options.fstype == "tar":
-        mktar.genImage(image, root)
-    elif options.fstype == "cpio":
-        mkcpio.genImage(image, root)
-    elif options.fstype == "ext2":
-        mkextfs.genImage(image, root, 2)
-    elif options.fstype == "ext3":
-        mkextfs.genImage(image, root, 3)
-    elif options.fstype == "ext4":
-        mkextfs.genImage(image, root, 4)
+    # Generate the ouput file
+    try:
+        if options.fstype == "tar":
+            mktar.genImage(image, root)
+        elif options.fstype == "cpio":
+            mkcpio.genImage(image, root)
+        elif options.fstype == "ext2":
+            mkextfs.genImage(image, root, 2)
+        elif options.fstype == "ext3":
+            mkextfs.genImage(image, root, 3)
+        elif options.fstype == "ext4":
+            mkextfs.genImage(image, root, 4)
+    except Exception as ex:
+        logging.error(str(ex))
+        sys.exit(1)
 
     # Free resources
     fout.close()

@@ -8,7 +8,6 @@
 
 TARGET_GLOBAL_CFLAGS += -m64
 TARGET_GLOBAL_LDFLAGS += -m64
-TARGET_GLOBAL_LDFLAGS_SHARED += -m64
 
 ifneq ("$(TARGET_OS)","windows")
 ifneq ("$(TARGET_OS)","msys")

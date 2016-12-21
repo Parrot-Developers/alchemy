@@ -11,13 +11,10 @@ ifndef USE_ALCHEMY_ANDROID_SDK
 ifeq ("$(TARGET_ANDROID_SHARED_STL)","1")
   ifeq ("$(TARGET_ANDROID_STL)","gnustl")
     TARGET_GLOBAL_LDFLAGS += -lgnustl_shared
-    TARGET_GLOBAL_LDFLAGS_SHARED += -lgnustl_shared
   else ifeq ("$(TARGET_ANDROID_STL)","libc++")
     TARGET_GLOBAL_LDFLAGS += -lc++_shared
-    TARGET_GLOBAL_LDFLAGS_SHARED += -lc++_shared
   else ifeq ("$(TARGET_ANDROID_STL)","stlport")
     TARGET_GLOBAL_LDFLAGS += -lstlport_shared
-    TARGET_GLOBAL_LDFLAGS_SHARED += -lstlport_shared
   endif
 endif
 

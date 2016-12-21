@@ -178,6 +178,8 @@ conflict with other build systems (android for example).
   </br>Default is `$(TARGET_CROSS)gcc`.
 * `TARGET_CXX` : full path to C++ compiler.
   </br>Default is `$(TARGET_CROSS)g++`.
+* `TARGET_FC` : full path to Fortran compiler.
+  </br>Default is `$(TARGET_CROSS)gfortran`.
 * `TARGET_AR` : full path to archive maker.
   </br>Default is `$(TARGET_CROSS)ar`.
 * `TARGET_LD` : full path to linker.
@@ -258,12 +260,8 @@ Mainly used by the android wrapper.
 * `TARGET_GLOBAL_CXXFLAGS` : Flags to pass to the C++ compiler only.
 * `TARGET_GLOBAL_ARFLAGS` : Flags to pass to the archive maker.
   </br>Default is `rcs`, so you should never have to define it.
-* `TARGET_GLOBAL_LDFLAGS` : Flags to pass to the linker for executables.
-* `TARGET_GLOBAL_LDFLAGS_SHARED` : Flags to pass to the linker for shared
-  libraries.
-* `TARGET_GLOBAL_LDLIBS` : Additional libraries to use when linking executables.
-* `TARGET_GLOBAL_LDLIBS_SHARED` : Additional libraries to use when linking
-  libraries.
+* `TARGET_GLOBAL_LDFLAGS` : Flags to pass to the linker.
+* `TARGET_GLOBAL_LDLIBS` : Additional libraries to use when linking.
 * `TARGET_GLOBAL_PCH_FLAGS` : Flags to pass when precompiling headers.
 * `TARGET_GLOBAL_OBJCFLAGS` : Flags to pass to the Objective-C compiler.
 
@@ -355,6 +353,8 @@ Mainly used by the android wrapper.
 * `TARGET_INCLUDE_TZDATA` : include time zone data from libc.
   </br>Default is `0`.
 * `TARGET_INCLUDE_GCONV` : include gconv libraries from libc.
+  </br>Default is `0`.
+* `TARGET_INCLUDE_GFORTRAN` : include Fortran libraries from toolchain.
   </br>Default is `0`.
 * `TARGET_USE_CXX_EXCEPTIONS` : enable c++ exceptions.
   </br>Default is `1`.
@@ -1098,7 +1098,6 @@ In the environment, the following variables are set during the call to configure
 * `CFLAGS`
 * `CXXFLAGS`
 * `LDFLAGS`
-* `DYN_LDFLAGS`
 
 Also, for `pkg-config` to work correctly, the following variable are exported :
 
@@ -1170,7 +1169,6 @@ Some variables containing generic content can also be used :
 * `TARGET_AUTOTOOLS_CFLAGS`
 * `TARGET_AUTOTOOLS_CXXFLAGS`
 * `TARGET_AUTOTOOLS_LDFLAGS`
-* `TARGET_AUTOTOOLS_DYN_LDFLAGS`
 * `TARGET_AUTOTOOLS_CONFIGURE_ENV`
 * `TARGET_AUTOTOOLS_CONFIGURE_ARGS`
 * `TARGET_AUTOTOOLS_MAKE_ENV`
@@ -1351,9 +1349,7 @@ customized before invoking `alchemy`. For the meaning, see the corresponding
 * `HOST_GLOBAL_CXXFLAGS` : empty
 * `HOST_GLOBAL_ARFLAGS` : `rcs`
 * `HOST_GLOBAL_LDFLAGS` : empty
-* `HOST_GLOBAL_LDFLAGS_SHARED` : empty
 * `HOST_GLOBAL_LDLIBS` : empty
-* `HOST_GLOBAL_LDLIBS_SHARED` : empty
 * `HOST_GLOBAL_PCH_FLAGS` : empty
 * `HOST_CC` : `gcc`
 * `HOST_CXX` : `g++`

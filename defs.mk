@@ -66,7 +66,8 @@ get-define = $(strip \
 	$(__gdtmp))
 
 # Remove quotes from string
-remove-quotes = $(strip $(subst ",,$1))
+#Start by removing '\"' if exist for not having a '\' in our string
+remove-quotes = $(strip $(subst ",,$(strip $(subst \",,$1))))
 
 # Check that the current directory is the top directory
 check-pwd-is-top-dir = \
@@ -146,6 +147,18 @@ remove-trailing-slash = $(strip $(patsubst %/,%,$1))
 # Remove leading and trailing '/' from a path
 # $1 : input string
 remove-slash = $(strip $(patsubst /%,%,$(patsubst %/,%,$1)))
+
+# Escape characters for xml (escape '&' first, so in the innermost call at the end)
+# $1 : string to escape
+# Note: do NOT split the line to avoid inserting spaces in the resulting string
+escape-xml = $(subst ",&quot;,$(subst ',&apos;,$(subst >,&gt;,$(subst <,&lt;,$(subst &,&amp;,$1)))))
+
+# Escape characters so it goes though the 'echo' correctly
+# $1 : string to escape
+# Note: do NOT split the line to avoid inserting spaces in the resulting string
+# Note: for some strange reasons, a '\' shall be written as '\\\\' to be correctly
+# interpreted. Mainly seen if a '\1' has to be written.
+escape-echo = $(subst ",\",$(subst $(dollar),\$(dollar),$(subst $(endl),\n,$(subst \,\\\\,$1))))
 
 ###############################################################################
 ## Call a function(macro) for each variable in a variable list.
@@ -413,16 +426,15 @@ __modules-get-required-host-direct = $(strip $(sort \
 ## not actually in it).
 ## If no global configuration file present, always return true (unless if was
 ## forcibly disabled).
-## FIXME: do NOT require module to be registered (in some cases it can be called
-## before the module is registered)
+## If module is not registered (yet) still look at CONFIG_ALCHEMY_BUILD_ var.
 ###############################################################################
 is-module-in-build-config = $(strip \
+	$(eval __var := CONFIG_ALCHEMY_BUILD_$(call module-get-define,$1)) \
 	$(if $(call is-module-registered,$1), \
 		$(if $(call is-module-prebuilt,$1), \
 			$(true) \
 			, \
 			$(if $(call streq,$(GLOBAL_CONFIG_FILE_AVAILABLE),1), \
-				$(eval __var := CONFIG_ALCHEMY_BUILD_$(call module-get-define,$1)) \
 				$(if $(call is-var-defined,$(__var)), \
 					$(if $($(__var)),$(true),$(false)) \
 					, \
@@ -431,6 +443,12 @@ is-module-in-build-config = $(strip \
 				, \
 				$(call not,$(call is-var-defined,__modules.$(__mod).force-disabled)) \
 			) \
+		) \
+		, \
+		$(if $(call is-var-defined,$(__var)), \
+			$(if $($(__var)),$(true),$(false)) \
+			, \
+			$(false) \
 		) \
 	))
 
@@ -934,9 +952,15 @@ module-get-stamp-file = $(call module-get-build-dir,$1)/$1.$2.stamp
 # It handle host/target modules
 module-get-build-filename = $(strip \
 	$(if $(call is-module-host,$1), \
-		$(HOST_OUT_BUILD)/$(call module-normalize-host,$1)/$(__modules.$1.MODULE_FILENAME) \
+		$(if $(__modules.$1.SDK), \
+			$(HOST_OUT_BUILD)/$(call module-normalize-host,$1)/$(__modules.$1.MODULE).done, \
+			$(HOST_OUT_BUILD)/$(call module-normalize-host,$1)/$(__modules.$1.MODULE_FILENAME) \
+		) \
 		, \
-		$(TARGET_OUT_BUILD)/$1/$(__modules.$1.MODULE_FILENAME) \
+		$(if $(__modules.$1.SDK), \
+			$(TARGET_OUT_BUILD)/$1/$(__modules.$1.MODULE).done, \
+			$(TARGET_OUT_BUILD)/$1/$(__modules.$1.MODULE_FILENAME) \
+		) \
 	))
 
 # Get staging file name of a module.
@@ -988,50 +1012,96 @@ module-get-debug-flags = $(strip \
 
 ifneq ("$(USE_GIT_REV)","0")
 
-# Cache of already compute revisions
-__git-rev-cache := $(empty)
+# Cache of already computed revisions
+__git-rev-cache.sha1 := $(empty)
+__git-rev-cache.desc := $(empty)
+__git-rev-cache.url := $(empty)
 
-# Compute revision of a directory and update cache with the top level directory
-# ofthe gir repo containing the given directory.
-# Do not add in cache if top level has a .gitmodules
+# Compute the top level directory and sha1 of a directory
 # $1 : path inside of a git repo
-__git-rev-compute = \
+__git-rev-compute-top-level-sha1 = \
 	$(eval __data := $(shell cd $1 && git rev-parse --show-toplevel HEAD 2>/dev/null)) \
 	$(eval __top-level := $(word 1,$(__data))) \
-	$(eval __sha1 := $(word 2,$(__data))) \
-	$(eval __url := $(shell cd $1 && git ls-remote --get-url $$(git remote 2>/dev/null | head -n1) 2>/dev/null)) \
+	$(eval __sha1 := $(word 2,$(__data)))
+
+# Compute revision of a directory
+# Update cache with the top level directory (unless it has a .gitmodules)
+# $1 : path inside of a git repo
+__git-rev-compute-sha1 = \
+	$(__git-rev-compute-top-level-sha1) \
 	$(if $(__top-level), \
-		$(eval __desc := $(shell cd $(__top-level) && git describe --tags --always 2>/dev/null)) \
 		$(if $(wildcard $(__top-level)/.gitmodules),$(empty), \
-			$(eval __git-rev-cache.$(__top-level).sha1 := $(__sha1)) \
-			$(eval __git-rev-cache.$(__top-level).desc := $(__desc)) \
-			$(eval __git-rev-cache.$(__top-level).url := $(__url)) \
-			$(eval __git-rev-cache += $(__top-level)) \
+			$(eval __git-rev-cache.sha1.$(__top-level) := $(__sha1)) \
+			$(eval __git-rev-cache.sha1 += $(__top-level)) \
 		) \
 		, \
 		$(eval __sha1 := $(empty)) \
+	)
+
+# Similar to __git-rev-compute-sha1 but do also a 'git describe'
+# Update cache with the top level directory (unless it has a .gitmodules)
+# $1 : path inside of a git repo
+__git-rev-compute-desc = \
+	$(__git-rev-compute-top-level-sha1) \
+	$(if $(__top-level), \
+		$(eval __desc := $(shell cd $(__top-level) && git describe --tags --always 2>/dev/null)) \
+		$(if $(wildcard $(__top-level)/.gitmodules),$(empty), \
+			$(eval __git-rev-cache.desc.$(__top-level) := $(__desc)) \
+			$(eval __git-rev-cache.desc += $(__top-level)) \
+		) \
+		, \
 		$(eval __desc := $(empty)) \
+	)
+
+# Compute url of a directory
+# Update cache with the top level directory (unless it has a .gitmodules)
+# $1 : path inside of a git repo
+__git-rev-compute-url = \
+	$(__git-rev-compute-top-level-sha1) \
+	$(if $(__top-level), \
+		$(eval __url := $(shell cd $1 && git ls-remote --get-url $$(git remote 2>/dev/null | head -n1) 2>/dev/null)) \
+		$(if $(wildcard $(__top-level)/.gitmodules),$(empty), \
+			$(eval __git-rev-cache.url.$(__top-level) := $(__url)) \
+			$(eval __git-rev-cache.url += $(__top-level)) \
+		) \
+		, \
 		$(eval __url := $(empty)) \
 	)
 
-# Search in cache if directory has already on of its parent in the cache
-# If yes, retreive __sha1 and __desc.
-# If no, update the cache and retreive __sha1 and __desc.
+# Search in cache if directory has already one of its parent in the cache
+# If yes, retrieve information (sha1, desc, url).
+# If no, update the cache and retreive them
 # $1 : path inside a git repo
-__git-rev-get = \
+# $2 : info to retrieve (sha1, desc, url).
+__git-rev-compute = \
 	$(eval __found := $(false)) \
-	$(foreach __top-level,$(__git-rev-cache), \
+	$(foreach __top-level,$(__git-rev-cache.$2), \
 		$(if $(__found),$(empty), \
 			$(if $(or $(call streq,$(__top-level),$1), \
 					$(call not,$(patsubst $(__top-level)/%,,$1/))), \
-				$(eval __sha1 := $(__git-rev-cache.$(__top-level).sha1)) \
-				$(eval __desc := $(__git-rev-cache.$(__top-level).desc)) \
-				$(eval __url := $(__git-rev-cache.$(__top-level).url)) \
+				$(eval __$2 := $(__git-rev-cache.$2.$(__top-level))) \
 				$(eval __found := $(true)) \
 			) \
 		) \
 	) \
-	$(if $(__found),$(empty),$(call __git-rev-compute,$1))
+	$(if $(__found),$(empty),$(call __git-rev-compute-$2,$1))
+
+# Compute revision information about a single module
+# $1 : module name
+# $2 : info to retrieve (sha1, desc, url).
+# $3 : variable to update in module database (REVISION, REVISION_DESCRIBE, REVISION_URL)
+_module-rev-compute = \
+	$(if $(__modules.$1.$3),$(empty), \
+		$(eval __path := $(__modules.$1.PATH)) \
+		$(call __git-rev-compute,$(__path),$2) \
+		$(if $(__$2),$(empty),$(eval __$2 := unknown)) \
+		$(eval __modules.$1.$3 := $(__$2)) \
+	)
+
+# $1 : module name
+# $2 : info to retrieve (sha1, desc, url).
+# $3 : variable name in module database (REVISION, REVISION_DESCRIBE, REVISION_URL)
+_module-rev-get = $(strip $(call _module-rev-compute,$1,$2,$3)$(__modules.$1.$3))
 
 # Compute revision of all modules
 module-compute-revisions = \
@@ -1042,29 +1112,21 @@ module-compute-revisions = \
 # Compute revision of a single module
 # $1: module name
 module-compute-revision = \
-	$(if $(__modules.$1.REVISION),$(empty), \
-		$(eval __path := $(__modules.$1.PATH)) \
-		$(call __git-rev-get,$(__path)) \
-		$(if $(__sha1),$(empty),$(eval __sha1 := unknown)) \
-		$(if $(__desc),$(empty),$(eval __desc := unknown)) \
-		$(if $(__url),$(empty),$(eval __url := unknown)) \
-		$(eval __modules.$1.REVISION := $(__sha1)) \
-		$(eval __modules.$1.REVISION_DESCRIBE := $(__desc)) \
-		$(eval __modules.$1.REVISION_URL := $(__url)) \
-		$(if $(call strneq,$(V),0),$(info Revision of $1: $(__sha1) / $(__desc))) \
-	) \
+	$(call _module-rev-compute,$1,sha1,REVISION) \
+	$(call _module-rev-compute,$1,desc,REVISION_DESCRIBE) \
+	$(call _module-rev-compute,$1,url,REVISION_URL)
 
 # Get revision of one module
 # $1 : module name.
-module-get-revision = $(strip $(module-compute-revision)$(__modules.$1.REVISION))
+module-get-revision = $(call _module-rev-get,$1,sha1,REVISION)
 
 # Get revision (with git describe) of one module
 # $1 : module name.
-module-get-revision-describe = $(strip $(module-compute-revision)$(__modules.$1.REVISION_DESCRIBE))
+module-get-revision-describe = $(call _module-rev-get,$1,desc,REVISION_DESCRIBE)
 
 # Get revision url of one module
 # $1 : module name.
-module-get-revision-url = $(strip $(module-compute-revision)$(__modules.$1.REVISION_URL))
+module-get-revision-url = $(call _module-rev-get,$1,url,REVISION_URL)
 
 # Get last revision of one module. It is found in a generated file that may
 # not exist so the result can be empty.
@@ -1139,7 +1201,7 @@ define generate-autoconf-file
 endef
 
 ###############################################################################
-## Search files matching an extension under LOCAL_PATH.
+## Search files matching an extension under LOCAL_PATH, recursively.
 ###############################################################################
 
 # $1 : directory relative to LOCAL_PATH to search
@@ -1147,7 +1209,7 @@ endef
 all-files-under = $(strip \
 	$(patsubst ./%,%, \
 		$(shell cd $(LOCAL_PATH); \
-			find $1  -type f -name "*$2" -and -not -name ".*") \
+			find $1 -type f -name "*$2" -and -not -name ".*") \
 	))
 
 # $1 : directory relative to LOCAL_PATH to search
@@ -1164,8 +1226,8 @@ all-cc-files-under = $(call all-files-under,$1,.cc)
 # $2 : extension to search (.c, .cpp ...)
 all-files-in = $(strip \
 	$(patsubst ./%,%, \
-	$(shell cd $(LOCAL_PATH); \
-		ls $1/*$2) \
+		$(shell cd $(LOCAL_PATH); \
+			find $1 -maxdepth 1 -type f -name "*$2" -and -not -name ".*") \
 	))
 
 # $1 : directory relative to LOCAL_PATH to search
@@ -1590,14 +1652,13 @@ link-hook = $(strip \
 ###############################################################################
 
 define add-depends-section
-$(eval __depsdata := $(empty))
-$(foreach __lib,$(PRIVATE_MODULE) $(__modules.$(PRIVATE_MODULE).depends.all), \
-	$(eval __depsdata += $(__lib):$(call module-get-revision,$(__lib))) \
-)
-$(eval __depsdata := $(subst $(space),\n,$(strip $(__depsdata))))
+$(eval __depsdata := $(strip \
+	$(foreach __lib,$(sort $(PRIVATE_MODULE) $(__modules.$(PRIVATE_MODULE).depends.all)), \
+		$(__lib):$(call module-get-revision,$(__lib)) \
+	)))
 @( \
 	__tmpfile=$$(mktemp tmp.XXXXXXXXXX); \
-	/bin/echo -e "$(__depsdata)" > $${__tmpfile}; \
+	echo -e "$(call escape-echo,$(subst $(space),$(endl),$(__depsdata)))" > $${__tmpfile}; \
 	$(PRIVATE_OBJCOPY) --add-section \
 		$(TARGET_DEPENDS_SECTION_NAME)=$${__tmpfile} $@; \
 	rm -f $${__tmpfile}; \

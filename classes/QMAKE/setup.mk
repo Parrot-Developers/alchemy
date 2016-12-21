@@ -108,7 +108,7 @@ TARGET_QMAKE_ENV += ANDROID_NDK_ROOT=$(TARGET_ANDROID_NDK) \
 	ANDROID_HOME=$(TARGET_ANDROID_SDK) \
 	ANDROID_SDK_ROOT=$(TARGET_ANDROID_SDK) \
 	ANDROID_NDK_PLATFORM=android-$(TARGET_ANDROID_APILEVEL) \
-	ANDROID_NDK_TOOLCHAIN_VERSION=$(TARGET_CC_VERSION)
+	ANDROID_NDK_TOOLCHAIN_VERSION=$(TARGET_CC_VERSION:.x=)
 endif
 
 # Need to remove some flags which conflict with flags set by qmake
@@ -134,13 +134,16 @@ define _internal-qmake-gen-deps-darwin
 		echo "INCLUDEPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "DEPENDPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "QMAKE_CFLAGS += $(TARGET_QMAKE_CFLAGS) $(PRIVATE_CFLAGS)"; \
-		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(TARGET_QMAKE_CFLAGS)) $(TARGET_GLOBAL_CXXFLAGS) $(filter-out -std=%,$(PRIVATE_CFLAGS)) $(PRIVATE_CXXFLAGS)"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(TARGET_QMAKE_CFLAGS))"; \
+		echo "QMAKE_CXXFLAGS += $(TARGET_GLOBAL_CXXFLAGS)"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(PRIVATE_CFLAGS))"; \
+		echo "QMAKE_CXXFLAGS += $(PRIVATE_CXXFLAGS)"; \
 		echo "LIBS += $(subst $(APPLE_ARCH),,$(TARGET_QMAKE_LDFLAGS) $(PRIVATE_LDFLAGS))"; \
 		echo "LIBS += $(foreach __lib, $(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES), -force_load $(__lib))"; \
 		echo "LIBS += $(PRIVATE_ALL_STATIC_LIBRARIES)"; \
 		echo "LIBS += $(PRIVATE_ALL_SHARED_LIBRARIES)"; \
 		echo "LIBS += $(PRIVATE_LDLIBS)"; \
-		echo "LIBS += $(TARGET_GLOBAL_LDLIBS_SHARED)"; \
+		echo "LIBS += $(TARGET_GLOBAL_LDLIBS)"; \
 		echo "CONFIG += $(APPLE_SDK)"; \
 		echo "macx:QMAKE_LFLAGS_SONAME = -Wl,-install_name,$(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_LIB_DESTDIR)/"; \
 		echo "QMAKE_IOS_DEVICE_ARCHS = $(filter-out -arch,$(APPLE_ARCH))"; \
@@ -166,13 +169,16 @@ define _internal-qmake-gen-deps
 		echo "INCLUDEPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "DEPENDPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "QMAKE_CFLAGS += $(TARGET_QMAKE_CFLAGS) $(PRIVATE_CFLAGS)"; \
-		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(TARGET_QMAKE_CFLAGS)) $(TARGET_GLOBAL_CXXFLAGS) $(filter-out -std=%,$(PRIVATE_CFLAGS)) $(PRIVATE_CXXFLAGS)"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(TARGET_QMAKE_CFLAGS))"; \
+		echo "QMAKE_CXXFLAGS += $(TARGET_GLOBAL_CXXFLAGS)"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(PRIVATE_CFLAGS))"; \
+		echo "QMAKE_CXXFLAGS += $(PRIVATE_CXXFLAGS)"; \
 		echo "LIBS += $(TARGET_QMAKE_LDFLAGS) $(PRIVATE_LDFLAGS)"; \
 		echo "LIBS += -Wl,--whole-archive $(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES) -Wl,--no-whole-archive"; \
 		echo "LIBS += $(PRIVATE_ALL_STATIC_LIBRARIES)"; \
 		echo "LIBS += $(PRIVATE_ALL_SHARED_LIBRARIES)"; \
 		echo "LIBS += $(PRIVATE_LDLIBS)"; \
-		echo "LIBS += $(TARGET_GLOBAL_LDLIBS_SHARED)"; \
+		echo "LIBS += $(TARGET_GLOBAL_LDLIBS)"; \
 		echo "ANDROID_EXTRA_LIBS = $(shell find $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_LIB_DESTDIR) -maxdepth 1 -name 'lib*.so' -type f)"; \
 	) >> $(PRIVATE_ALCHEMY_PRI_FILE).tmp
 	$(call update-file-if-needed,$(PRIVATE_ALCHEMY_PRI_FILE),$(PRIVATE_ALCHEMY_PRI_FILE).tmp)

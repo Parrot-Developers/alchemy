@@ -45,11 +45,15 @@ _autotools_target_cache_file := $(TARGET_OUT_BUILD)/autotools.cache
 # autoreconf is not triggered
 # Only do it if the source dir is not LOCAL_PATH (so either extracted from
 # archive or copied in build directory)
+# No need to do that if a custom bootstrap is done
+# Not done if a custom bootstrap command is specified
 define _autotools-hook-pre-configure
 	$(if $(call strneq,$(PRIVATE_SRC_DIR),$(PRIVATE_PATH)), \
 		$(Q) find $(PRIVATE_SRC_DIR) -name Makefile.am -exec touch {} \;$(endl) \
 		$(Q) find $(PRIVATE_SRC_DIR) -name configure.ac -exec touch {} \;$(endl) \
+		$(Q) find $(PRIVATE_SRC_DIR) -name configure.in -exec touch {} \;$(endl) \
 		$(Q) find $(PRIVATE_SRC_DIR) -name aclocal.m4 -exec touch {} \;$(endl) \
+		$(Q) find $(PRIVATE_SRC_DIR) -name config.h.in -exec touch {} \;$(endl) \
 		$(Q) find $(PRIVATE_SRC_DIR) -name Makefile.in -exec touch {} \;$(endl) \
 		$(Q) find $(PRIVATE_SRC_DIR) -name configure -exec touch {} \;$(endl) \
 	)
@@ -152,6 +156,7 @@ HOST_AUTOTOOLS_CONFIGURE_ENV := \
 	GCC="$(CCACHE) $(HOST_CC)" \
 	CXX="$(CCACHE) $(HOST_CXX)" \
 	CPP="$(HOST_CPP)" \
+	FC="$(HOST_FC)" \
 	RANLIB="$(HOST_RANLIB)" \
 	STRIP="$(HOST_STRIP)" \
 	OBJCOPY="$(HOST_OBJCOPY)" \
@@ -163,7 +168,6 @@ HOST_AUTOTOOLS_CONFIGURE_ENV := \
 	CFLAGS="$(HOST_AUTOTOOLS_CFLAGS)" \
 	CXXFLAGS="$(HOST_AUTOTOOLS_CXXFLAGS)" \
 	LDFLAGS="$(HOST_GLOBAL_LDFLAGS) $(HOST_GLOBAL_LDLIBS)" \
-	DYN_LDFLAGS="$(HOST_GLOBAL_LDFLAGS_SHARED) $(HOST_GLOBAL_LDLIBS_SHARED)" \
 	BISON_PATH="$(BISON_BIN)" \
 	XDG_DATA_DIRS=$(HOST_XDG_DATA_DIRS) \
 	$(HOST_PKG_CONFIG_ENV)
@@ -211,14 +215,12 @@ TARGET_AUTOTOOLS_CPPFLAGS := $(call normalize-system-c-includes,$(TARGET_GLOBAL_
 TARGET_AUTOTOOLS_CFLAGS := $(TARGET_AUTOTOOLS_CPPFLAGS) $(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CFLAGS_$(TARGET_CC_FLAVOUR))
 TARGET_AUTOTOOLS_CXXFLAGS := $(filter-out -std=%,$(TARGET_AUTOTOOLS_CFLAGS)) $(TARGET_GLOBAL_CXXFLAGS)
 TARGET_AUTOTOOLS_LDFLAGS := $(TARGET_GLOBAL_LDFLAGS) $(TARGET_GLOBAL_LDLIBS) $(TARGET_GLOBAL_LDFLAGS_$(TARGET_CC_FLAVOUR))
-TARGET_AUTOTOOLS_DYN_LDFLAGS := $(TARGET_GLOBAL_LDFLAGS_SHARED) $(TARGET_GLOBAL_LDLIBS_SHARED)
 
 _target_pkg_config_dirs := \
 	lib/$(TARGET_TOOLCHAIN_TRIPLET)/pkgconfig \
 	lib/pkgconfig \
 	$(TARGET_DEFAULT_LIB_DESTDIR)/$(TARGET_TOOLCHAIN_TRIPLET)/pkgconfig \
-	$(TARGET_DEFAULT_LIB_DESTDIR)/pkgconfig \
-	$(TARGET_DEFAULT_SHARE_DESTDIR)/pkgconfig
+	$(TARGET_DEFAULT_LIB_DESTDIR)/pkgconfig
 
 _target_pkg_config_path :=
 $(foreach __dir,$(TARGET_OUT_STAGING) $(TARGET_SDK_DIRS), \
@@ -250,6 +252,7 @@ TARGET_AUTOTOOLS_CONFIGURE_ENV := \
 	GCC="$(CCACHE) $(TARGET_CC)" \
 	CXX="$(CCACHE) $(TARGET_CXX)" \
 	CPP="$(TARGET_CPP)" \
+	FC="$(TARGET_FC)" \
 	RANLIB="$(TARGET_RANLIB)" \
 	STRIP="$(TARGET_STRIP)" \
 	OBJCOPY="$(TARGET_OBJCOPY)" \
@@ -261,7 +264,6 @@ TARGET_AUTOTOOLS_CONFIGURE_ENV := \
 	CFLAGS="$(TARGET_AUTOTOOLS_CFLAGS)" \
 	CXXFLAGS="$(TARGET_AUTOTOOLS_CXXFLAGS)" \
 	LDFLAGS="$(TARGET_AUTOTOOLS_LDFLAGS)" \
-	DYN_LDFLAGS="$(TARGET_AUTOTOOLS_DYN_LDFLAGS)" \
 	BISON_PATH="$(BISON_BIN)" \
 	XDG_DATA_DIRS=$(TARGET_XDG_DATA_DIRS) \
 	$(TARGET_PKG_CONFIG_ENV)

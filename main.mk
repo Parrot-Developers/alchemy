@@ -373,6 +373,7 @@ $(shell echo "$(ALL_BUILD_MODULES)" > $(TARGET_OUT_BUILD)/build-modules)
 include $(BUILD_SYSTEM)/config-rules.mk
 
 # Now, really generate rules for modules.
+__modlist := $(empty)
 
 # Completely skip this for simple queries or clobber.
 ifeq ("$(call is-targets-in-make-goals,$(__query-targets) $(__clobber-targets))","")
@@ -401,7 +402,6 @@ $(info Generating rules...)
 # If a module is specified in goals, only include this one and its dependencies.
 # If 'all' or 'check' is also given do not do the filter
 # For meta packages, also get config dependencies (for build/clean shortcuts)
-__modlist := $(empty)
 ifeq ("$(call is-targets-in-make-goals,all check all-clean all-dirclean)","")
 $(foreach __mod,$(ALL_BUILD_MODULES) $(ALL_BUILD_MODULES_HOST), \
 	$(if $(call is-module-in-make-goals,$(__mod)), \

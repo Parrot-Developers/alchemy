@@ -26,7 +26,6 @@ _binary-global-objects-flags = \
 	CFLAGS \
 	CFLAGS_$(PRIVATE_CC_FLAVOUR) \
 	CFLAGS_$(PRIVATE_ARCH) \
-	CFLAGS_$(PRIVATE_ARCH)_$(PRIVATE_CC_FLAVOUR) \
 	CXXFLAGS \
 	CXXFLAGS_$(PRIVATE_CC_FLAVOUR) \
 	OBJCFLAGS \
@@ -76,10 +75,9 @@ $(Q) $(CCACHE) $(PRIVATE_CXX) \
 	$(filter-out -std=%,$($1_GLOBAL_CFLAGS_$(PRIVATE_CC_FLAVOUR))) \
 	$(WARNINGS_CXXFLAGS_$(PRIVATE_CC_FLAVOUR)) \
 	$(filter-out -std=%,$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH))) \
-	$(filter-out -std=%,$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)_$(PRIVATE_CC_FLAVOUR))) \
 	$(PRIVATE_PCH_INCLUDE) \
 	$(filter-out -std=%,$(PRIVATE_CFLAGS)) $(PRIVATE_CXXFLAGS) \
-	-MMD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
+	-MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
 	-c $(call path-from-top,$3)
 $(call fix-deps-file,$(2:.o=.d))
@@ -107,9 +105,8 @@ $(Q) $(CCACHE) $(PRIVATE_CC) \
 	$($1_GLOBAL_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
 	$(WARNINGS_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
 	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)_$(PRIVATE_CC_FLAVOUR)) \
 	$(PRIVATE_CFLAGS) \
-	-MMD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
+	-MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
 	-c $(call path-from-top,$3)
 $(call fix-deps-file,$(2:.o=.d))
@@ -135,10 +132,9 @@ $(Q) $(CCACHE) $(PRIVATE_CC) \
 	$($1_GLOBAL_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
 	$(WARNINGS_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
 	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)_$(PRIVATE_CC_FLAVOUR)) \
 	$($1_GLOBAL_OBJCFLAGS) \
 	$(PRIVATE_CFLAGS) $(PRIVATE_OBJCFLAGS) \
-	-MMD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
+	-MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
 	-c $(call path-from-top,$3)
 $(call fix-deps-file,$(2:.o=.d))
@@ -166,10 +162,9 @@ $(Q) $(CCACHE) $(PRIVATE_CC) \
 	$($1_GLOBAL_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
 	$(WARNINGS_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
 	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)_$(PRIVATE_CC_FLAVOUR)) \
 	$(PRIVATE_ASFLAGS) \
 	$(PRIVATE_CFLAGS) \
-	-MMD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
+	-MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
 	-c $(call path-from-top,$3)
 $(call fix-deps-file,$(2:.o=.d))
@@ -182,6 +177,8 @@ transform-S-to-o = $(call _binary-cmd-s-to-o-internal,$(PRIVATE_MODE),$@,$<)
 ## Command to compile a cu file (cuda).
 ## Note: Only available for target
 ## NVCC dependencies generation have to be done in separate phase than compilation.
+## The sed command is to simulate the -MP option of gcc, it will create an empty
+## target for any dependencies.
 ###############################################################################
 
 # $1 : mode (HOST / TARGET)
@@ -191,28 +188,38 @@ define _binary-cmd-cu-to-o-internal
 @mkdir -p $(dir $2)
 $(call _binary-print-banner1,Cuda,$3)
 $(call check-pwd-is-top-dir)
-$(if $(TARGET_NVCC), \
+@if [ -z "$(TARGET_NVCC)" ]; then \
+	echo "TARGET_NVCC is not defined"; exit 1; \
+fi
+
 $(Q) $(TARGET_NVCC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
 	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES)) \
 	$(TARGET_GLOBAL_NVCFLAGS) \
 	$(PRIVATE_NVCFLAGS) \
 	-ccbin $(TARGET_CC) \
-	-M -MT $(call path-from-top,$2) \
-	-o $(call path-from-top,$(2:.o=.d)) \
-	$(call path-from-top,$3); \
-$(TARGET_NVCC) \
+	-o $(call path-from-top,$2) \
+	-c $(call path-from-top,$3)
+
+@$(TARGET_NVCC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
 	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES)) \
 	$(TARGET_GLOBAL_NVCFLAGS) \
 	$(PRIVATE_NVCFLAGS) \
 	-ccbin $(TARGET_CC) \
-	-o $(call path-from-top,$2) \
-	-c $(call path-from-top,$3) \
-, \
-@echo "TARGET_NVCC is not defined"; exit 1 \
-)
+	-M -MT $(call path-from-top,$2) \
+	-o $(call path-from-top,$(2:.o=.d.tmp)) \
+	$(call path-from-top,$3)
+@cp -af $(call path-from-top,$(2:.o=.d.tmp)) $(call path-from-top,$(2:.o=.d))
+@sed -e 's/^[^:]*: *//' \
+	-e 's/\\$$//' \
+	-e 's/^ *//' \
+	-e 's/$$/:/' \
+	< $(call path-from-top,$(2:.o=.d.tmp)) \
+	>> $(call path-from-top,$(2:.o=.d))
+@rm -f $(call path-from-top,$(2:.o=.d.tmp))
 $(call fix-deps-file,$(2:.o=.d))
+
 endef
 
 transform-cu-to-o = $(call _binary-cmd-cu-to-o-internal,$(PRIVATE_MODE),$@,$<)
@@ -236,9 +243,8 @@ $(Q) $(CCACHE) $(PRIVATE_CXX) \
 	$($1_GLOBAL_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
 	$(WARNINGS_CXXFLAGS_$(PRIVATE_CC_FLAVOUR)) \
 	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)_$(PRIVATE_CC_FLAVOUR)) \
 	$(PRIVATE_CFLAGS) $(PRIVATE_CXXFLAGS) \
-	-MMD -MP -MF $(call path-from-top,$(2:.gch=.d)) -MT $(call path-from-top,$2) \
+	-MD -MP -MF $(call path-from-top,$(2:.gch=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
 	$($1_GLOBAL_PCH_FLAGS) $(call path-from-top,$3)
 $(call fix-deps-file,$(2:.gch=.d))
@@ -289,7 +295,7 @@ define _internal-transform-o-to-shared-lib-darwin
 $(call print-banner2,"$(PRIVATE_MODE_MSG)SharedLib",$(PRIVATE_MODULE),$(call path-from-top,$2))
 $(call check-pwd-is-top-dir)
 $(Q) $(PRIVATE_CXX) \
-	$($1_GLOBAL_LDFLAGS_SHARED) \
+	$($1_GLOBAL_LDFLAGS) \
 	$($1_GLOBAL_LDFLAGS_$(PRIVATE_CC_FLAVOUR)) \
 	$(if $(call streq,$(USE_LINK_MAP_FILE),1), \
 		-Wl$(comma)-map$(comma)$(basename $(call path-from-top,$2)).map \
@@ -308,7 +314,7 @@ $(Q) $(PRIVATE_CXX) \
 	$(PRIVATE_ALL_SHARED_LIBRARIES) \
 	-o $(call path-from-top,$2) \
 	$(PRIVATE_LDLIBS) \
-	$($1_GLOBAL_LDLIBS_SHARED)
+	$($1_GLOBAL_LDLIBS)
 endef
 
 define _internal-transform-o-to-shared-lib
@@ -316,7 +322,7 @@ define _internal-transform-o-to-shared-lib
 $(call print-banner2,"$(PRIVATE_MODE_MSG)SharedLib",$(PRIVATE_MODULE),$(call path-from-top,$2))
 $(call check-pwd-is-top-dir)
 $(Q) $(PRIVATE_CXX) \
-	$($1_GLOBAL_LDFLAGS_SHARED) \
+	$($1_GLOBAL_LDFLAGS) \
 	$($1_GLOBAL_LDFLAGS_$(PRIVATE_CC_FLAVOUR)) \
 	$(if $(call streq,$(USE_LINK_MAP_FILE),1), \
 		-Wl$(comma)-Map$(comma)$(basename $(call path-from-top,$2)).map \
@@ -339,7 +345,7 @@ $(Q) $(PRIVATE_CXX) \
 	$(PRIVATE_ALL_SHARED_LIBRARIES) \
 	-o $(call path-from-top,$2) \
 	$(PRIVATE_LDLIBS) \
-	$($1_GLOBAL_LDLIBS_SHARED)
+	$($1_GLOBAL_LDLIBS)
 endef
 
 transform-o-to-shared-lib = $(if $(call streq,$($(PRIVATE_MODE)_OS),darwin), \

@@ -203,6 +203,8 @@ For example : <code>/opt/arm-eglibc/bin/arm-none-linux-gnueabi-</code>.
 </br>Default is <code>$(TARGET_CROSS)gcc</code>.</li>
 <li><code>TARGET_CXX</code> : full path to C++ compiler.
 </br>Default is <code>$(TARGET_CROSS)g++</code>.</li>
+<li><code>TARGET_FC</code> : full path to Fortran compiler.
+</br>Default is <code>$(TARGET_CROSS)gfortran</code>.</li>
 <li><code>TARGET_AR</code> : full path to archive maker.
 </br>Default is <code>$(TARGET_CROSS)ar</code>.</li>
 <li><code>TARGET_LD</code> : full path to linker.
@@ -301,12 +303,8 @@ file compiled. The -I prefix will be appended so do not put it.</li>
 <li><code>TARGET_GLOBAL_CXXFLAGS</code> : Flags to pass to the C++ compiler only.</li>
 <li><code>TARGET_GLOBAL_ARFLAGS</code> : Flags to pass to the archive maker.
 </br>Default is <code>rcs</code>, so you should never have to define it.</li>
-<li><code>TARGET_GLOBAL_LDFLAGS</code> : Flags to pass to the linker for executables.</li>
-<li><code>TARGET_GLOBAL_LDFLAGS_SHARED</code> : Flags to pass to the linker for shared
-libraries.</li>
-<li><code>TARGET_GLOBAL_LDLIBS</code> : Additional libraries to use when linking executables.</li>
-<li><code>TARGET_GLOBAL_LDLIBS_SHARED</code> : Additional libraries to use when linking
-libraries.</li>
+<li><code>TARGET_GLOBAL_LDFLAGS</code> : Flags to pass to the linker.</li>
+<li><code>TARGET_GLOBAL_LDLIBS</code> : Additional libraries to use when linking.</li>
 <li><code>TARGET_GLOBAL_PCH_FLAGS</code> : Flags to pass when precompiling headers.</li>
 <li><code>TARGET_GLOBAL_OBJCFLAGS</code> : Flags to pass to the Objective-C compiler.</li>
 </ul>
@@ -405,6 +403,8 @@ final release packages.
 <li><code>TARGET_INCLUDE_TZDATA</code> : include time zone data from libc.
 </br>Default is <code>0</code>.</li>
 <li><code>TARGET_INCLUDE_GCONV</code> : include gconv libraries from libc.
+</br>Default is <code>0</code>.</li>
+<li><code>TARGET_INCLUDE_GFORTRAN</code> : include Fortran libraries from toolchain.
 </br>Default is <code>0</code>.</li>
 <li><code>TARGET_USE_CXX_EXCEPTIONS</code> : enable c++ exceptions.
 </br>Default is <code>1</code>.</li>
@@ -1183,7 +1183,6 @@ not need to be explicitly specified :</p>
 <li><code>CFLAGS</code></li>
 <li><code>CXXFLAGS</code></li>
 <li><code>LDFLAGS</code></li>
-<li><code>DYN_LDFLAGS</code></li>
 </ul>
 
 <p>Also, for <code>pkg-config</code> to work correctly, the following variable are exported :</p>
@@ -1260,7 +1259,6 @@ otherwise it will be under the directory <code>obj</code> inside the build direc
 <li><code>TARGET_AUTOTOOLS_CFLAGS</code></li>
 <li><code>TARGET_AUTOTOOLS_CXXFLAGS</code></li>
 <li><code>TARGET_AUTOTOOLS_LDFLAGS</code></li>
-<li><code>TARGET_AUTOTOOLS_DYN_LDFLAGS</code></li>
 <li><code>TARGET_AUTOTOOLS_CONFIGURE_ENV</code></li>
 <li><code>TARGET_AUTOTOOLS_CONFIGURE_ARGS</code></li>
 <li><code>TARGET_AUTOTOOLS_MAKE_ENV</code></li>
@@ -1458,9 +1456,7 @@ customized before invoking <code>alchemy</code>. For the meaning, see the corres
 <li><code>HOST_GLOBAL_CXXFLAGS</code> : empty</li>
 <li><code>HOST_GLOBAL_ARFLAGS</code> : <code>rcs</code></li>
 <li><code>HOST_GLOBAL_LDFLAGS</code> : empty</li>
-<li><code>HOST_GLOBAL_LDFLAGS_SHARED</code> : empty</li>
 <li><code>HOST_GLOBAL_LDLIBS</code> : empty</li>
-<li><code>HOST_GLOBAL_LDLIBS_SHARED</code> : empty</li>
 <li><code>HOST_GLOBAL_PCH_FLAGS</code> : empty</li>
 <li><code>HOST_CC</code> : <code>gcc</code></li>
 <li><code>HOST_CXX</code> : <code>g++</code></li>

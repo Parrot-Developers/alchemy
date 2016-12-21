@@ -47,13 +47,18 @@ _libc_lib_names := \
 	libpthread \
 	libresolv \
 	librt \
+	libSegFault \
 	libthread_db \
-	libutil \
+	libutil
 
-# List of files to be put in /usr/lib or </usr/lib>
+# List of files to be put in /usr/lib or /usr/lib/<arch>
 _libc_usrlib_names := \
 	libstdc++ \
 	libgcc_s
+
+ifeq ("$(TARGET_LIBC)","musl")
+  _libc_usrlib_names += libc
+endif
 
 # 'lib' directory
 _libc_lib_dir := $(_libc_sysroot)/lib
@@ -123,12 +128,16 @@ ifeq ("$(findstring libstdc++,$(_libc_usrlib_files) $(_libc_usrlib_arch_files))"
   _libc_support_dir_cmd := $(TARGET_CC) $(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CFLAGS_$(TARGET_CC_FLAVOUR))
   ifeq ("$(TARGET_ARCH)","arm")
     _libc_support_dir_cmd += $(TARGET_GLOBAL_CFLAGS_$(TARGET_DEFAULT_ARM_MODE))
-    _libc_support_dir_cmd += $(TARGET_GLOBAL_CFLAGS_$(TARGET_DEFAULT_ARM_MODE)_$(TARGET_CC_FLAVOUR))
   endif
   _libc_support_dir_cmd += -print-file-name=libstdc++.a
   _libc_support_dir := $(wildcard $(dir $(shell $(_libc_support_dir_cmd))))
   _libc_lib_files += $(wildcard $(_libc_support_dir)/libgcc_s*.so*)
   _libc_usrlib_files += $(wildcard $(_libc_support_dir)/libstdc++*.so*)
+endif
+
+# Musl libc is all in one.
+ifeq ("$(TARGET_LIBC)","musl")
+  LOCAL_CREATE_LINKS := $(TARGET_LOADER):/usr/lib/libc.so
 endif
 
 # Remove gdb python file
@@ -152,6 +161,12 @@ ifneq ("$(TARGET_INCLUDE_GCONV)","0")
   ifeq ("$(_libc_gconv)","")
     _libc_gconv := $(wildcard $(_libc_sysroot)/usr/lib/gconv)
   endif
+endif
+
+# Fortran libraries
+_libc_gfortran :=
+ifneq ("$(TARGET_INCLUDE_GFORTRAN)","0")
+  _libc_gfortran := $(wildcard $(_libc_support_dir)/libgfortran*.so*)
 endif
 
 # ldd
@@ -185,6 +200,9 @@ $(_libc_installed_file): $(BUILD_SYSTEM)/toolchains/libc.mk
 	$(if $(_libc_gconv), \
 		@mkdir -p $(TARGET_OUT_STAGING)/usr/lib/gconv$(endl) \
 		$(Q) cp -Raf $(_libc_gconv)/* $(TARGET_OUT_STAGING)/usr/lib/gconv$(endl) \
+	)
+	$(if $(_libc_gfortran), \
+		$(call _libc_copy_files,$(_libc_gfortran),lib) \
 	)
 	$(if $(_libc_ldd), \
 		@mkdir -p $(TARGET_OUT_STAGING)/usr/bin$(endl) \

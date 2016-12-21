@@ -11,15 +11,15 @@
 
 # Get full path to this script (either when executed or sourced)
 executed=0
-if [ "$(basename $0)" = "native-wrapper.sh" ]; then
-	SCRIPT_PATH=$(cd $(dirname $0) && pwd -P)
+if [ "$(basename -- $0)" = "native-wrapper.sh" ]; then
+	SCRIPT_PATH=$(cd $(dirname -- $0) && pwd -P)
 	executed=1
 elif [ -n "${BASH_SOURCE}" ]; then
 	# Sourced by bash
-	SCRIPT_PATH=$(cd $(dirname ${BASH_SOURCE}) && pwd -P)
+	SCRIPT_PATH=$(cd $(dirname -- ${BASH_SOURCE}) && pwd -P)
 elif [ -n "${ZSH_VERSION}" ]; then
 	# Sourced by zsh
-	SCRIPT_PATH=$(cd $(dirname ${(%):-%N}) && pwd -P)
+	SCRIPT_PATH=$(cd $(dirname -- ${(%):-%N}) && pwd -P)
 else
 	echo "Unsupported shell"
 fi

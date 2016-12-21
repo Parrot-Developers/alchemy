@@ -8,4 +8,3 @@
 
 # Assume everybody will want this
 TARGET_GLOBAL_LDLIBS += -pthread -lrt
-TARGET_GLOBAL_LDLIBS_SHARED += -pthread -lrt

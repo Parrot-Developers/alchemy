@@ -7,7 +7,8 @@
 ###############################################################################
 
 TARGET_GLOBAL_C_INCLUDES += \
-	$(TARGET_OUT_STAGING)/ecos/include
+	$(TARGET_OUT_STAGING)/ecos/include \
+	$(BUILD_SYSTEM)/toolchains/ecos/include
 
 TARGET_GLOBAL_CFLAGS += \
 	-mno-thumb-interwork \

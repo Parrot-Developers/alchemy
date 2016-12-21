@@ -29,7 +29,6 @@ endif
 
 ifneq ("$(strip $(_external_add_LDFLAGS))","")
   LOCAL_AUTOTOOLS_CONFIGURE_ENV += LDFLAGS="$$LDFLAGS $(_external_add_LDFLAGS)"
-  LOCAL_AUTOTOOLS_CONFIGURE_ENV += DYN_LDFLAGS="$$DYN_LDFLAGS $(_external_add_LDFLAGS)"
 endif
 
 ifneq ("$(USE_AUTOTOOLS_CACHE)","0")
@@ -56,7 +55,11 @@ _module_def_cmd_build := _autotools-def-cmd-build
 _module_def_cmd_install := _autotools-def-cmd-install
 _module_def_cmd_clean := _autotools-def-cmd-clean
 
+# No need to do the timestamp ordeing hook if a bootstrap is done
+ifeq ("$(value LOCAL_CMD_BOOTSTRAP)","")
 _module_hook_pre_configure := _autotools-hook-pre-configure
+endif
+
 _module_hook_post_configure := _autotools-libtool-patch
 _module_hook_pre_clean := _autotools-hook-pre-clean
 

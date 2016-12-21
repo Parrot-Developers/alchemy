@@ -133,7 +133,6 @@ endif
 ifeq ("$(TARGET_CPU)","armv7a")
   TARGET_GLOBAL_CFLAGS += -march=armv7-a -mfpu=vfpv3-d16
   TARGET_GLOBAL_LDFLAGS += -march=armv7-a -Wl,--fix-cortex-a8
-  TARGET_GLOBAL_LDFLAGS_SHARED += -march=armv7-a -Wl,--fix-cortex-a8
   TARGET_FLOAT_ABI ?= soft
 endif
 
@@ -141,7 +140,6 @@ endif
 ifeq ("$(TARGET_CPU)","armv7a-neon")
   TARGET_GLOBAL_CFLAGS += $(cflags_armv7a_neon)
   TARGET_GLOBAL_LDFLAGS += -march=armv7-a -Wl,--fix-cortex-a8
-  TARGET_GLOBAL_LDFLAGS_SHARED += -march=armv7-a -Wl,--fix-cortex-a8
   TARGET_CPU_ARMV7A_NEON := 1
   TARGET_CPU_HAS_NEON := 1
   TARGET_FLOAT_ABI ?= softfp
@@ -157,12 +155,14 @@ endif
 
 ifeq ("$(TARGET_CPU)", "stm32f3")
   TARGET_GLOBAL_CFLAGS += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16
-  TARGET_GLOBAL_LDFLAGS += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16
+  TARGET_GLOBAL_LDFLAGS += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb
+  TARGET_DEFAULT_ARM_MODE := thumb
   TARGET_FLOAT_ABI ?= hard
 endif
 
 ifeq ("$(TARGET_CPU)", "m0")
   TARGET_GLOBAL_CFLAGS += -mcpu=cortex-m0
-  TARGET_GLOBAL_LDFLAGS += -mcpu=cortex-m0
+  TARGET_GLOBAL_LDFLAGS += -mcpu=cortex-m0 -mthumb
+  TARGET_DEFAULT_ARM_MODE := thumb
   TARGET_FLOAT_ABI ?= soft
 endif

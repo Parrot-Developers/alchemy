@@ -34,7 +34,9 @@ ifeq ("$(USE_COLORS)","1")
 
 # somehow they managed to use another option name than Clang's option
 ifneq ("$(call check-version,$(TARGET_CC_VERSION),4.9.0)","")
+ifneq ("$(call check-version,$(HOST_CC_VERSION),4.9.0)","")
   WARNINGS_COMMON_FLAGS_gcc += -fdiagnostics-color
+endif
 endif
 endif
 

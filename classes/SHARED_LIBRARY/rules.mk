@@ -10,6 +10,10 @@ ifneq ("$(LOCAL_SDK)","")
 
 include $(BUILD_SYSTEM)/classes/GENERIC/rules.mk
 
+$(LOCAL_BUILD_MODULE):
+	@mkdir -p $(dir $@)
+	@touch $@
+
 else
 
 _module_msg := $(if $(_mode_host),Host )SharedLib

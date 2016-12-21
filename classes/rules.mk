@@ -385,22 +385,18 @@ ifeq ("$(and $(call is-module-external,$(LOCAL_MODULE)),$(call strneq,$(LOCAL_MO
 ifeq ("$(USE_COVERAGE)","1")
   LOCAL_CFLAGS  += -fprofile-arcs -ftest-coverage -O0 -D__COVERAGE__
   LOCAL_LDFLAGS += -fprofile-arcs -ftest-coverage
-  LOCAL_LDFLAGS_SHARED += -fprofile-arcs -ftest-coverage
 endif
 ifeq ("$(USE_ADDRESS_SANITIZER)","1")
   LOCAL_CFLAGS += -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -O1 -D__ADDRESSSANITIZER__
   LOCAL_LDFLAGS += -fsanitize=address
-  LOCAL_LDFLAGS_SHARED += -fsanitize=address
 endif
 ifeq ("$(USE_MEMORY_SANITIZER)","1")
   LOCAL_CFLAGS += -fsanitize=memory -fno-omit-frame-pointer -fno-optimize-sibling-calls -O1 -D__MEMORYSANITIZER__
   LOCAL_LDFLAGS += -fsanitize=memory
-  LOCAL_LDFLAGS_SHARED += -fsanitize=memory
 endif
 ifeq ("$(USE_THREAD_SANITIZER)","1")
   LOCAL_CFLAGS += -fsanitize=thread -O1 -D__THREADSANITIZER__
   LOCAL_LDFLAGS += -fsanitize=thread
-  LOCAL_LDFLAGS_SHARED += -fsanitize=memory
 endif
 endif
 
@@ -409,8 +405,6 @@ endif
 ## External modules (AUTOTOOLS, CMAKE) only have ASFLAGS CFLAGS CXXFLAGS and LDFLAGS.
 ## Moreover CXXFLAGS does not inherit from CFLAGS so it must contains it.
 ###############################################################################
-
-# FIXME: handle HOST variants for TARGET_STATIC_LIB_SUFFIX/TARGET_SHARED_LIB_SUFFIX
 
 # Compilation flags
 _external_add_ASFLAGS := $(LOCAL_ASFLAGS)
@@ -427,10 +421,12 @@ _external_add_LDFLAGS :=
 ifneq ("$(strip $(all_whole_static_libs_filename))","")
 _external_add_LDFLAGS += -Wl,--whole-archive
 $(foreach __lib,$(all_whole_static_libs_filename), \
-	$(if $(filter lib%$(TARGET_STATIC_LIB_SUFFIX),$(notdir $(__lib))), \
-		$(eval _external_add_LDFLAGS := $(_external_add_LDFLAGS),-l$(patsubst lib%$(TARGET_STATIC_LIB_SUFFIX),%,$(notdir $(__lib)))) \
+	$(if $(filter lib%$($(_mode_prefix)_STATIC_LIB_SUFFIX),$(notdir $(__lib))), \
+		$(eval _external_add_LDFLAGS := \
+			$(_external_add_LDFLAGS),-l$(patsubst lib%$($(_mode_prefix)_STATIC_LIB_SUFFIX),%,$(notdir $(__lib)))) \
 		, \
-		$(eval _external_add_LDFLAGS := $(_external_add_LDFLAGS),-l:$(notdir $(__lib))) \
+		$(eval _external_add_LDFLAGS := \
+			$(_external_add_LDFLAGS),-l:$(notdir $(__lib))) \
 	) \
 )
 _external_add_LDFLAGS := $(_external_add_LDFLAGS),--no-whole-archive
@@ -441,10 +437,12 @@ endif
 # No comma separated list (like above or below !)
 ifneq ("$(strip $(all_static_libs_filename))","")
 $(foreach __lib,$(all_static_libs_filename), \
-	$(if $(filter lib%$(TARGET_STATIC_LIB_SUFFIX), $(notdir $(__lib))), \
-		$(eval _external_add_LDFLAGS := $(_external_add_LDFLAGS) -l$(patsubst lib%$(TARGET_STATIC_LIB_SUFFIX),%,$(notdir $(__lib)))) \
+	$(if $(filter lib%$($(_mode_prefix)_STATIC_LIB_SUFFIX), $(notdir $(__lib))), \
+		$(eval _external_add_LDFLAGS := \
+			$(_external_add_LDFLAGS) -l$(patsubst lib%$($(_mode_prefix)_STATIC_LIB_SUFFIX),%,$(notdir $(__lib)))) \
 		, \
-		$(eval _external_add_LDFLAGS := $(_external_add_LDFLAGS) -l:$(notdir $(__lib))) \
+		$(eval _external_add_LDFLAGS := \
+			$(_external_add_LDFLAGS) -l:$(notdir $(__lib))) \
 	) \
 )
 endif
@@ -456,10 +454,12 @@ endif
 ifneq ("$(strip $(all_shared_libs_filename))","")
 _external_add_LDFLAGS += -Wl
 $(foreach __lib,$(all_shared_libs_filename), \
-	$(if $(filter lib%$(TARGET_SHARED_LIB_SUFFIX), $(notdir $(__lib))), \
-		$(eval _external_add_LDFLAGS := $(_external_add_LDFLAGS),-l$(patsubst lib%$(TARGET_SHARED_LIB_SUFFIX),%,$(notdir $(__lib)))) \
+	$(if $(filter lib%$($(_mode_prefix)_SHARED_LIB_SUFFIX), $(notdir $(__lib))), \
+		$(eval _external_add_LDFLAGS := \
+			$(_external_add_LDFLAGS),-l$(patsubst lib%$($(_mode_prefix)_SHARED_LIB_SUFFIX),%,$(notdir $(__lib)))) \
 		, \
-		$(eval _external_add_LDFLAGS := $(_external_add_LDFLAGS),-l:$(notdir $(__lib))) \
+		$(eval _external_add_LDFLAGS := \
+			$(_external_add_LDFLAGS),-l:$(notdir $(__lib))) \
 	) \
 )
 endif

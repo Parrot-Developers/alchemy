@@ -70,6 +70,9 @@ class ModuleDb(object):
     def appendCustomMacro(self, macro):
         self.customMacros[macro.name] = macro
 
+    def keys(self):
+        return self._modules.keys()
+
     def __getitem__(self, key):
         return self._modules[key]
 
