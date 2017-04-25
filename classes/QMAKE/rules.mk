@@ -25,15 +25,23 @@ endif
 
 _module_msg := $(if $(_mode_host),Host )QMake
 
+_module_def_cmd_configure := _qmake-def-cmd-configure
 _module_def_cmd_build := _qmake-def-cmd-build
 _module_def_cmd_install := _qmake-def-cmd-install
 _module_def_cmd_clean := _qmake-def-cmd-clean
 
-include $(BUILD_SYSTEM)/classes/BINARY/rules.mk
+ifneq ("$(findstring -O0,$(LOCAL_CFLAGS))","")
+  LOCAL_QMAKE_CONFIGURE_ARGS += CONFIG+=debug
+endif
+
+include $(BUILD_SYSTEM)/classes/GENERIC/rules.mk
 
 $(LOCAL_TARGETS): PRIVATE_HAS_QT_SYSROOT := $(_qmake_has_qt_sysroot)
 $(LOCAL_TARGETS): PRIVATE_QMAKE := $(QMAKE)
 $(LOCAL_TARGETS): PRIVATE_QMAKE_PRO_FILE := $(LOCAL_QMAKE_PRO_FILE)
+$(LOCAL_TARGETS): PRIVATE_QMAKE_CONFIGURE_ARGS := $(LOCAL_QMAKE_CONFIGURE_ARGS)
+$(LOCAL_TARGETS): PRIVATE_QMAKE_MAKE_BUILD_ARGS := $(LOCAL_QMAKE_MAKE_BUILD_ARGS)
+$(LOCAL_TARGETS): PRIVATE_QMAKE_MAKE_INSTALL_ARGS := $(LOCAL_QMAKE_MAKE_INSTALL_ARGS)
 $(LOCAL_TARGETS): PRIVATE_C_INCLUDES := $(LOCAL_C_INCLUDES)
 $(LOCAL_TARGETS): PRIVATE_CFLAGS := $(LOCAL_CFLAGS)
 $(LOCAL_TARGETS): PRIVATE_CXXFLAGS := $(LOCAL_CXXFLAGS)

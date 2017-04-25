@@ -37,12 +37,12 @@ ifeq ("$(mode_host)","")
 endif
 endif
 
-# TODO: rework this
-ifeq ("$(LOCAL_USE_CLANG)","1")
-ifneq ("$(TARGET_CC_FLAVOUR)","clang")
-  LOCAL_AUTOTOOLS_CONFIGURE_ENV += CC="$(LOCAL_CLANG_PATH)/clang"
-  LOCAL_AUTOTOOLS_CONFIGURE_ENV += CXX="$(LOCAL_CLANG_PATH)/clang++"
+# TODO: CFLAGS/LDFLAGS needs to be updated as well.
+ifneq ("$(_module_cc)","$($(_mode_prefix)_CC)")
+  LOCAL_AUTOTOOLS_CONFIGURE_ENV += CC="$(_module_cc)"
 endif
+ifneq ("$(_module_cxx)","$($(_mode_prefix)_CXX)")
+  LOCAL_AUTOTOOLS_CONFIGURE_ENV += CXX="$(_module_cxx)"
 endif
 
 ###############################################################################

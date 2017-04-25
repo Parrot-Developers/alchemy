@@ -5,14 +5,25 @@
 ###############################################################################
 
 ###############################################################################
-# Import some variables from environment
+## Top directory, in windows form if needed
+## Use uname -s and not TARGET_OS (defined later) because we want unix path
+## for msys shells.
 ###############################################################################
 
-# Directories (full and real path)
-ifndef ALCHEMY_WORKSPACE_DIR
-  ALCHEMY_WORKSPACE_DIR := $(shell pwd)
+ifeq ("$(shell uname -s | grep -q -i mingw; echo $$?)","0")
+  TOP_DIR := $(shell pwd -P -W)
+else
+  TOP_DIR := $(shell pwd -P)
 endif
-TOP_DIR := $(realpath $(ALCHEMY_WORKSPACE_DIR))
+
+###############################################################################
+## Import some variables from environment
+###############################################################################
+
+# Directories
+ifndef ALCHEMY_WORKSPACE_DIR
+  ALCHEMY_WORKSPACE_DIR := $(TOP_DIR)
+endif
 
 # Import target product from env
 ifdef ALCHEMY_TARGET_PRODUCT
@@ -52,6 +63,15 @@ endif
 # Import sdk dirs from env
 ifdef ALCHEMY_TARGET_SDK_DIRS
   TARGET_SDK_DIRS := $(ALCHEMY_TARGET_SDK_DIRS)
+endif
+
+###############################################################################
+## Make sure TOP_DIR is ALCHEMY_WORKSPACE_DIR
+###############################################################################
+ifneq ("$(realpath $(TOP_DIR))","$(realpath $(ALCHEMY_WORKSPACE_DIR))")
+  $(info ALCHEMY_WORKSPACE_DIR = $(ALCHEMY_WORKSPACE_DIR))
+  $(info TOP_DIR = $(TOP_DIR))
+  $(error TOP_DIR should be equal to ALCHEMY_WORKSPACE_DIR)
 endif
 
 ###############################################################################
@@ -266,6 +286,7 @@ TARGET_LINUX_DEVICE_TREE_NAMES ?=
 
 # TODO: remove compatibility with old name in future version
 ifdef TARGET_LINUX_DEVICE_TREE
+  $(warning TARGET_LINUX_DEVICE_TREE is deprecated, please use TARGET_LINUX_DEVICE_TREE_NAMES)
   TARGET_LINUX_DEVICE_TREE_NAMES += $(TARGET_LINUX_DEVICE_TREE)
 endif
 
@@ -298,7 +319,7 @@ TARGET_FINAL_MODE ?= firmware
 # List of directories to add in ldconfig cache
 TARGET_LDCONFIG_DIRS ?=
 
-# Comptaiblity when TARGET_ROOT_DESTDIR is not 'usr'
+# Compatiblity when TARGET_ROOT_DESTDIR is not 'usr'
 # Create a simlink from usr to the actual TARGET_ROOT_DESTDIR
 # Note: this does NOT work if TARGET_ROOT_DESTDIR is a subdir of 'usr' (for
 # example 'usr/local')

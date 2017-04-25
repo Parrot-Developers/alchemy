@@ -107,7 +107,7 @@ ifeq ("$(TARGET_OS_FLAVOUR)","android")
 TARGET_QMAKE_ENV += ANDROID_NDK_ROOT=$(TARGET_ANDROID_NDK) \
 	ANDROID_HOME=$(TARGET_ANDROID_SDK) \
 	ANDROID_SDK_ROOT=$(TARGET_ANDROID_SDK) \
-	ANDROID_NDK_PLATFORM=android-$(TARGET_ANDROID_APILEVEL) \
+	ANDROID_NDK_PLATFORM=android-$(TARGET_ANDROID_MINAPILEVEL) \
 	ANDROID_NDK_TOOLCHAIN_VERSION=$(TARGET_CC_VERSION:.x=)
 endif
 
@@ -193,16 +193,22 @@ _qmake-gen-deps = $(if $(call streq,$($(PRIVATE_MODE)_OS),darwin), \
 ###############################################################################
 ###############################################################################
 
-define _qmake-def-cmd-build
+define _qmake-def-cmd-configure
 	$(_qmake-gen-deps)
 	$(Q) cd $(PRIVATE_BUILD_DIR) \
 		&& $(TARGET_QMAKE_ENV) $(QMAKE) $(TARGET_QMAKE_ARG) \
+			$(PRIVATE_QMAKE_CONFIGURE_ARGS) \
 			$(if $(call is-path-absolute,$(PRIVATE_QMAKE_PRO_FILE)), \
 				$(PRIVATE_QMAKE_PRO_FILE) \
 				, \
 				$(PRIVATE_PATH)/$(PRIVATE_QMAKE_PRO_FILE) \
-			) \
-		&& $(MAKE) $(TARGET_QMAKE_MAKE_ARG)
+			)
+endef
+
+define _qmake-def-cmd-build
+	$(Q) cd $(PRIVATE_BUILD_DIR) \
+		&& $(MAKE) $(TARGET_QMAKE_MAKE_ARG) \
+			$(PRIVATE_QMAKE_MAKE_BUILD_ARGS)
 endef
 
 # Install in staging directory by specifing INSTALL_ROOT (only for qt4, qt5 already
@@ -213,6 +219,7 @@ endef
 define _qmake-def-cmd-install
 	$(Q) cd $(PRIVATE_BUILD_DIR) \
 		&& $(MAKE) $(TARGET_QMAKE_MAKE_ARG) \
+			$(PRIVATE_QMAKE_MAKE_INSTALL_ARGS) \
 			STRIP="true || ls" \
 			$(if $(PRIVATE_HAS_QT_SYSROOT),$(empty),INSTALL_ROOT=$(TARGET_OUT_STAGING)) \
 			install
@@ -224,6 +231,7 @@ define _qmake-def-cmd-clean
 	$(Q) if [ -f $(PRIVATE_BUILD_DIR)/Makefile ]; then \
 		cd $(PRIVATE_BUILD_DIR); \
 		$(MAKE) --keep-going --ignore-errors $(TARGET_QMAKE_MAKE_ARG) \
+			$(PRIVATE_QMAKE_MAKE_INSTALL_ARGS) \
 			$(if $(PRIVATE_HAS_QT_SYSROOT),$(empty),INSTALL_ROOT=$(TARGET_OUT_STAGING)) \
 			uninstall || echo "Ignoring uninstall errors"; \
 		$(MAKE) --keep-going --ignore-errors $(TARGET_QMAKE_MAKE_ARG) \

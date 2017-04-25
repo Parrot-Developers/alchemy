@@ -7,15 +7,11 @@
 ###############################################################################
 
 # Use thumb mode by default
-# TODO: is it necessary/usefull/wise ?
 TARGET_DEFAULT_ARM_MODE ?= thumb
 
-# Allow mix thumb/arm mode
-# This flag seems unnecessary for post v5 arch and eabi (aapcs)
-# Clang does not support it, and, yet, produces interworkable code.
-ifneq ("$(TARGET_DEFAULT_ARM_MODE)","arm")
-  TARGET_GLOBAL_CFLAGS_gcc += -mthumb-interwork
-endif
+# Default mode for external modules (autotools, cmake...)
+# Use arm for compatibility with previous behaviour
+TARGET_DEFAULT_ARM_MODE_EXTERNAL ?= arm
 
 # Required for compilation of shared libraries
 ifneq ("$(TARGET_OS)","ecos")
@@ -27,12 +23,6 @@ endif
 # Remove warning about mangling changes of va_list in gcc 4.4 for arm
 ifneq ("$(call check-version,$(TARGET_CC_VERSION),4.4.0)","")
   TARGET_GLOBAL_CXXFLAGS += -Wno-psabi
-endif
-
-# Set float abi
-ifdef TARGET_FLOAT_ABI
-  TARGET_GLOBAL_CFLAGS += -mfloat-abi=$(TARGET_FLOAT_ABI)
-  TARGET_GLOBAL_LDFLAGS += -mfloat-abi=$(TARGET_FLOAT_ABI)
 endif
 
 ###############################################################################
@@ -47,17 +37,27 @@ TARGET_GLOBAL_CFLAGS_arm ?= \
 	-fomit-frame-pointer \
 	-fstrict-aliasing
 
+TARGET_GLOBAL_LDFLAGS_arm ?= \
+	-marm \
+	-O2
+
 # Thumb mode specific flags
 ifneq ("$(TARGET_DEFAULT_ARM_MODE)","arm")
+
 TARGET_GLOBAL_CFLAGS_thumb ?= \
 	-mthumb \
 	-Os \
 	-fomit-frame-pointer \
 	-fno-strict-aliasing
 
+TARGET_GLOBAL_LDFLAGS_thumb ?= \
+	-mthumb \
+	-Os
+
 else
 
 # Make sure that if in arm mode, the thumb flags will not be used
 override TARGET_GLOBAL_CFLAGS_thumb :=
+override TARGET_GLOBAL_LDFLAGS_thumb :=
 
 endif

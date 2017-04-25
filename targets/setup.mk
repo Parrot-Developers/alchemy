@@ -8,10 +8,12 @@
 
 # Default OS if not set is host native
 TARGET_OS ?= $(HOST_OS)
-ifeq ("$(TARGET_OS)","$(HOST_OS)")
-  TARGET_OS_FLAVOUR ?= native
-else
-  TARGET_OS_FLAVOUR ?=
+ifndef TARGET_OS_FLAVOUR
+  ifeq ("$(TARGET_OS)","$(HOST_OS)")
+    TARGET_OS_FLAVOUR := native
+  else
+    TARGET_OS_FLAVOUR :=
+  endif
 endif
 
 # OS specific setup

@@ -27,3 +27,5 @@ TARGET_GLOBAL_C_INCLUDES += \
 	$(BUILD_SYSTEM)/toolchains/linux/bionic/include
 
 endif
+
+TARGET_GLOBAL_LDFLAGS += -Wl,-O1

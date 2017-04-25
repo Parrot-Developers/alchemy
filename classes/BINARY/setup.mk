@@ -19,42 +19,83 @@ _binary-print-banner1 = \
 # List of compilation flags that will be stored in a file used as dependency
 # Whenever on of those flags changed, it will retrigger compilations
 # Shall be = and not := because reference to some variables needs to be done during expansion
-
-_binary-global-objects-flags = \
-	C_INCLUDES \
-	ASFLAGS \
-	CFLAGS \
-	CFLAGS_$(PRIVATE_CC_FLAVOUR) \
-	CFLAGS_$(PRIVATE_ARCH) \
-	CXXFLAGS \
-	CXXFLAGS_$(PRIVATE_CC_FLAVOUR) \
-	OBJCFLAGS \
-	VALAFLAGS
-
-_binary-warnings-objects-flags = \
-	CFLAGS \
-	CFLAGS_$(PRIVATE_CC_FLAVOUR) \
-	CXXFLAGS \
-	CXXFLAGS_$(PRIVATE_CC_FLAVOUR)
-
-_binary-private-objects-flags = \
-	C_INCLUDES \
-	ASFLAGS \
-	CFLAGS \
-	CXXFLAGS \
-	OBJCFLAGS \
-	VALAFLAGS
+# TODO: add nvcc flags
+_binary-objects-flags = \
+	$(PRIVATE_MODE)_GLOBAL_C_INCLUDES \
+	$(PRIVATE_MODE)_GLOBAL_ASFLAGS \
+	$(PRIVATE_MODE)_GLOBAL_OBJCFLAGS \
+	$(PRIVATE_MODE)_GLOBAL_VALAFLAGS \
+	$(PRIVATE_MODE)_GLOBAL_PCHFLAGS \
+	$(PRIVATE_MODE)_GLOBAL_LDLIBS \
+	PRIVATE_GLOBAL_CFLAGS \
+	PRIVATE_GLOBAL_CXXFLAGS \
+	PRIVATE_GLOBAL_LDFLAGS \
+	PRIVATE_C_INCLUDES \
+	PRIVATE_ASFLAGS \
+	PRIVATE_CFLAGS \
+	PRIVATE_CXXFLAGS \
+	PRIVATE_OBJCFLAGS \
+	PRIVATE_VALAFLAGS \
+	PRIVATE_PCH_INCLUDE \
+	PRIVATE_LDFLAGS \
+	PRIVATE_LDLIBS \
+	PRIVATE_WARNINGS_CFLAGS \
+	PRIVATE_WARNINGS_CXXFLAGS
 
 _binary-get-objects-flags = \
-	$(foreach __v,$(_binary-global-objects-flags), \
-		GLOBAL_$(__v) := $($(PRIVATE_MODE)_GLOBAL_$(__v))$(endl) \
+	$(foreach __v,$(_binary-objects-flags), \
+		$(__v) := $(strip $($(__v)))$(endl) \
 	) \
-	$(foreach __v,$(_binary-warnings-objects-flags), \
-		WARNINGS_$(__v) := $(WARNINGS_$(__v))$(endl) \
-	) \
-	$(foreach __v,$(_binary-private-objects-flags), \
-		PRIVATE_$(__v) := $(PRIVATE_$(__v))$(endl) \
-	)
+
+# Under windows, use response file for linking to avoid reaching command line limit
+# Note: it requires make >= 4.0 and the 'file' function
+ifeq ("$(HOST_OS)","windows")
+  ifeq ("$(MAKE_HAS_FILE_FUNC)","1")
+    _binary_use_rsp_file := 1
+  else
+    _binary_use_rsp_file := 0
+  endif
+else
+  _binary_use_rsp_file := 0
+endif
+
+# Generate or get response file
+# $1: name of file (will be in 'PRIVATE_BUILD_DIR' with '.rsp' extension)
+# $2: contents to put in file
+ifneq ("$(_binary_use_rsp_file)","0")
+_binary-gen-rsp-file = $(file > $(PRIVATE_BUILD_DIR)/$(PRIVATE_MODULE).$1.rsp,$2)
+_binary-get-rsp-file = @$(PRIVATE_BUILD_DIR)/$(PRIVATE_MODULE).$1.rsp
+else
+_binary-gen-rsp-file =
+_binary-get-rsp-file = $2
+endif
+
+###############################################################################
+## Commands to generate a precompiled file.
+###############################################################################
+
+# $1 : mode (HOST / TARGET)
+# $2 : destination
+# $3 : source
+define _internal-transform-h-to-gch
+@mkdir -p $(dir $2)
+$(call _binary-print-banner1,Precompile,$3)
+$(Q) $(CCACHE) $(PRIVATE_CXX) \
+	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
+	$(filter-out -std=%,$(PRIVATE_GLOBAL_CFLAGS)) \
+	$(PRIVATE_GLOBAL_CXXFLAGS) \
+	$(PRIVATE_WARNINGS_CXXFLAGS) \
+	$(filter-out -std=%,$(PRIVATE_CFLAGS)) \
+	$(PRIVATE_CXXFLAGS) \
+	$($1_GLOBAL_PCHFLAGS) \
+	-MD -MP -MF $(call path-from-top,$(2:.gch=.d)) -MT $(call path-from-top,$2) \
+	-o $(call path-from-top,$2) \
+	$(call path-from-top,$3)
+$(call fix-deps-file,$(2:.gch=.d))
+endef
+
+transform-h-to-gch = $(call _internal-transform-h-to-gch,$(PRIVATE_MODE),$@,$<)
 
 ###############################################################################
 ## Command to compile a C++ file.
@@ -66,17 +107,15 @@ _binary-get-objects-flags = \
 define _binary-cmd-cpp-to-o-internal
 @mkdir -p $(dir $2)
 $(call _binary-print-banner1,C++,$3)
-$(call check-pwd-is-top-dir)
 $(Q) $(CCACHE) $(PRIVATE_CXX) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
 	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
-	$(filter-out -std=%,$($1_GLOBAL_CFLAGS)) $($1_GLOBAL_CXXFLAGS) $(WARNINGS_CXXFLAGS) \
-	$($1_GLOBAL_CXXFLAGS_$(PRIVATE_CC_FLAVOUR)) \
-	$(filter-out -std=%,$($1_GLOBAL_CFLAGS_$(PRIVATE_CC_FLAVOUR))) \
-	$(WARNINGS_CXXFLAGS_$(PRIVATE_CC_FLAVOUR)) \
-	$(filter-out -std=%,$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH))) \
+	$(filter-out -std=%,$(PRIVATE_GLOBAL_CFLAGS)) \
+	$(PRIVATE_GLOBAL_CXXFLAGS) \
+	$(PRIVATE_WARNINGS_CXXFLAGS) \
+	$(filter-out -std=%,$(PRIVATE_CFLAGS)) \
+	$(PRIVATE_CXXFLAGS) \
 	$(PRIVATE_PCH_INCLUDE) \
-	$(filter-out -std=%,$(PRIVATE_CFLAGS)) $(PRIVATE_CXXFLAGS) \
 	-MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
 	-c $(call path-from-top,$3)
@@ -97,14 +136,11 @@ transform-cc-to-o = $(call _binary-cmd-cpp-to-o-internal,$(PRIVATE_MODE),$@,$<)
 define _binary-cmd-c-to-o-internal
 @mkdir -p $(dir $2)
 $(call _binary-print-banner1,C,$3)
-$(call check-pwd-is-top-dir)
 $(Q) $(CCACHE) $(PRIVATE_CC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
 	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
-	$($1_GLOBAL_CFLAGS) $(WARNINGS_CFLAGS) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
-	$(WARNINGS_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)) \
+	$(PRIVATE_GLOBAL_CFLAGS) \
+	$(PRIVATE_WARNINGS_CFLAGS) \
 	$(PRIVATE_CFLAGS) \
 	-MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
@@ -124,16 +160,14 @@ transform-c-to-o = $(call _binary-cmd-c-to-o-internal,$(PRIVATE_MODE),$@,$<)
 define _binary-cmd-m-to-o-internal
 @mkdir -p $(dir $2)
 $(call _binary-print-banner1,ObjC,$3)
-$(call check-pwd-is-top-dir)
 $(Q) $(CCACHE) $(PRIVATE_CC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
 	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
-	$($1_GLOBAL_CFLAGS) $(WARNINGS_CFLAGS) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
-	$(WARNINGS_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)) \
+	$(filter-out -std=%,$(PRIVATE_GLOBAL_CFLAGS)) \
 	$($1_GLOBAL_OBJCFLAGS) \
-	$(PRIVATE_CFLAGS) $(PRIVATE_OBJCFLAGS) \
+	$(PRIVATE_WARNINGS_CFLAGS) \
+	$(filter-out -std=%,$(PRIVATE_CFLAGS)) \
+	$(PRIVATE_OBJCFLAGS) \
 	-MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
 	-c $(call path-from-top,$3)
@@ -152,18 +186,15 @@ transform-m-to-o = $(call _binary-cmd-m-to-o-internal,$(PRIVATE_MODE),$@,$<)
 define _binary-cmd-s-to-o-internal
 @mkdir -p $(dir $2)
 $(call _binary-print-banner1,Asm,$3)
-$(call check-pwd-is-top-dir)
 $(Q) $(CCACHE) $(PRIVATE_CC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
 	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
 	$($1_GLOBAL_ASFLAGS) \
 	-D __ASSEMBLY__ \
-	$($1_GLOBAL_CFLAGS) $(WARNINGS_CFLAGS) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
-	$(WARNINGS_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)) \
+	$(filter-out -std=%,$(PRIVATE_GLOBAL_CFLAGS)) \
+	$(PRIVATE_WARNINGS_CFLAGS) \
 	$(PRIVATE_ASFLAGS) \
-	$(PRIVATE_CFLAGS) \
+	$(filter-out -std=%,$(PRIVATE_CFLAGS)) \
 	-MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
 	-c $(call path-from-top,$3)
@@ -187,7 +218,6 @@ transform-S-to-o = $(call _binary-cmd-s-to-o-internal,$(PRIVATE_MODE),$@,$<)
 define _binary-cmd-cu-to-o-internal
 @mkdir -p $(dir $2)
 $(call _binary-print-banner1,Cuda,$3)
-$(call check-pwd-is-top-dir)
 @if [ -z "$(TARGET_NVCC)" ]; then \
 	echo "TARGET_NVCC is not defined"; exit 1; \
 fi
@@ -197,7 +227,7 @@ $(Q) $(TARGET_NVCC) \
 	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES)) \
 	$(TARGET_GLOBAL_NVCFLAGS) \
 	$(PRIVATE_NVCFLAGS) \
-	-ccbin $(TARGET_CC) \
+	-ccbin $(PRIVATE_NVCC_CC) \
 	-o $(call path-from-top,$2) \
 	-c $(call path-from-top,$3)
 
@@ -206,7 +236,7 @@ $(Q) $(TARGET_NVCC) \
 	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES)) \
 	$(TARGET_GLOBAL_NVCFLAGS) \
 	$(PRIVATE_NVCFLAGS) \
-	-ccbin $(TARGET_CC) \
+	-ccbin $(PRIVATE_NVCC_CC) \
 	-M -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$(2:.o=.d.tmp)) \
 	$(call path-from-top,$3)
@@ -225,40 +255,11 @@ endef
 transform-cu-to-o = $(call _binary-cmd-cu-to-o-internal,$(PRIVATE_MODE),$@,$<)
 
 ###############################################################################
-## Commands to generate a precompiled file.
-###############################################################################
-
-# $1 : mode (HOST / TARGET)
-# $2 : destination
-# $3 : source
-define _internal-transform-h-to-gch
-@mkdir -p $(dir $2)
-$(call _binary-print-banner1,Precompile,$3)
-$(call check-pwd-is-top-dir)
-$(Q) $(CCACHE) $(PRIVATE_CXX) \
-	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
-	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
-	$($1_GLOBAL_CFLAGS) $($1_GLOBAL_CXXFLAGS) $(WARNINGS_CXXFLAGS) \
-	$($1_GLOBAL_CXXFLAGS_$(PRIVATE_CC_FLAVOUR)) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_CC_FLAVOUR)) \
-	$(WARNINGS_CXXFLAGS_$(PRIVATE_CC_FLAVOUR)) \
-	$($1_GLOBAL_CFLAGS_$(PRIVATE_ARCH)) \
-	$(PRIVATE_CFLAGS) $(PRIVATE_CXXFLAGS) \
-	-MD -MP -MF $(call path-from-top,$(2:.gch=.d)) -MT $(call path-from-top,$2) \
-	-o $(call path-from-top,$2) \
-	$($1_GLOBAL_PCH_FLAGS) $(call path-from-top,$3)
-$(call fix-deps-file,$(2:.gch=.d))
-endef
-
-transform-h-to-gch = $(call _internal-transform-h-to-gch,$(PRIVATE_MODE),$@,$<)
-
-###############################################################################
 ## Commands to compile vala files.
 ###############################################################################
 
 define _internal-transform-vala-to-c
 $(call print-banner1,"$(PRIVATE_MODE_MSG)Valac",$(PRIVATE_MODULE),$(call path-from-top,$(PRIVATE_VALA_SOURCES)))
-$(call check-pwd-is-top-dir)
 $(Q) $(HOST_OUT_STAGING)/$(HOST_DEFAULT_BIN_DESTDIR)/valac \
 	$($1_GLOBAL_VALAFLAGS) \
 	$(PRIVATE_VALAFLAGS) \
@@ -271,6 +272,24 @@ endef
 transform-vala-to-c = $(call _internal-transform-vala-to-c,$(PRIVATE_MODE))
 
 ###############################################################################
+## Commands for running windres.
+###############################################################################
+
+define _internal-transform-rc-to-o
+@mkdir -p $(dir $2)
+$(call print-banner1,"$(PRIVATE_MODE_MSG)Rc",$(PRIVATE_MODULE),$(call path-from-top,$3))
+$(Q) $(PRIVATE_WINDRES) \
+	$(filter -D%,$(PRIVATE_GLOBAL_CFLAGS)) \
+	$(filter -D%,$(PRIVATE_GLOBAL_CXXFLAGS)) \
+	$(filter -D%,$(PRIVATE_CFLAGS)) \
+	$(filter -D%,$(PRIVATE_CXXFLAGS)) \
+	-o $(call path-from-top,$2) \
+	$(call path-from-top,$3)
+endef
+
+transform-rc-to-o = $(call _internal-transform-rc-to-o,$(PRIVATE_MODE),$@,$<)
+
+###############################################################################
 ## Commands for running ar.
 ###############################################################################
 
@@ -279,9 +298,13 @@ transform-vala-to-c = $(call _internal-transform-vala-to-c,$(PRIVATE_MODE))
 define _internal-transform-o-to-static-lib
 @mkdir -p $(dir $2)
 $(call print-banner2,"$(PRIVATE_MODE_MSG)StaticLib",$(PRIVATE_MODULE),$(call path-from-top,$2))
-$(call check-pwd-is-top-dir)
+$(call _binary-gen-rsp-file,objects-static,$(PRIVATE_ALL_OBJECTS))
 @rm -f $2
-$(Q) $(PRIVATE_AR) $($1_GLOBAL_ARFLAGS) $(PRIVATE_ARFLAGS) $2 $(PRIVATE_ALL_OBJECTS)
+$(Q) $(PRIVATE_AR) \
+	$($1_GLOBAL_ARFLAGS) \
+	$(PRIVATE_ARFLAGS) \
+	$(call path-from-top,$2) \
+	$(call _binary-get-rsp-file,objects-static,$(PRIVATE_ALL_OBJECTS))
 endef
 
 transform-o-to-static-lib = $(call _internal-transform-o-to-static-lib,$(PRIVATE_MODE),$@)
@@ -293,10 +316,9 @@ transform-o-to-static-lib = $(call _internal-transform-o-to-static-lib,$(PRIVATE
 define _internal-transform-o-to-shared-lib-darwin
 @mkdir -p $(dir $2)
 $(call print-banner2,"$(PRIVATE_MODE_MSG)SharedLib",$(PRIVATE_MODULE),$(call path-from-top,$2))
-$(call check-pwd-is-top-dir)
+$(call _binary-gen-rsp-file,objects-shared,$(PRIVATE_ALL_OBJECTS))
 $(Q) $(PRIVATE_CXX) \
-	$($1_GLOBAL_LDFLAGS) \
-	$($1_GLOBAL_LDFLAGS_$(PRIVATE_CC_FLAVOUR)) \
+	$(PRIVATE_GLOBAL_LDFLAGS) \
 	$(if $(call streq,$(USE_LINK_MAP_FILE),1), \
 		-Wl$(comma)-map$(comma)$(basename $(call path-from-top,$2)).map \
 	) \
@@ -304,7 +326,7 @@ $(Q) $(PRIVATE_CXX) \
 	-Wl,-dead_strip \
 	-Wl,-install_name,$($1_OUT_STAGING)/$($1_DEFAULT_LIB_DESTDIR)/$(notdir $2) \
 	$(PRIVATE_LDFLAGS) \
-	$(PRIVATE_ALL_OBJECTS) \
+	$(call _binary-get-rsp-file,objects-shared,$(PRIVATE_ALL_OBJECTS)) \
 	$(call link-hook,$(PRIVATE_MODULE),$2, \
 		$(PRIVATE_ALL_OBJECTS) \
 		$(PRIVATE_ALL_STATIC_LIBRARIES) \
@@ -320,10 +342,9 @@ endef
 define _internal-transform-o-to-shared-lib
 @mkdir -p $(dir $2)
 $(call print-banner2,"$(PRIVATE_MODE_MSG)SharedLib",$(PRIVATE_MODULE),$(call path-from-top,$2))
-$(call check-pwd-is-top-dir)
+$(call _binary-gen-rsp-file,objects-shared,$(PRIVATE_ALL_OBJECTS))
 $(Q) $(PRIVATE_CXX) \
-	$($1_GLOBAL_LDFLAGS) \
-	$($1_GLOBAL_LDFLAGS_$(PRIVATE_CC_FLAVOUR)) \
+	$(PRIVATE_GLOBAL_LDFLAGS) \
 	$(if $(call streq,$(USE_LINK_MAP_FILE),1), \
 		-Wl$(comma)-Map$(comma)$(basename $(call path-from-top,$2)).map \
 	) \
@@ -332,8 +353,11 @@ $(Q) $(PRIVATE_CXX) \
 	-Wl,--no-undefined \
 	-Wl,--gc-sections \
 	-Wl,--as-needed \
+	$(if $(call streq,$($(PRIVATE_MODE)_OS),windows), \
+		-Wl$(comma)--out-implib$(comma)$(call path-from-top,$2).a \
+	) \
 	$(PRIVATE_LDFLAGS) \
-	$(PRIVATE_ALL_OBJECTS) \
+	$(call _binary-get-rsp-file,objects-shared,$(PRIVATE_ALL_OBJECTS)) \
 	$(call link-hook,$(PRIVATE_MODULE),$2, \
 		$(PRIVATE_ALL_OBJECTS) \
 		$(PRIVATE_ALL_STATIC_LIBRARIES) \
@@ -361,16 +385,15 @@ transform-o-to-shared-lib = $(if $(call streq,$($(PRIVATE_MODE)_OS),darwin), \
 define _internal-transform-o-to-executable-darwin
 @mkdir -p $(dir $2)
 $(call print-banner2,"$(PRIVATE_MODE_MSG)Executable",$(PRIVATE_MODULE),$(call path-from-top,$2))
-$(call check-pwd-is-top-dir)
+$(call _binary-gen-rsp-file,objects-executable,$(PRIVATE_ALL_OBJECTS))
 $(Q) $(PRIVATE_CXX) \
-	$($1_GLOBAL_LDFLAGS) \
-	$($1_GLOBAL_LDFLAGS_$(PRIVATE_CC_FLAVOUR)) \
+	$(PRIVATE_GLOBAL_LDFLAGS) \
 	$(if $(call streq,$(USE_LINK_MAP_FILE),1), \
 		-Wl$(comma)-map$(comma)$(basename $(call path-from-top,$2)).map \
 	) \
 	-Wl,-dead_strip \
 	$(PRIVATE_LDFLAGS) \
-	$(PRIVATE_ALL_OBJECTS) \
+	$(call _binary-get-rsp-file,objects-executable,$(PRIVATE_ALL_OBJECTS)) \
 	$(call link-hook,$(PRIVATE_MODULE),$2, \
 		$(PRIVATE_ALL_OBJECTS) \
 		$(PRIVATE_ALL_STATIC_LIBRARIES) \
@@ -386,17 +409,16 @@ endef
 define _internal-transform-o-to-executable
 @mkdir -p $(dir $2)
 $(call print-banner2,"$(PRIVATE_MODE_MSG)Executable",$(PRIVATE_MODULE),$(call path-from-top,$2))
-$(call check-pwd-is-top-dir)
+$(call _binary-gen-rsp-file,objects-executable,$(PRIVATE_ALL_OBJECTS))
 $(Q) $(PRIVATE_CXX) \
-	$($1_GLOBAL_LDFLAGS) \
-	$($1_GLOBAL_LDFLAGS_$(PRIVATE_CC_FLAVOUR)) \
+	$(PRIVATE_GLOBAL_LDFLAGS) \
 	$(if $(call streq,$(USE_LINK_MAP_FILE),1), \
 		-Wl$(comma)-Map$(comma)$(basename $(call path-from-top,$2)).map \
 	) \
 	-Wl,--gc-sections \
 	-Wl,--as-needed \
 	$(PRIVATE_LDFLAGS) \
-	$(PRIVATE_ALL_OBJECTS) \
+	$(call _binary-get-rsp-file,objects-executable,$(PRIVATE_ALL_OBJECTS)) \
 	$(call link-hook,$(PRIVATE_MODULE),$2, \
 		$(PRIVATE_ALL_OBJECTS) \
 		$(PRIVATE_ALL_STATIC_LIBRARIES) \

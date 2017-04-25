@@ -228,6 +228,8 @@ it when targetting Android.
 * Otherwise, alchemy will try to use an Android NDK. This mode supports a few options:
   * `TARGET_ANDROID_APILEVEL` : Android API level to target.
   </br>Default is `17`
+  * `TARGET_ANDROID_MINAPILEVEL` : Minimum Android API Level required for the application to run.
+  </br>Default is `TARGET_ANDROID_APILEVEL`
   * `TARGET_ANDROID_NDK` : Path of the Android NDK to use.
   </br>Default tries to auto-detect the NDK from a few somewhat standard location (`/opt/android-ndk-*`, `~/android-ndk-*`, ...)
   * `TARGET_ANDROID_SDK` : Path of the Android SDK to use.
@@ -262,7 +264,7 @@ Mainly used by the android wrapper.
   </br>Default is `rcs`, so you should never have to define it.
 * `TARGET_GLOBAL_LDFLAGS` : Flags to pass to the linker.
 * `TARGET_GLOBAL_LDLIBS` : Additional libraries to use when linking.
-* `TARGET_GLOBAL_PCH_FLAGS` : Flags to pass when precompiling headers.
+* `TARGET_GLOBAL_PCHFLAGS` : Flags to pass when precompiling headers.
 * `TARGET_GLOBAL_OBJCFLAGS` : Flags to pass to the Objective-C compiler.
 
 ### Specific flags for arm targets.
@@ -277,6 +279,9 @@ Mainly used by the android wrapper.
   (`arm` or `thumb`). Default is `thumb`, however modules can override this in
   their `LOCAL_ARM_MODE`. It is only possible to override `thumb` mode in `arm`
   mode, not the other way.
+* `TARGET_DEFAULT_ARM_MODE_EXTERNAL` : similar to `TARGET_DEFAULT_ARM_MODE` but
+  for external modules (autotools, cmake...). Default is `arm` for compatibility
+  with previous behaviour.
 
 ### Other variables
 
@@ -394,13 +399,15 @@ Mainly used by the android wrapper.
   disabled in some sdk use cases.
   </br>Default is `1`.
 * `USE_COVERAGE` : Enable options for coverage (and disable compiler optimisations).
-  </br>Default is `0`.
+  </br>Default is `0`. Can be set to a list of modules or 1 for all modules.
 * `USE_ADDRESS_SANITIZER` : Enable options for address sanitizer.
-  </br>Default is `0`.
+  </br>Default is `0`. Can be set to a list of modules or 1 for all modules.
 * `USE_MEMORY_SANITIZER` : Enable options for memory sanitizer.
-  </br>Default is `0`.
+  </br>Default is `0`. Set to 1 to enable.
 * `USE_THREAD_SANITIZER` : Enable options for thread sanitizer.
-  </br>Default is `0`.
+  </br>Default is `0`. Can be set to a list of modules or 1 for all modules.
+* `USE_UNDEFINED_SANITIZER` : Enable options for undefined sanitizer.
+  </br>Default is `0`. Can be set to a list of modules or 1 for all modules.
 * `USE_AUTO_LIB_PREFIX` : Automatically add 'lib' prefix when building an library
   whose name is not specified. This is needed for dynamic libraries on some platforms.
   </br>Default is `0`.
@@ -699,15 +706,22 @@ This is a list of modules whose headers are required to compile but not for
 link. This does **NOT** introduce a build order, just an automatic import of
 exported headers.
 
-#### `LOCAL_DEPENDS_MODULES` `LOCAL_REQUIRED_MODULES`
+#### `LOCAL_DEPENDS_MODULES`
+
+This is a list of modules required at build time. They will be built before
+this module but nothing will be imported from them (flags, headers, libs).
+
+#### `LOCAL_REQUIRED_MODULES`
 
 This is a list of modules required at runtime that will automatically be
 selected in the `qconf` configuration window. This does **NOT** introduce a
 build order.
 
-**Note**: `LOCAL_REQUIRED_MODULES` is preferred over `LOCAL_DEPENDS_MODULES`.
-Once migrated to `LOCAL_REQUIRED_MODULES`, `LOCAL_DEPENDS_MODULES` might be used
-for another purpose (like really have a build dependency).
+#### `LOCAL_FORCE_STATIC`
+
+If set to `1`, forces to use static libraries instead of shared libraries for
+all dependencies. It only forces internal modules, not external ones and only
+if a static version of the dependncy is available (module is `STATIC` or `LIBRARY`).
 
 #### `LOCAL_BUILD_PROPERTIES`
 
@@ -898,6 +912,9 @@ accepts either full path or relative path to LOCAL_PATH.
 If set to 1, all files under LOCAL_PATH will be copied to the build directory
 before the configure step. This allows modules to execute autoreconf out of the
 original source tree.
+
+`LOCAL_COPY_TO_BUILD_DIR_SKIP_FILES` can be used to list files that should not
+be copied (ath relative to `LOCAL_PATH`.
 
 #### `LOCAL_CODECHECK_xxx` `LOCAL_CODECHECK_xxx_ARGS`
 
@@ -1246,6 +1263,9 @@ system.
 * `LOCAL_QMAKE_PRO_FILE` : The name of the `.pro` file to be used. If not
   specified, the name is assumed to be `$(LOCAL_MODULE).pro`. The path is
   relative to `LOCAL_PATH`
+* `LOCAL_QMAKE_CONFIGURE_ARGS` : Additional arguments to give to qmake.
+* `LOCAL_QMAKE_MAKE_BUILD_ARGS` : Additional arguments to give to make build.
+* `LOCAL_QMAKE_MAKE_INSTALL_ARGS` : Additional arguments to give to make install.
 
 ### Python extension modules
 
@@ -1350,7 +1370,7 @@ customized before invoking `alchemy`. For the meaning, see the corresponding
 * `HOST_GLOBAL_ARFLAGS` : `rcs`
 * `HOST_GLOBAL_LDFLAGS` : empty
 * `HOST_GLOBAL_LDLIBS` : empty
-* `HOST_GLOBAL_PCH_FLAGS` : empty
+* `HOST_GLOBAL_PCHFLAGS` : `-x c++-header`
 * `HOST_CC` : `gcc`
 * `HOST_CXX` : `g++`
 * `HOST_AS` : `as`
@@ -1446,6 +1466,12 @@ Ex:
 	typedef struct _CustomTypedef CustomTypedef; /* custom typedef for consistency with other GObjects */
 </pre>
 
+You can also ignore a warning for a whole file by using:
+
+<pre>
+	codecheck_ignore_file[TYPE1(,TYPE2...)]
+</pre>
+
 ## Codecheck for C++ false positives or intentional deviations
 
 You can ignore specific c++ codecheck warnings in a C++ source code file by inserting
@@ -1537,6 +1563,7 @@ compilation is in progress.
 You can specify some variables in the `make` command line to activate some extra
 features.
 
+* `var-<VAR>` : Prints the contents of the variable `<VAR>` interpreted by alchemy and exits.
 * `F=1` : Force re-checking external modules for modifications. By default they
   are not checked to speed-up thing. Note that if a module is explicitly given
   as a goal in `make` command, it will be re-checked.

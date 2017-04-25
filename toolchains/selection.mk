@@ -10,28 +10,30 @@ ifneq ("$(USE_CLANG)","1")
   HOST_CC ?= cc
   HOST_CXX ?= c++
   HOST_AS ?= as
+  HOST_FC ?= gfortran
   HOST_AR ?= ar
   HOST_LD ?= ld
+  HOST_CPP ?= cpp
   HOST_NM ?= nm
   HOST_STRIP ?= strip
-  HOST_CPP ?= cpp
   HOST_RANLIB ?= ranlib
   HOST_OBJCOPY ?= objcopy
   HOST_OBJDUMP ?= objdump
-  HOST_FC ?= gfortran
+  HOST_WINDRES ?= windres
 else
   HOST_CC ?= clang
   HOST_CXX ?= clang++
   HOST_AS ?= llvm-as
+  HOST_FC ?= gfortran
   HOST_AR ?= ar
-  HOST_LD ?= llvm-ld
+  HOST_LD ?= llvm-link
+  HOST_CPP ?= cpp
   HOST_NM ?= llvm-nm
   HOST_STRIP ?= strip
-  HOST_CPP ?= cpp
   HOST_RANLIB ?= llvm-ranlib
   HOST_OBJCOPY ?= objcopy
   HOST_OBJDUMP ?= llvm-objdump
-  HOST_FC ?= gfortran
+  HOST_WINDRES ?= windres
 endif
 
 # Select correct toolchain
@@ -43,15 +45,16 @@ ifeq ("$(TARGET_OS)-$(TARGET_OS_FLAVOUR)","$(HOST_OS)-native")
   TARGET_CC ?= $(HOST_CC)
   TARGET_CXX ?= $(HOST_CXX)
   TARGET_AS ?= $(HOST_AS)
+  TARGET_FC ?= $(HOST_FC)
   TARGET_AR ?= $(HOST_AR)
   TARGET_LD ?= $(HOST_LD)
+  TARGET_CPP ?= $(HOST_CPP)
   TARGET_NM ?= $(HOST_NM)
   TARGET_STRIP ?= $(HOST_STRIP)
-  TARGET_CPP ?= $(HOST_CPP)
   TARGET_RANLIB ?= $(HOST_RANLIB)
   TARGET_OBJCOPY ?= $(HOST_OBJCOPY)
   TARGET_OBJDUMP ?= $(HOST_OBJDUMP)
-  TARGET_FC ?= $(HOST_FC)
+  TARGET_WINDRES ?= $(HOST_WINDRES)
 else
   ifneq ("$(USE_CLANG)","1")
     TARGET_CC ?= $(TARGET_CROSS)gcc
@@ -61,6 +64,7 @@ else
     TARGET_CXX ?= clang++
   endif
   TARGET_AS ?= $(TARGET_CROSS)as
+  TARGET_FC ?= $(TARGET_CROSS)gfortran
   TARGET_AR ?= $(TARGET_CROSS)ar
   TARGET_LD ?= $(TARGET_CROSS)ld
   TARGET_NM ?= $(TARGET_CROSS)nm
@@ -69,7 +73,7 @@ else
   TARGET_RANLIB ?= $(TARGET_CROSS)ranlib
   TARGET_OBJCOPY ?= $(TARGET_CROSS)objcopy
   TARGET_OBJDUMP ?= $(TARGET_CROSS)objdump
-  TARGET_FC ?= $(TARGET_CROSS)gfortran
+  TARGET_WINDRES ?= $(TARGET_CROSS)windres
 endif
 
 # Nvidia cuda compiler

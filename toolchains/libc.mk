@@ -31,10 +31,12 @@ _libc_arch_subdir := $(TARGET_TOOLCHAIN_TRIPLET)
 # List of files to be put in /lib or /lib/<arch>
 _libc_lib_names := \
 	ld \
+	libasan \
 	libc \
 	libcrypt \
 	libdl \
 	libgcc_s \
+	libgomp \
 	libm \
 	libnsl \
 	libnss_compat \
@@ -125,7 +127,7 @@ $(foreach __f,$(_libc_lib_names), \
 # Some toolchains, such as recent Linaro toolchains, store GCC support libraries
 # (libstdc++, libgcc_s, etc.) outside of the sysroot
 ifeq ("$(findstring libstdc++,$(_libc_usrlib_files) $(_libc_usrlib_arch_files))","")
-  _libc_support_dir_cmd := $(TARGET_CC) $(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CFLAGS_$(TARGET_CC_FLAVOUR))
+  _libc_support_dir_cmd := $(TARGET_CC) $(TARGET_GLOBAL_CFLAGS)
   ifeq ("$(TARGET_ARCH)","arm")
     _libc_support_dir_cmd += $(TARGET_GLOBAL_CFLAGS_$(TARGET_DEFAULT_ARM_MODE))
   endif
@@ -229,8 +231,8 @@ endif
 
 # Clean rule
 # use $(endl) to separate commands on separate lines
-.PHONY: libc-clean
-libc-clean:
+.PHONY: $(LOCAL_MODULE)-clean
+$(LOCAL_MODULE)-clean:
 	$(foreach __f,$(_libc_lib_files), \
 		$(Q) rm -f $(TARGET_OUT_STAGING)/lib/$(notdir $(__f))$(endl) \
 	)
@@ -251,7 +253,7 @@ endif
 
 # Register 'installed' file in build system
 $(call local-get-build-dir)/$(LOCAL_MODULE_FILENAME): $(_libc_installed_file)
-LOCAL_DONE_FILES += $(LOCAL_MODULE).installed
+LOCAL_DONE_FILES += $(notdir $(_libc_installed_file))
 LOCAL_CLEAN_FILES += $(_libc_installed_file)
 LOCAL_CUSTOM_TARGETS += $(_libc_installed_file)
 

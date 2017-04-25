@@ -6,7 +6,7 @@ import platform
 def getinfo(name):
     if name == "OS":
         val = platform.system().lower()
-        if "msys" in val:
+        if "msys" in val or "mingw" in val:
             return "windows"
         return val
     elif name == "ARCH":

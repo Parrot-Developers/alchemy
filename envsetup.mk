@@ -15,3 +15,8 @@ BUILD_SYSTEM := $(call my-dir)
 
 # Target setup
 include $(BUILD_SYSTEM)/target-setup.mk
+
+# Get access to variable contents
+.PHONY: var-%
+var-%:
+	@echo $*=$($*)

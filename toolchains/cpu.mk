@@ -9,47 +9,49 @@
 # arm v5te flags (to be used in cpu flags below)
 # ecos already set them
 ifneq ("$(TARGET_OS)","ecos")
-cflags_armv5te := \
+cpu_flags_armv5te := \
 	-march=armv5te \
 	-D__ARM_ARCH_5__ \
 	-D__ARM_ARCH_5T__ \
 	-D__ARM_ARCH_5TE__
 else
-cflags_armv5te :=
+cpu_flags_armv5te :=
 endif
 
 # armv7-a neon flags (to be used in cpu flags below)
-cflags_armv7a_neon := \
+cpu_flags_armv7a_neon := \
 	-march=armv7-a \
 	-mfpu=neon
+
+cpu_flags :=
 
 ###############################################################################
 ## Parrot cpus.
 ###############################################################################
 
 ifeq ("$(TARGET_CPU)","p6")
-  TARGET_GLOBAL_CFLAGS += $(cflags_armv5te)
-  TARGET_GLOBAL_CFLAGS += -mtune=arm926ej-s -mcpu=arm926ej-s
+  cpu_flags += $(cpu_flags_armv5te)
+  cpu_flags += -mtune=arm926ej-s -mcpu=arm926ej-s
   TARGET_FLOAT_ABI ?= soft
 endif
 
 ifeq ("$(TARGET_CPU)","p6i")
-  TARGET_GLOBAL_CFLAGS += $(cflags_armv5te)
-  TARGET_GLOBAL_CFLAGS += -mtune=arm926ej-s -mcpu=arm926ej-s
+  cpu_flags += $(cpu_flags_armv5te)
+  cpu_flags += -mtune=arm926ej-s -mcpu=arm926ej-s
   TARGET_FLOAT_ABI ?= soft
 endif
 
 ifeq ("$(TARGET_CPU)","p7")
-  TARGET_GLOBAL_CFLAGS += $(cflags_armv7a_neon)
-  TARGET_GLOBAL_CFLAGS += -mtune=cortex-a9 -mcpu=cortex-a9
+  cpu_flags += $(cpu_flags_armv7a_neon)
+  cpu_flags += -mtune=cortex-a9 -mcpu=cortex-a9
   TARGET_CPU_ARMV7A_NEON := 1
   TARGET_CPU_HAS_NEON := 1
   TARGET_FLOAT_ABI ?= softfp
 endif
 
 ifeq ("$(TARGET_CPU)","o3")
-  TARGET_GLOBAL_CFLAGS += -march=armv7-a
-  TARGET_GLOBAL_CFLAGS += -mtune=cortex-a5 -mcpu=cortex-a5
+  cpu_flags += -march=armv7-a
+  cpu_flags += -mtune=cortex-a5 -mcpu=cortex-a5
   TARGET_FLOAT_ABI ?= soft
 endif
 
@@ -57,7 +59,7 @@ endif
 # Texas Instrument cpus.
 ###############################################################################
 ifeq ("$(TARGET_CPU)","omap3")
-  TARGET_GLOBAL_CFLAGS += $(cflags_armv7a_neon)
+  cpu_flags += $(cpu_flags_armv7a_neon)
   TARGET_GLOBAL_LDFLAGS += -Wl,--fix-cortex-a8
   TARGET_CPU_ARMV7A_NEON := 1
   TARGET_CPU_HAS_NEON := 1
@@ -65,8 +67,8 @@ ifeq ("$(TARGET_CPU)","omap3")
 endif
 
 ifeq ("$(TARGET_CPU)","omap4")
-  TARGET_GLOBAL_CFLAGS += $(cflags_armv7a_neon)
-  TARGET_GLOBAL_CFLAGS += -mtune=cortex-a9 -mcpu=cortex-a9
+  cpu_flags += $(cpu_flags_armv7a_neon)
+  cpu_flags += -mtune=cortex-a9 -mcpu=cortex-a9
   TARGET_CPU_ARMV7A_NEON := 1
   TARGET_CPU_HAS_NEON := 1
   TARGET_FLOAT_ABI ?= softfp
@@ -78,19 +80,19 @@ endif
 
 ifeq ("$(TARGET_CPU)","tegrak1")
 ifneq ("$(call check-version,$(TARGET_CC_VERSION),4.9.0)","")
-  TARGET_GLOBAL_CFLAGS += -march=armv7ve -mcpu=cortex-a15
+  cpu_flags += -march=armv7ve -mcpu=cortex-a15
 else
-  TARGET_GLOBAL_CFLAGS += -march=armv7-a
+  cpu_flags += -march=armv7-a
 endif
-  TARGET_GLOBAL_CFLAGS += -mtune=cortex-a15 -mfpu=neon-vfpv4
+  cpu_flags += -mtune=cortex-a15 -mfpu=neon-vfpv4
   TARGET_CPU_HAS_NEON := 1
   TARGET_FLOAT_ABI ?= hard
   TARGET_GLOBAL_NVCFLAGS += -arch=sm_32 -lineinfo -m32
 endif
 
 ifeq ("$(TARGET_CPU)","tegrax1")
-  TARGET_GLOBAL_CFLAGS += -march=armv8-a+crc -mtune=cortex-a57 -mcpu=cortex-a57
-  TARGET_GLOBAL_CFLAGS += -mfpu=crypto-neon-fp-armv8
+  cpu_flags += -march=armv8-a+crc -mtune=cortex-a57 -mcpu=cortex-a57
+  cpu_flags += -mfpu=crypto-neon-fp-armv8
   TARGET_CPU_HAS_NEON := 1
   TARGET_FLOAT_ABI ?= hard
   TARGET_GLOBAL_NVCFLAGS += -arch=sm_53 -lineinfo -m32
@@ -101,20 +103,30 @@ endif
 ###############################################################################
 
 ifeq ("$(TARGET_CPU)","a9s")
-  TARGET_GLOBAL_CFLAGS += $(cflags_armv7a_neon)
+  cpu_flags += $(cpu_flags_armv7a_neon)
+  cpu_flags += -mtune=cortex-a9 -mcpu=cortex-a9
   TARGET_GLOBAL_LDFLAGS += -Wl,--fix-cortex-a8
   TARGET_CPU_ARMV7A_NEON := 1
   TARGET_CPU_HAS_NEON := 1
   TARGET_FLOAT_ABI ?= softfp
 endif
 
+ifeq ("$(TARGET_CPU)","h22")
+  cpu_flags += -march=armv8-a+crc -mtune=cortex-a53 -mcpu=cortex-a53
+  TARGET_CPU_HAS_NEON := 1
+  ifneq ("$(TARGET_ARCH)","aarch64")
+    cpu_flags += -mfpu=crypto-neon-fp-armv8
+    TARGET_FLOAT_ABI ?= hard
+  endif
+endif
+
 ###############################################################################
-# Apq8009 cpus
+# Qualcomm cpus.
 ###############################################################################
 
 ifeq ("$(TARGET_CPU)","apq8009")
-  TARGET_GLOBAL_CFLAGS += $(cflags_armv7a_neon)
-  TARGET_GLOBAL_CFLAGS += -march=armv7ve -mtune=cortex-a7 -mcpu=cortex-a7
+  cpu_flags += $(cpu_flags_armv7a_neon)
+  cpu_flags += -march=armv7ve -mtune=cortex-a7 -mcpu=cortex-a7
   TARGET_CPU_ARMV7A_NEON := 1
   TARGET_CPU_HAS_NEON := 1
   TARGET_FLOAT_ABI ?= hard
@@ -125,21 +137,20 @@ endif
 ###############################################################################
 
 ifeq ("$(TARGET_CPU)","armv5te")
-  TARGET_GLOBAL_CFLAGS += $(cflags_armv5te)
+  cpu_flags += $(cpu_flags_armv5te)
   TARGET_FLOAT_ABI ?= soft
 endif
 
 # generic armv7a (without neon)
 ifeq ("$(TARGET_CPU)","armv7a")
-  TARGET_GLOBAL_CFLAGS += -march=armv7-a -mfpu=vfpv3-d16
-  TARGET_GLOBAL_LDFLAGS += -march=armv7-a -Wl,--fix-cortex-a8
+  cpu_flags += -march=armv7-a -mfpu=vfpv3-d16
   TARGET_FLOAT_ABI ?= soft
 endif
 
 # generic armv7a-neon
 ifeq ("$(TARGET_CPU)","armv7a-neon")
-  TARGET_GLOBAL_CFLAGS += $(cflags_armv7a_neon)
-  TARGET_GLOBAL_LDFLAGS += -march=armv7-a -Wl,--fix-cortex-a8
+  cpu_flags += $(cpu_flags_armv7a_neon)
+  TARGET_GLOBAL_LDFLAGS += -Wl,--fix-cortex-a8
   TARGET_CPU_ARMV7A_NEON := 1
   TARGET_CPU_HAS_NEON := 1
   TARGET_FLOAT_ABI ?= softfp
@@ -150,19 +161,31 @@ endif
 ###############################################################################
 
 ifeq ("$(TARGET_CPU)","arm7tdmi")
-  TARGET_GLOBAL_CFLAGS += -mcpu=arm7tdmi
+  cpu_flags += -mcpu=arm7tdmi
 endif
 
 ifeq ("$(TARGET_CPU)", "stm32f3")
-  TARGET_GLOBAL_CFLAGS += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16
-  TARGET_GLOBAL_LDFLAGS += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb
-  TARGET_DEFAULT_ARM_MODE := thumb
+  cpu_flags += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16
+  TARGET_DEFAULT_ARM_MODE ?= thumb
   TARGET_FLOAT_ABI ?= hard
 endif
 
-ifeq ("$(TARGET_CPU)", "m0")
-  TARGET_GLOBAL_CFLAGS += -mcpu=cortex-m0
-  TARGET_GLOBAL_LDFLAGS += -mcpu=cortex-m0 -mthumb
-  TARGET_DEFAULT_ARM_MODE := thumb
+ifeq ("$(TARGET_CPU)", "cortex-m0")
+  cpu_flags += -mcpu=cortex-m0
+  TARGET_DEFAULT_ARM_MODE ?= thumb
   TARGET_FLOAT_ABI ?= soft
+endif
+
+###############################################################################
+###############################################################################
+
+TARGET_GLOBAL_CFLAGS += $(cpu_flags)
+TARGET_GLOBAL_LDFLAGS += $(cpu_flags)
+
+# Set float abi
+ifdef TARGET_FLOAT_ABI
+  ifneq ("$(TARGET_ARCH)","aarch64")
+    TARGET_GLOBAL_CFLAGS += -mfloat-abi=$(TARGET_FLOAT_ABI)
+    TARGET_GLOBAL_LDFLAGS += -mfloat-abi=$(TARGET_FLOAT_ABI)
+  endif
 endif

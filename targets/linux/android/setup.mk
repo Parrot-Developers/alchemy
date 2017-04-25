@@ -28,6 +28,7 @@ TARGET_ARCH ?= arm
 
 # Configuration options
 TARGET_ANDROID_APILEVEL ?= 17
+TARGET_ANDROID_MINAPILEVEL ?= $(TARGET_ANDROID_APILEVEL)
 
 # Choose SDK
 ifndef TARGET_ANDROID_SDK
@@ -47,7 +48,7 @@ endif
 ifndef TARGET_ANDROID_NDK
 TARGET_ANDROID_NDK := \
 	$(shell for path in $(wildcard $(ANDROID_NDK_DEFAULT_PATHS)) ; do \
-			if [ -e $$path/platforms/android-$(TARGET_ANDROID_APILEVEL) ]; then \
+			if [ -e $$path/platforms/android-$(TARGET_ANDROID_MINAPILEVEL) ]; then \
 				cd $$path && pwd && break; \
 			fi; \
 		done \

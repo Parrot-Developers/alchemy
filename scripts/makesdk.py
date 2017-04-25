@@ -237,23 +237,36 @@ def getExportedIncludes(ctx, module):
     modulePath = module.fields["PATH"]
     includeDirs = module.fields["EXPORT_C_INCLUDES"].split()
     exportedIncludeDirs = []
+    suffixesInc = ["include", "includes", "Include", "Includes"]
+    suffixesSrc = ["src", "source", "sources", "Source", "Sources"]
+    shortName = module.name[3:] if module.name.startswith("lib") else module.name
+
+    # Check if we can put exported directories directly in usr/include
+    simplify = True
+    for includeDir in includeDirs:
+        isStandard = os.path.split(includeDir.rstrip("/"))[1] in suffixesInc
+        if includeDir.startswith(modulePath):
+            # Get entries in directory, excluding hidden ones
+            entries = [f for f in os.listdir(includeDir) if not f.startswith('.')]
+            for entry in entries:
+                if os.path.isdir(os.path.join(includeDir, entry)):
+                    # Reject if source tree seems to be exported
+                    if entry in suffixesSrc:
+                        simplify = False
+                else:
+                    # Reject if exporting files with name not related to module dir
+                    # if not in a valid include directory
+                    if shortName not in entry and not isStandard:
+                        simplify = False
+
     for includeDir in includeDirs:
         if includeDir.startswith(modulePath):
             dstDir = None
             relPath = os.path.relpath(includeDir, modulePath)
-            entries = os.listdir(includeDir)
-            suffixesInc = ["include", "includes", "Include", "Includes"]
-            suffixesSrc = ["src", "source", "sources", "Source", "Sources"]
+            entries = [f for f in os.listdir(includeDir) if not f.startswith('.')]
 
-            # Try to simplify destination if only one directory is exported and it
-            # ends with a standard name
-            if len(includeDirs) == 1 and os.path.split(relPath)[1] in suffixesInc:
-                if len(entries) == 1 and entries[0] not in suffixesSrc:
-                    # Directly copy in usr/include
-                    dstDir = os.path.join("usr", "include")
-                else:
-                    # Copy in a sub dir with module name to avoid conflicts
-                    dstDir = os.path.join("usr", "include", module.name)
+            if simplify:
+                dstDir = os.path.join("usr", "include")
             elif relPath != "." and relPath != "":
                 dstDir = os.path.join("usr", "include", module.name,
                         relPath.replace("..", "dotdot"))
@@ -463,7 +476,7 @@ def processModuleAndroid(ctx, module):
     elif moduleClass == "STATIC_LIBRARY":
         # STATIC
         libPath = module.fields["DESTDIR"] + "/" + module.fields["MODULE_FILENAME"]
-        processModuleAndroidInternal(ctx, module, module.name, libPath, "STATIC")
+        processModuleAndroidInternal(ctx, module, module.name + "-static", libPath, "STATIC")
     elif moduleClass == "LIBRARY":
         # Both SHARED and STATIC
         libPath = module.fields["DESTDIR"] + "/" + module.fields["MODULE_FILENAME"]
@@ -495,7 +508,7 @@ def processModuleAndroid(ctx, module):
                 processModuleAndroidInternal(ctx, module, moduleName, libPathShared, "SHARED")
             elif libPathStatic is not None:
                 # STATIC
-                processModuleAndroidInternal(ctx, module, moduleName, libPathStatic, "STATIC")
+                processModuleAndroidInternal(ctx, module, moduleName + "-static", libPathStatic, "STATIC")
 
 #===============================================================================
 #===============================================================================

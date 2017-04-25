@@ -13,25 +13,47 @@ include $(BUILD_SYSTEM)/toolchains/warnings.mk
 
 # Machine targetted by toolchain to be used by autotools and libc installation
 ifndef TARGET_TOOLCHAIN_TRIPLET
-  __toolchain_triplet_cmd := $(TARGET_CC) $(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CFLAGS_$(TARGET_CC_FLAVOUR))
+  __toolchain_triplet_cmd := $(TARGET_CC) $(TARGET_GLOBAL_CFLAGS)
+  ifeq ("$(TARGET_CC_FLAVOUR)","clang")
+    ifneq ("$(TARGET_CROSS)","")
+      # clang for cross compilation with gcc for system include/libs
+      __toolchain_triplet_cmd := $(TARGET_CROSS)gcc $(TARGET_GLOBAL_CFLAGS)
+    endif
+  endif
   TARGET_TOOLCHAIN_TRIPLET := $(shell $(__toolchain_triplet_cmd) -print-multiarch 2>&1)
   ifeq ("$(TARGET_TOOLCHAIN_TRIPLET)","")
     TARGET_TOOLCHAIN_TRIPLET := $(shell $(__toolchain_triplet_cmd) -dumpmachine)
   else ifneq ("$(findstring -print-multiarch,$(TARGET_TOOLCHAIN_TRIPLET))","")
+    # compiler does not support '-print-multiarch' option
     TARGET_TOOLCHAIN_TRIPLET := $(shell $(__toolchain_triplet_cmd) -dumpmachine)
   endif
+  # Catch error in compiler invocation
+  ifneq ("$(findstring error,$(TARGET_TOOLCHAIN_TRIPLET))","")
+    $(error Unable to determine TARGET_TOOLCHAIN_TRIPLET: $(TARGET_TOOLCHAIN_TRIPLET)))
+  endif
+endif
+
+ifeq ("$(TARGET_TOOLCHAIN_TRIPLET)","")
+  $(error Unable to determine TARGET_TOOLCHAIN_TRIPLET))
 endif
 
 # Clang uses gcc toochain(libc&binutils) to cross-compile
 # The sysroot is the top level one (without subarch like thumb2 for arm)
+# Avoid putting a space between option and argument so that our libtool patch works
 ifeq ("$(TARGET_OS)","linux")
 ifneq ("$(TARGET_CROSS)","")
-__clang_toolchain_sysroot := $(shell $(TARGET_CROSS)gcc $(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CFLAGS_gcc) -print-sysroot)
-__clang_toolchain_root := $(shell PARAM=$(TARGET_CC_PATH); echo $${PARAM%/bin*})
-TARGET_GLOBAL_CFLAGS_clang += --sysroot=$(__clang_toolchain_sysroot) \
-	-target $(TARGET_TOOLCHAIN_TRIPLET) -B $(__clang_toolchain_root)
-TARGET_GLOBAL_LDFLAGS_clang += --sysroot=$(__clang_toolchain_sysroot) \
-	-target $(TARGET_TOOLCHAIN_TRIPLET) -B $(__clang_toolchain_root)
+__toolchain_sysroot := $(shell $(TARGET_CROSS)gcc \
+	$(TARGET_GLOBAL_CFLAGS) \
+	$(TARGET_GLOBAL_CFLAGS_gcc) \
+	-print-sysroot)
+__toolchain_root := $(shell PARAM=$(TARGET_CROSS)gcc; echo $${PARAM%/bin*})
+__toolchain_cflags_clang := \
+	--target=$(TARGET_TOOLCHAIN_TRIPLET) \
+	--sysroot=$(__toolchain_sysroot) \
+	--gcc-toolchain=$(__toolchain_root) \
+	-B$(__toolchain_root)/bin
+TARGET_GLOBAL_CFLAGS_clang += $(__toolchain_cflags_clang) #-fno-integrated-as
+TARGET_GLOBAL_LDFLAGS_clang += $(__toolchain_cflags_clang)
 endif
 endif
 
@@ -51,7 +73,7 @@ ifeq ("$(TARGET_OS)","linux")
     __need_sysroot := 0
   endif
   ifeq ("$(__need_sysroot)","1")
-    __toolchain-sysroot-flags := $(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CFLAGS_gcc)
+    __toolchain-sysroot-flags := $(TARGET_GLOBAL_CFLAGS)
     ifeq ("$(TARGET_ARCH)","arm")
       __toolchain-sysroot-flags += $(TARGET_GLOBAL_CFLAGS_$(TARGET_DEFAULT_ARM_MODE))
     endif
@@ -71,21 +93,17 @@ ifeq ("$(TARGET_OS)","linux")
   endif
 endif
 
-# Retrieve the path to the target's loader
-$(shell rm -f a.out)
-ifeq ("$(TARGET_OS)","linux")
-ifneq ("$(TARGET_OS_FLAVOUR)","android")
-TARGET_LOADER := $(shell sh -c " \
-	mkdir -p $(TARGET_OUT_BUILD); \
-	echo 'int main;' | \
-	$(TARGET_CC) $(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CFLAGS_$(TARGET_CC_FLAVOUR)) -o $(TARGET_OUT_BUILD)/a.out -xc -; \
-	readelf -l $(TARGET_OUT_BUILD)/a.out | \
-	grep 'interpreter:' | \
-	sed 's/.*: \\(.*\\)\\]/\\1/g'; \
-	rm -f $(TARGET_OUT_BUILD)/a.out")
-endif
-endif
-TARGET_LOADER ?=
+###############################################################################
+## Update global flags with flavour ones.
+###############################################################################
+
+HOST_GLOBAL_CFLAGS += $(HOST_GLOBAL_CFLAGS_$(HOST_CC_FLAVOUR))
+HOST_GLOBAL_CXXFLAGS += $(HOST_GLOBAL_CXXFLAGS_$(HOST_CC_FLAVOUR))
+HOST_GLOBAL_LDFLAGS += $(HOST_GLOBAL_LDFLAGS_$(HOST_CC_FLAVOUR))
+
+TARGET_GLOBAL_CFLAGS += $(TARGET_GLOBAL_CFLAGS_$(TARGET_CC_FLAVOUR))
+TARGET_GLOBAL_CXXFLAGS += $(TARGET_GLOBAL_CXXFLAGS_$(TARGET_CC_FLAVOUR))
+TARGET_GLOBAL_LDFLAGS += $(TARGET_GLOBAL_LDFLAGS_$(TARGET_CC_FLAVOUR))
 
 ###############################################################################
 ## Update host include/lib directories.
@@ -160,6 +178,26 @@ __extra-target-ldflags += $(strip \
 endif
 
 TARGET_GLOBAL_LDFLAGS += $(__extra-target-ldflags)
+
+###############################################################################
+# Retrieve the path to the target's loader
+###############################################################################
+
+ifeq ("$(TARGET_OS)","linux")
+ifneq ("$(TARGET_OS_FLAVOUR)","android")
+TARGET_LOADER := $(strip $(shell \
+	tmpfile=$$(mktemp tmp.XXXXXXXXXX); \
+	echo 'int main(){return 0;}' | \
+	$(TARGET_CC) $(TARGET_GLOBAL_CFLAGS) \
+		-o $${tmpfile} -xc -; \
+	readelf -l $${tmpfile} | \
+	grep 'interpreter:' | \
+	sed -e 's/.*: \(.*\)\]/\1/g'; \
+	rm -f $${tmpfile}; \
+))
+endif
+endif
+TARGET_LOADER ?=
 
 ###############################################################################
 ## ccache setup.

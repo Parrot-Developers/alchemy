@@ -69,15 +69,10 @@ get-define = $(strip \
 #Start by removing '\"' if exist for not having a '\' in our string
 remove-quotes = $(strip $(subst ",,$(strip $(subst \",,$1))))
 
-# Check that the current directory is the top directory
-check-pwd-is-top-dir = \
-	$(if $(patsubst $(TOP_DIR)%,%,$(realpath $(shell pwd))), \
-		$(error Not at the top directory))
-
 # Determine if a path is absolute.
-# It simply checks if the path starts with a '/'
 # $1 : path to check.
-is-path-absolute = $(strip $(call not,$(patsubst /%,,$1)))
+# It simply checks if the path starts with a '/' or contains ':/' (for windows)
+is-path-absolute = $(if $(patsubst /%,,$1),$(if $(findstring $(colon)/,$1),$(true),$(false)),$(true))
 
 # Determine if a path is a directory. This check does not look in the
 # filesystem, it just checks if the path ends with a '/'.
@@ -679,25 +674,25 @@ modules-compute-depends = \
 		$(call conditional-libraries-setup,$(__mod)) \
 		$(foreach __field,$(modules-fields-depends), \
 			$(eval __modules.$(__mod).$(__field) := $(empty)) \
+			$(eval __modules.$(__mod).$(__field).done := $(false)) \
 		) \
 		$(call __module-update-depends-direct,$(__mod)) \
 		$(call __module-compute-depends-direct,$(__mod)) \
 	) \
 	$(foreach __mod,$(__modules), \
-		$(eval __depends-loop := $(empty)) \
-		$(eval __dummy := $(call __module-compute-depends-static,$(__mod),EXTERNAL_LIBRARIES)) \
-		$(eval __depends-loop := $(empty)) \
-		$(eval __dummy := $(call __module-compute-depends-static,$(__mod),STATIC_LIBRARIES)) \
-		$(eval __depends-loop := $(empty)) \
-		$(eval __dummy := $(call __module-compute-depends-static,$(__mod),WHOLE_STATIC_LIBRARIES)) \
-		$(eval __depends-loop := $(empty)) \
-		$(eval __dummy := $(call __module-compute-depends-static,$(__mod),SHARED_LIBRARIES)) \
+		$(foreach __field,EXTERNAL_LIBRARIES STATIC_LIBRARIES WHOLE_STATIC_LIBRARIES SHARED_LIBRARIES, \
+			$(eval __depends-loop := $(empty)) \
+			$(eval __dummy := $(call __module-compute-depends-static,$(__mod),$(__field))) \
+		) \
 		$(eval __depends-loop := $(empty)) \
 		$(eval __dummy := $(call __module-compute-depends-all,$(__mod))) \
 		$(if $(call streq,$(__modules.$(__mod).MODULE_CLASS),EXECUTABLE), \
 			$(if $(findstring -static,$(__modules.$(__mod).LDFLAGS)), \
-				$(call __module-update-static-executable,$(__mod)) \
+				$(call __module-force-static,$(__mod)) \
 			) \
+		) \
+		$(if $(call streq,$(__modules.$(__mod).FORCE_STATIC),1), \
+			$(call __module-force-static,$(__mod)) \
 		) \
 		$(call __module-compute-depends-link,$(__mod)) \
 	)
@@ -764,10 +759,9 @@ __module-compute-depends-static = \
 	) \
 	$(eval __depends-loop += $1) \
 	$(eval $1.__var := __modules.$1.depends.$2) \
-	$(if $($($1.__var)),$($($1.__var)), \
-		$(eval $($1.__var) := $(strip \
-			$(call uniq2,$(call __module-compute-depends-static-internal,$1,$2))) \
-		) \
+	$(if $($($1.__var).done),$($($1.__var)), \
+		$(eval $($1.__var) := $(call uniq2,$(call __module-compute-depends-static-internal,$1,$2))) \
+		$(eval $($1.__var).done := $(true)) \
 		$($($1.__var)) \
 	) \
 	$(eval __depends-loop := $(filter-out $1,$(__depends-loop)))
@@ -840,11 +834,11 @@ __module-compute-depends-all-internal = \
 		) \
 	)
 
-# Update dependencies for static executables.
+# Force to use static libraries when possible.
 # $1 : module name.
 # Note : for each generic library in depends.all, it will transform shared
 # version to static version.
-__module-update-static-executable = \
+__module-force-static = \
 	$(foreach __lib,$(__modules.$1.depends.all), \
 		$(if $(call is-module-registered,$(__lib)), \
 			$(if $(call streq,$(__modules.$(__lib).MODULE_CLASS),LIBRARY), \
@@ -1162,14 +1156,22 @@ endif
 ###############################################################################
 ## Register a prebuilt module using pkg-config
 ## $1 : name of the alchemy module
-## $2 : name of the pkg-config module (can specify several separaed by space)
+## $2 : name of the pkg-config module (can specify several separated by space)
+## $3 : optional path for PKG_CONFIG_PATH search
 ###############################################################################
+
 register-prebuilt-pkg-config-module = \
-	$(if $(call streq,$(shell pkg-config --exists $2; echo $$?),0), \
+	$(call register-prebuilt-pkg-config-module-internal,$1,$2,pkg-config)
+
+register-prebuilt-pkg-config-module-with-path = \
+	$(call register-prebuilt-pkg-config-module-internal,$1,$2,PKG_CONFIG_PATH=$3 pkg-config)
+
+register-prebuilt-pkg-config-module-internal = \
+	$(if $(call streq,$(shell $3 --exists $2; echo $$?),0), \
 		$(eval include $(CLEAR_VARS)) \
 		$(eval LOCAL_MODULE := $1) \
-		$(eval LOCAL_EXPORT_CFLAGS := $(shell pkg-config --cflags $2)) \
-		$(eval LOCAL_EXPORT_LDLIBS := $(shell pkg-config --libs $2)) \
+		$(eval LOCAL_EXPORT_CFLAGS := $(shell $3 --cflags $2)) \
+		$(eval LOCAL_EXPORT_LDLIBS := $(shell $3 --libs $2)) \
 		$(call local-register-prebuilt-overridable) \
 	)
 
@@ -1639,7 +1641,7 @@ link-hook = $(strip \
 			)\
 		) \
 		$(shell $(BUILD_SYSTEM)/pbuild-hook/pbuild-link-hook.sh \
-			"$(PRIVATE_NM)" "$(PRIVATE_CC) $(TARGET_GLOBAL_CFLAGS)" \
+			"$(PRIVATE_NM)" "$(PRIVATE_CC) $(PRIVATE_GLOBAL_CFLAGS) $(PRIVATE_CFLAGS)" \
 			$1 $2 "$(__depsdata)" $3 \
 		) \
 	))
@@ -1693,12 +1695,13 @@ endef
 ## Fix a .d file with compilation dependencies.
 ## It will ensure that full paths are specified.
 ## $1 : file to fix.
+## It handles both unix path and windows path.
 ###############################################################################
 define fix-deps-file
 @( \
 	[ ! -f $1 ] || (sed -i.bak \
-		-e 's| \([^/\\: ]\)| $(TOP_DIR)/\1|g' \
-		-e 's|^\([^/\\: ]\)|$(TOP_DIR)/\1|g' \
+		-e 's| \([^/: ][^:][^: ]*\)| $(TOP_DIR)/\1|g' \
+		-e 's|^\([^/: ][^:][^: ]*\)|$(TOP_DIR)/\1|g' \
 		$1 && rm -f $1.bak) \
 )
 endef
@@ -1708,16 +1711,19 @@ endef
 ## changed.
 ## $1 : file to create.
 ## $2 : other file with new contents.
+## $3 : optional message when file is really updated (or created)
 ###############################################################################
-define update-file-if-needed
+define update-file-if-needed-msg
 @( \
 	mkdir -p $(dir $1); \
-	if [ ! -f $1 ]; then mv $2 $1; \
-	elif ! cmp -s $2 $1 &>/dev/null; then mv $2 $1; \
+	if [ ! -f $1 ]; then $(if $3,echo $3;) mv $2 $1; \
+	elif ! cmp -s $2 $1 &>/dev/null; then $(if $3,echo $3;) mv $2 $1; \
 	else rm -f $2; \
 	fi; \
 )
 endef
+
+update-file-if-needed = $(call update-file-if-needed-msg,$1,$2,$(empty))
 
 ###############################################################################
 ## Commands for copying files.

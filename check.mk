@@ -79,3 +79,12 @@ ifneq ("$(findstring -mcpu=cortex-a9,$(TARGET_GLOBAL_CFLAGS))","")
 endif
 endif
 endif
+
+###############################################################################
+## check android sdk versions
+###############################################################################
+ifeq ("$(TARGET_OS_FLAVOUR)","android")
+  ifeq ("$(call check-version,$(TARGET_ANDROID_APILEVEL),$(TARGET_ANDROID_MINAPILEVEL))","")
+    $(error TARGET_ANDROID_APILEVEL ($(TARGET_ANDROID_APILEVEL)) shall be at least TARGET_ANDROID_MINAPILEVEL ($(TARGET_ANDROID_MINAPILEVEL)))
+  endif
+endif

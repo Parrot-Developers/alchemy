@@ -45,6 +45,20 @@ $(call _binary-copy-to-final,$(_mode_prefix),$(LOCAL_STAGING_MODULE),$(LOCAL_FIN
 # Copy to staging directory only the static version
 $(call _binary-copy-to-staging,$(_mode_prefix),$(LOCAL_BUILD_MODULE_STATIC),$(LOCAL_STAGING_MODULE_STATIC))
 
+# Copy to staging directory the .dll.a file (windows only)
+LOCAL_BUILD_MODULE_IMPLIB := $(LOCAL_BUILD_MODULE).a
+LOCAL_STAGING_MODULE_IMPLIB :=
+ifeq ("$(TARGET_OS)","windows")
+$(LOCAL_TARGETS): PRIVATE_CLEAN_FILES += $(LOCAL_BUILD_MODULE_IMPLIB)
+$(LOCAL_BUILD_MODULE_IMPLIB): $(LOCAL_BUILD_MODULE)
+  ifeq ("$(LOCAL_DESTDIR)","$(TARGET_DEFAULT_BIN_DESTDIR)")
+    LOCAL_STAGING_MODULE_IMPLIB := $(subst $(TARGET_DEFAULT_BIN_DESTDIR),$(TARGET_DEFAULT_LIB_DESTDIR),$(LOCAL_STAGING_MODULE)).a
+  else
+    LOCAL_STAGING_MODULE_IMPLIB := $(LOCAL_STAGING_MODULE).a
+  endif
+  $(call _binary-copy-to-staging,$(_mode_prefix),$(LOCAL_BUILD_MODULE_IMPLIB),$(LOCAL_STAGING_MODULE_IMPLIB))
+endif
+
 $(LOCAL_TARGETS): PRIVATE_CLEAN_FILES += $(LOCAL_BUILD_MODULE_STATIC)
 
 endif

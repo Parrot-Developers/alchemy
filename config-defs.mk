@@ -91,6 +91,9 @@ __config-desc-escape = $(subst ",\",$(subst |,$(empty),$1))
 
 # Generate arguments suitable for an action on a module config.
 # $1 : module name
+# NOTE: Force adding a space at the end of description to make sure there is
+# at least one space in the argument (otherwise the quotes are removed by windows
+# shell and bad stuff happens...)
 __generate-config-module-args = $(strip \
 	$(eval __mod := $1) \
 	$(eval __desc := $(call __config-desc-escape,$(__modules.$(__mod).DESCRIPTION))) \
@@ -104,7 +107,7 @@ __generate-config-module-args = $(strip \
 		$(eval __configPath := $(call __get-orig-module-config,$(__mod))), \
 		$(eval __configPath := $(empty)) \
 	) \
-	$(eval __arg := $(__mod)|$(__desc)|$(__depends)|$(__dependsCond)|$(__modPath)) \
+	$(eval __arg := $(__mod)|$(__desc)$(space)|$(__depends)|$(__dependsCond)|$(__modPath)) \
 	$(eval __arg := $(__arg)|$(__categoryPath)|$(__sdk)|$(__configPath)) \
 	$(foreach __f,$(__configInFiles), \
 		$(eval __arg := $(__arg)|$(abspath $(__f))) \

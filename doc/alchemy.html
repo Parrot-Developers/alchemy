@@ -262,6 +262,8 @@ it when targetting Android.</li>
 <ul>
 <li><code>TARGET_ANDROID_APILEVEL</code> : Android API level to target.
 </br>Default is <code>17</code></li>
+<li><code>TARGET_ANDROID_MINAPILEVEL</code> : Minimum Android API Level required for the application to run.
+</br>Default is <code>TARGET_ANDROID_APILEVEL</code></li>
 <li><code>TARGET_ANDROID_NDK</code> : Path of the Android NDK to use.
 </br>Default tries to auto-detect the NDK from a few somewhat standard location (<code>/opt/android-ndk-*</code>, <code>~/android-ndk-*</code>, ...)</li>
 <li><code>TARGET_ANDROID_SDK</code> : Path of the Android SDK to use.
@@ -305,7 +307,7 @@ file compiled. The -I prefix will be appended so do not put it.</li>
 </br>Default is <code>rcs</code>, so you should never have to define it.</li>
 <li><code>TARGET_GLOBAL_LDFLAGS</code> : Flags to pass to the linker.</li>
 <li><code>TARGET_GLOBAL_LDLIBS</code> : Additional libraries to use when linking.</li>
-<li><code>TARGET_GLOBAL_PCH_FLAGS</code> : Flags to pass when precompiling headers.</li>
+<li><code>TARGET_GLOBAL_PCHFLAGS</code> : Flags to pass when precompiling headers.</li>
 <li><code>TARGET_GLOBAL_OBJCFLAGS</code> : Flags to pass to the Objective-C compiler.</li>
 </ul>
 
@@ -323,6 +325,9 @@ compile in <code>thumb</code> mode. Normally managed internally but can be overr
 (<code>arm</code> or <code>thumb</code>). Default is <code>thumb</code>, however modules can override this in
 their <code>LOCAL_ARM_MODE</code>. It is only possible to override <code>thumb</code> mode in <code>arm</code>
 mode, not the other way.</li>
+<li><code>TARGET_DEFAULT_ARM_MODE_EXTERNAL</code> : similar to <code>TARGET_DEFAULT_ARM_MODE</code> but
+for external modules (autotools, cmake...). Default is <code>arm</code> for compatibility
+with previous behaviour.</li>
 </ul>
 
 <h3>Other variables</h3>
@@ -447,13 +452,15 @@ external modules when the related project is updated.
 disabled in some sdk use cases.
 </br>Default is <code>1</code>.</li>
 <li><code>USE_COVERAGE</code> : Enable options for coverage (and disable compiler optimisations).
-</br>Default is <code>0</code>.</li>
+</br>Default is <code>0</code>. Can be set to a list of modules or 1 for all modules.</li>
 <li><code>USE_ADDRESS_SANITIZER</code> : Enable options for address sanitizer.
-</br>Default is <code>0</code>.</li>
+</br>Default is <code>0</code>. Can be set to a list of modules or 1 for all modules.</li>
 <li><code>USE_MEMORY_SANITIZER</code> : Enable options for memory sanitizer.
-</br>Default is <code>0</code>.</li>
+</br>Default is <code>0</code>. Set to 1 to enable.</li>
 <li><code>USE_THREAD_SANITIZER</code> : Enable options for thread sanitizer.
-</br>Default is <code>0</code>.</li>
+</br>Default is <code>0</code>. Can be set to a list of modules or 1 for all modules.</li>
+<li><code>USE_UNDEFINED_SANITIZER</code> : Enable options for undefined sanitizer.
+</br>Default is <code>0</code>. Can be set to a list of modules or 1 for all modules.</li>
 <li><code>USE_AUTO_LIB_PREFIX</code> : Automatically add 'lib' prefix when building an library
 whose name is not specified. This is needed for dynamic libraries on some platforms.
 </br>Default is <code>0</code>.</li>
@@ -774,6 +781,12 @@ build order.</p>
 Once migrated to <code>LOCAL_REQUIRED_MODULES</code>, <code>LOCAL_DEPENDS_MODULES</code> might be used
 for another purpose (like really have a build dependency).</p>
 
+<h4><code>LOCAL_FORCE_STATIC</code></h4>
+
+<p>If set to <code>1</code>, forces to use static libraries instead of shared libraries for
+all dependencies. It only forces internal modules, not external ones and only
+if a static version of the dependncy is available (module is <code>STATIC</code> or <code>LIBRARY</code>).</p>
+
 <h4><code>LOCAL_BUILD_PROPERTIES</code></h4>
 
 <p>List of properties to put in file build.prop loaded by boxinit at startup.
@@ -973,6 +986,9 @@ accepts either full path or relative path to LOCAL_PATH.</p>
 <p>If set to 1, all files under LOCAL_PATH will be copied to the build directory
 before the configure step. This allows modules to execute autoreconf out of the
 original source tree.</p>
+
+<p><code>LOCAL_COPY_TO_BUILD_DIR_SKIP_FILES</code> can be used to list files that should not
+be copied (ath relative to <code>LOCAL_PATH</code>.</p>
 
 <h4><code>LOCAL_CODECHECK_xxx</code> <code>LOCAL_CODECHECK_xxx_ARGS</code></h4>
 
@@ -1346,6 +1362,9 @@ system.</p>
 <li><code>LOCAL_QMAKE_PRO_FILE</code> : The name of the <code>.pro</code> file to be used. If not
 specified, the name is assumed to be <code>$(LOCAL_MODULE).pro</code>. The path is
 relative to <code>LOCAL_PATH</code></li>
+<li><code>LOCAL_QMAKE_CONFIGURE_ARGS</code> : Additional arguments to give to qmake.</li>
+<li><code>LOCAL_QMAKE_MAKE_BUILD_ARGS</code> : Additional arguments to give to make build.</li>
+<li><code>LOCAL_QMAKE_MAKE_INSTALL_ARGS</code> : Additional arguments to give to make install.</li>
 </ul>
 
 <h3>Python extension modules</h3>
@@ -1457,7 +1476,7 @@ customized before invoking <code>alchemy</code>. For the meaning, see the corres
 <li><code>HOST_GLOBAL_ARFLAGS</code> : <code>rcs</code></li>
 <li><code>HOST_GLOBAL_LDFLAGS</code> : empty</li>
 <li><code>HOST_GLOBAL_LDLIBS</code> : empty</li>
-<li><code>HOST_GLOBAL_PCH_FLAGS</code> : empty</li>
+<li><code>HOST_GLOBAL_PCHFLAGS</code> : <code>-x c++-header</code></li>
 <li><code>HOST_CC</code> : <code>gcc</code></li>
 <li><code>HOST_CXX</code> : <code>g++</code></li>
 <li><code>HOST_AS</code> : <code>as</code></li>
@@ -1561,6 +1580,12 @@ the error:</p>
     typedef struct _CustomTypedef CustomTypedef; /* custom typedef for consistency with other GObjects */
 </pre>
 
+<p>You can also ignore a warning for a whole file by using:</p>
+
+<pre>
+    codecheck_ignore_file[TYPE1(,TYPE2...)]
+</pre>
+
 <h2>Codecheck for C++ false positives or intentional deviations</h2>
 
 <p>You can ignore specific c++ codecheck warnings in a C++ source code file by inserting
@@ -1654,6 +1679,7 @@ compilation is in progress.</p>
 features.</p>
 
 <ul>
+<li><code>var-&lt;VAR&gt;</code> : Prints the contents of the variable <code>&lt;VAR&gt;</code> interpreted by alchemy and exits.</li>
 <li><code>F=1</code> : Force re-checking external modules for modifications. By default they
 are not checked to speed-up thing. Note that if a module is explicitly given
 as a goal in <code>make</code> command, it will be re-checked.</li>

@@ -32,6 +32,7 @@ my $fix = 0;
 my $root;
 my %debug;
 my %ignore_type = ();
+my %ignore_type_file = ();
 my %ignore_type_line = ();
 my %camelcase = ();
 my @ignore = ();
@@ -1388,7 +1389,7 @@ sub possible {
 my $prefix = '';
 
 sub show_type {
-       return !defined $ignore_type{$_[0]} && !defined $ignore_type_line{$_[0]}
+       return !defined $ignore_type{$_[0]} && !defined $ignore_type_line{$_[0]} && !defined $ignore_type_file{$_[0]}
 }
 
 sub report {
@@ -1655,6 +1656,7 @@ sub process {
 
 	$realcnt = 0;
 	$linenr = 0;
+	%ignore_type_file = ();
 	foreach my $line (@lines) {
 		$linenr++;
 
@@ -1874,6 +1876,14 @@ sub process {
 
 # ignore non-hunk lines and lines being removed
 		next if (!$hunk_line || $line =~ /^-/);
+
+# add temporary ignored error types for the current file
+		if ($prevrawline =~ /codecheck_ignore_file\[(.*)\]/) {
+			my @ignore_temp = split(/,/, $1);
+			foreach my $word (@ignore_temp) {
+				$ignore_type_file{$word}++;
+			}
+		}
 
 # add temporary ignored error types for the current line
 		%ignore_type_line = ();

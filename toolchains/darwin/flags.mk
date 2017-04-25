@@ -8,11 +8,6 @@
 
 ifeq ("$(TARGET_OS_FLAVOUR)","native")
 
-# Add gettext from HomeBrew
-# TODO: remove (was needed for kconfig compilation only ?)
-TARGET_GLOBAL_CFLAGS += -I/usr/local/opt/gettext/include
-TARGET_GLOBAL_LDFLAGS += -L/usr/local/opt/gettext/lib -lintl
-
 # Need to explicitely link C++ lib on MacOS
 TARGET_GLOBAL_LDFLAGS += -lc++
 

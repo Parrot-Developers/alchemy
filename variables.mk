@@ -71,9 +71,12 @@ vars-LOCAL += EXTERNAL_LIBRARIES
 # General libraries to add in dependency based on their actual class (STATIC/SHARED/EXTERNAL).
 vars-LOCAL += LIBRARIES
 
+# Force using static libraries as dependencies instead of shared libraries
+vars-LOCAL += FORCE_STATIC
+
 # Libraries whose dependency is conditional
 # Format : list of pair <var>:<lib>
-# <var> : variable to test
+# <var> : variable to test (can be special value OPTIONAL to check if in build config)
 # <lib> : library to add in LOCAL_LIBRARIES if <var> is defined
 vars-LOCAL += CONDITIONAL_LIBRARIES
 
@@ -81,10 +84,10 @@ vars-LOCAL += CONDITIONAL_LIBRARIES
 vars-LOCAL += DEPENDS_HEADERS
 
 # Other modules required (at runtime for example). But not required for build
-# TODO: change the meaning of DEPENDS_MODULES to introduce build order
-# keeping REQUIRED_MODULES with no build order
-vars-LOCAL += DEPENDS_MODULES
 vars-LOCAL += REQUIRED_MODULES
+
+# Other modules required to build
+vars-LOCAL += DEPENDS_MODULES
 
 # Host modules required to build
 vars-LOCAL += DEPENDS_HOST_MODULES
@@ -146,6 +149,7 @@ vars-LOCAL += NO_COPY_TO_STAGING
 
 # Copy everything under LOCAL_PATH in build directory first.
 vars-LOCAL += COPY_TO_BUILD_DIR
+vars-LOCAL += COPY_TO_BUILD_DIR_SKIP_FILES
 
 # Files and directories to delete during a clean
 vars-LOCAL += CLEAN_FILES
@@ -197,6 +201,9 @@ vars-LOCAL += CMAKE_MAKE_INSTALL_ARGS
 
 # QMake customization
 vars-LOCAL += QMAKE_PRO_FILE
+vars-LOCAL += QMAKE_CONFIGURE_ARGS
+vars-LOCAL += QMAKE_MAKE_BUILD_ARGS
+vars-LOCAL += QMAKE_MAKE_INSTALL_ARGS
 
 # Python extension customization
 vars-LOCAL += PYTHONEXT_SETUP_PY_ENV
@@ -296,6 +303,9 @@ vars-LOCAL += SDK
 
 vars-LOCAL += USE_CLANG
 vars-LOCAL += CLANG_PATH
+
+# To explicitly add dependencies (for example with cmake)
+vars-LOCAL += EXTRA_DEPENDENCIES
 
 ###############################################################################
 # Old variables still suported but no more in vars-LOCAL or macros-LOCAL
@@ -398,21 +408,25 @@ vars-TARGET += DEPLOY_ROOT
 vars-TARGET += CROSS
 vars-TARGET += CC
 vars-TARGET += CXX
-vars-TARGET += CPP
-vars-TARGET += AR
 vars-TARGET += AS
+vars-TARGET += FC
+vars-TARGET += AR
 vars-TARGET += LD
+vars-TARGET += CPP
 vars-TARGET += NM
 vars-TARGET += STRIP
 vars-TARGET += OBJCOPY
 vars-TARGET += OBJDUMP
 vars-TARGET += RANLIB
+vars-TARGET += WINDRES
 
 # Flags for tools
 vars-TARGET += GLOBAL_C_INCLUDES
 vars-TARGET += GLOBAL_ASFLAGS
-vars-TARGET += GLOBAL_CFLAGS
 vars-TARGET += GLOBAL_CXXFLAGS
+vars-TARGET += GLOBAL_CXXFLAGS_gcc
+vars-TARGET += GLOBAL_CXXFLAGS_clang
+vars-TARGET += GLOBAL_CFLAGS
 vars-TARGET += GLOBAL_CFLAGS_gcc
 vars-TARGET += GLOBAL_CFLAGS_clang
 vars-TARGET += GLOBAL_CFLAGS_arm
@@ -422,7 +436,7 @@ vars-TARGET += GLOBAL_LDFLAGS_gcc
 vars-TARGET += GLOBAL_LDFLAGS_clang
 vars-TARGET += GLOBAL_LDLIBS
 vars-TARGET += GLOBAL_ARFLAGS
-vars-TARGET += GLOBAL_PCH_FLAGS
+vars-TARGET += GLOBAL_PCHFLAGS
 vars-TARGET += GLOBAL_VALAFLAGS
 vars-TARGET += GLOBAL_OBJCFLAGS
 
@@ -459,6 +473,7 @@ vars-TARGET += AUTOTOOLS_CONFIGURE_PREFIX
 vars-TARGET += AUTOTOOLS_CONFIGURE_SYSCONFDIR
 vars-TARGET += AUTOTOOLS_INSTALL_DESTDIR
 vars-TARGET += PKG_CONFIG_ENV
+vars-TARGET += PKG_CONFIG_PATH
 
 # This variable can be modified by some makefiles (os that needs to install
 # headers prior to start anything)
@@ -486,31 +501,35 @@ vars-TARGET_SETUP += FLOAT_ABI
 vars-TARGET_SETUP += CROSS
 vars-TARGET_SETUP += CC
 vars-TARGET_SETUP += CXX
-vars-TARGET_SETUP += CPP
-vars-TARGET_SETUP += AR
 vars-TARGET_SETUP += AS
+vars-TARGET_SETUP += FC
+vars-TARGET_SETUP += AR
 vars-TARGET_SETUP += LD
+vars-TARGET_SETUP += CPP
 vars-TARGET_SETUP += NM
 vars-TARGET_SETUP += STRIP
 vars-TARGET_SETUP += OBJCOPY
 vars-TARGET_SETUP += OBJDUMP
 vars-TARGET_SETUP += RANLIB
+vars-TARGET_SETUP += WINDRES
 
 # Flags for tools
 vars-TARGET_SETUP += GLOBAL_C_INCLUDES
 vars-TARGET_SETUP += GLOBAL_ASFLAGS
 vars-TARGET_SETUP += GLOBAL_CFLAGS
-vars-TARGET_SETUP += GLOBAL_CXXFLAGS
 vars-TARGET_SETUP += GLOBAL_CFLAGS_gcc
 vars-TARGET_SETUP += GLOBAL_CFLAGS_clang
 vars-TARGET_SETUP += GLOBAL_CFLAGS_arm
 vars-TARGET_SETUP += GLOBAL_CFLAGS_thumb
+vars-TARGET_SETUP += GLOBAL_CXXFLAGS
+vars-TARGET_SETUP += GLOBAL_CXXFLAGS_gcc
+vars-TARGET_SETUP += GLOBAL_CXXFLAGS_thumb
 vars-TARGET_SETUP += GLOBAL_LDFLAGS
 vars-TARGET_SETUP += GLOBAL_LDFLAGS_gcc
 vars-TARGET_SETUP += GLOBAL_LDFLAGS_clang
 vars-TARGET_SETUP += GLOBAL_LDLIBS
 vars-TARGET_SETUP += GLOBAL_ARFLAGS
-vars-TARGET_SETUP += GLOBAL_PCH_FLAGS
+vars-TARGET_SETUP += GLOBAL_PCHFLAGS
 vars-TARGET_SETUP += GLOBAL_VALAFLAGS
 vars-TARGET_SETUP += GLOBAL_OBJCFLAGS
 vars-TARGET_SETUP += LDCONFIG_DIRS

@@ -116,7 +116,7 @@ $(_module_configured_stamp_file): $(_module_bootstrapped_stamp_file)
 
 # Make sure that the 'build-filename' file will be created for external module
 # TODO warn if file was not created ?
-$(_module_built_stamp_file): $(_module_configured_stamp_file)
+$(_module_built_stamp_file): $(_module_configured_stamp_file) $(addprefix $(LOCAL_PATH)/,$(LOCAL_EXTRA_DEPENDENCIES))
 	+$(call _generic-exec-step,BUILD,Building)
 	@mkdir -p $(dir $@)
 	$(if $(call is-module-external,$(PRIVATE_MODULE)), \

@@ -16,7 +16,7 @@ $(call register-prebuilt-pkg-config-module,libusb_1_0,libusb-1.0)
 ifeq ("$(TARGET_ARCH)","$(HOST_ARCH)")
 
 $(call register-prebuilt-pkg-config-module,avahi,avahi-client)
-$(call register-prebuilt-pkg-config-module,json,json)
+$(call register-prebuilt-pkg-config-module,json,json-c)
 $(call register-prebuilt-pkg-config-module,glib,glib-2.0 gobject-2.0 gio-2.0)
 $(call register-prebuilt-pkg-config-module,opengles,glesv2)
 $(call register-prebuilt-pkg-config-module,opengl,gl)
@@ -99,6 +99,11 @@ $(call local-register-prebuilt-overridable)
 include $(CLEAR_VARS)
 LOCAL_MODULE := liblapack
 LOCAL_EXPORT_LDLIBS := -llapack
+$(call local-register-prebuilt-overridable)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libav
+LOCAL_EXPORT_LDLIBS := -lavformat -lavcodec -lavutil
 $(call local-register-prebuilt-overridable)
 
 include $(CLEAR_VARS)

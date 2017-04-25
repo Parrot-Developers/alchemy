@@ -45,7 +45,6 @@ endif
 $(GDB_WRAPPER_SCRIPT): .FORCE
 	@mkdir -p $(dir $@)
 	@rm -f $@.tmp
-	@echo "Gdb wrapper: $@"
 	@echo "define set-lib-path" >> $@.tmp
 ifneq ("$(GDB_ABSOLUTE_PREFIX)","")
 	@echo "  set solib-absolute-prefix $(GDB_ABSOLUTE_PREFIX)" >> $@.tmp
@@ -58,7 +57,7 @@ ifneq ("$(GDB_DEBUG_FILE_DIR)","")
 endif
 	@echo "end" >> $@.tmp
 	@echo "set-lib-path" >> $@.tmp
-	$(call update-file-if-needed,$@,$@.tmp)
+	$(call update-file-if-needed-msg,$@,$@.tmp,"Gdb wrapper: $@")
 
 .PHONY: gdb-wrapper
 gdb-wrapper: $(GDB_WRAPPER_SCRIPT)

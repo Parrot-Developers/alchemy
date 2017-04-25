@@ -38,9 +38,6 @@ TEMP_SUFFIX = ".alchemy"
 # Title we want to display (also saved in config files)
 KCONFIG_TITLE = "Alchemy Configuration"
 
-# Suffix of tools when installed on host
-KCONFIG_INSTALLED_SUFFIX = "-parrot"
-
 # TARGET_xxx variables to get from environment and to add in config file
 TARGET_VARIABLES = [
     "TARGET_PRODUCT",
@@ -179,16 +176,8 @@ class Module:
 # Get the full path to a kconfig binary.
 #===============================================================================
 def getKconfigPath(name):
-    useInstalled = os.environ.get("KCONFIG_USE_INSTALLED", "")
-    if useInstalled != "1":
-        # Use the one in alchemy tree if available
-        binDir = os.path.join(SCRIPT_PATH, "../kconfig/bin-" + HOST_OS + "-" + HOST_ARCH)
-        path = os.path.join(binDir, name)
-        if os.path.exists(path):
-            return path
-
-    # Use the one installed on the host
-    return name + KCONFIG_INSTALLED_SUFFIX
+    binDir = os.path.join(SCRIPT_PATH, "../kconfig/bin-" + HOST_OS + "-" + HOST_ARCH)
+    return os.path.join(binDir, name)
 
 #===============================================================================
 # Simplify tree of menus by moving up modules to first non-empty parent.
@@ -284,6 +273,9 @@ def safeUnlink(path):
 def safeRename(old, new):
     if platform.system() == "Windows" and os.path.exists(new):
         safeUnlink(new)
+    dirPath = os.path.dirname(new)
+    if not os.path.exists(dirPath):
+        os.makedirs(dirPath)
     shutil.copy(old, new)
     safeUnlink(old)
 
@@ -949,7 +941,7 @@ def main():
 
     # Create 'config.in' file
     (configInFd, configInPath) = tempfile.mkstemp(suffix=TEMP_SUFFIX)
-    configInFile = os.fdopen(configInFd, "w")
+    configInFile = os.fdopen(configInFd, "w", newline="\n")
     logging.info("Generating full 'config.in' file as %s", configInPath)
     writeTargetVarConfigIn(configInFile)
     writeFullConfigIn(configInFile, menuRoot)
@@ -958,7 +950,7 @@ def main():
 
     # Create full '.config' file
     (fullConfigFd, fullConfigPath) = tempfile.mkstemp(suffix=TEMP_SUFFIX)
-    fullConfigFile = os.fdopen(fullConfigFd, "w")
+    fullConfigFile = os.fdopen(fullConfigFd, "w", newline="\n")
     logging.info("Generating full '.config' file as %s", fullConfigPath)
     prepareFullConfig(fullConfigFile, menuRoot, options.main, modules)
     fullConfigFile.close()

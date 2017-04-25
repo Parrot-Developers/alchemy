@@ -47,6 +47,7 @@ help:
 	@echo "  build-graph : create a graph of build dependencies."
 	@echo "  sdk         : create a sdk from current confing."
 	@echo "  symbols     : create an archive with debugging symbols."
+	@echo "  var-<VAR>   : print the contents of variable <VAR>."
 	@echo ""
 	@echo "Usefull variables:"
 	@echo "  V: set to 1 to activate verbose mode."

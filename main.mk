@@ -13,7 +13,7 @@
 # Alchemy version
 ALCHEMY_VERSION_MAJOR := 1
 ALCHEMY_VERSION_MINOR := 3
-ALCHEMY_VERSION_REV   := 1
+ALCHEMY_VERSION_REV   := 2
 ALCHEMY_VERSION := $(ALCHEMY_VERSION_MAJOR).$(ALCHEMY_VERSION_MINOR).$(ALCHEMY_VERSION_REV)
 
 # Make sure SHELL is correctly set
@@ -43,6 +43,7 @@ USE_COVERAGE ?= 0
 USE_ADDRESS_SANITIZER ?= 0
 USE_MEMORY_SANITIZER ?= 0
 USE_THREAD_SANITIZER ?= 0
+USE_UNDEFINED_SANITIZER ?= 0
 USE_AUTOTOOLS_CACHE ?= 0
 USE_AUTO_LIB_PREFIX ?= 0
 USE_LINK_MAP_FILE ?= 1
@@ -326,7 +327,7 @@ ALL_BUILD_MODULES := $(strip \
 # If no config file available, remove modules with unknown dependencies
 ifeq ("$(GLOBAL_CONFIG_FILE_AVAILABLE)","0")
 $(foreach __mod,$(ALL_BUILD_MODULES), \
-	$(foreach __lib,$(call module-get-all-depends,$(__mod)), \
+	$(foreach __lib,$(call module-get-all-depends,$(__mod)) $(call module-get-headers-depends,$(__mod)), \
 		$(if $(call is-module-registered,$(__lib)),$(empty), \
 			$(info Disabling $(__mod): has unknown dependency $(__lib)) \
 			$(eval ALL_BUILD_MODULES := $(filter-out $(__mod),$(ALL_BUILD_MODULES))) \
@@ -402,7 +403,7 @@ $(info Generating rules...)
 # If a module is specified in goals, only include this one and its dependencies.
 # If 'all' or 'check' is also given do not do the filter
 # For meta packages, also get config dependencies (for build/clean shortcuts)
-ifeq ("$(call is-targets-in-make-goals,all check all-clean all-dirclean)","")
+ifeq ("$(call is-targets-in-make-goals,all check all-clean all-dirclean all-doc all-codecheck)","")
 $(foreach __mod,$(ALL_BUILD_MODULES) $(ALL_BUILD_MODULES_HOST), \
 	$(if $(call is-module-in-make-goals,$(__mod)), \
 		$(eval __modlist += $(__mod)) \
@@ -481,6 +482,11 @@ $(AUTOCONF_MERGE_FILE): $(__autoconf-list)
 ###############################################################################
 ## Main rules.
 ###############################################################################
+
+# Poll variable contents after every helpers have been loaded
+.PHONY: var-%
+var-%:
+	@echo $*=$($*)
 
 .PHONY: all
 all: $(ALL_BUILD_MODULES) $(ALL_BUILD_MODULES_HOST)

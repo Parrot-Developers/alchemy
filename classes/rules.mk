@@ -51,6 +51,24 @@ _module_all_stamp_files := \
 	$(_module_installed_stamp_file) \
 	$(_module_done_stamp_file)
 
+# Module Architecture
+ifneq ("$(LOCAL_HOST_MODULE)","")
+  _module_arch := $(HOST_ARCH)
+else ifeq ("$(TARGET_ARCH)","arm")
+  # Can be arm or thumb
+  LOCAL_ARM_MODE := $(strip $(LOCAL_ARM_MODE))
+  ifeq ("$(LOCAL_ARM_MODE)","")
+    ifneq ("$(call is-module-external,$(LOCAL_MODULE))","")
+      LOCAL_ARM_MODE := $(TARGET_DEFAULT_ARM_MODE_EXTERNAL)
+    else
+      LOCAL_ARM_MODE := $(TARGET_DEFAULT_ARM_MODE)
+    endif
+  endif
+  _module_arch := $(LOCAL_ARM_MODE)
+else
+  _module_arch := $(TARGET_ARCH)
+endif
+
 _module_cc_flavour := $($(_mode_prefix)_CC_FLAVOUR)
 _module_cc         := $($(_mode_prefix)_CC)
 _module_cxx        := $($(_mode_prefix)_CXX)
@@ -63,6 +81,21 @@ _module_cpp        := $($(_mode_prefix)_CPP)
 _module_ranlib     := $($(_mode_prefix)_RANLIB)
 _module_objcopy    := $($(_mode_prefix)_OBJCOPY)
 _module_objdump    := $($(_mode_prefix)_OBJDUMP)
+_module_windres    := $($(_mode_prefix)_WINDRES)
+
+# Override some values if clang should be used locally
+ifeq ("$(LOCAL_USE_CLANG)","1")
+  ifneq ("$(_module_cc_flavour)","clang")
+    $(_module_cc_flavour) := clang
+    ifneq ("$(LOCAL_CLANG_PATH)","")
+      _module_cc := $(LOCAL_CLANG_PATH)/clang
+      _module_cxx := $(LOCAL_CLANG_PATH)/clang++
+    else
+      _module_cc := clang
+      _module_cxx := clang++
+    endif
+  endif
+endif
 
 # Full path to build/staging module
 LOCAL_BUILD_MODULE := $(call module-get-build-filename,$(LOCAL_MODULE))
@@ -125,12 +158,6 @@ ifeq ("$(_mode_host)","")
 ifeq ("$(TARGET_ARCH)","arm")
 
 # Make sure LOCAL_ARM_MODE is valid
-# If not set, use default mode
-LOCAL_ARM_MODE := $(strip $(LOCAL_ARM_MODE))
-ifeq ("$(LOCAL_ARM_MODE)","")
-  LOCAL_ARM_MODE := $(TARGET_DEFAULT_ARM_MODE)
-endif
-
 ifneq ("$(LOCAL_ARM_MODE)","arm")
 ifneq ("$(LOCAL_ARM_MODE)","thumb")
   $(error $(LOCAL_PATH): LOCAL_ARM_MODE is not valid : $(LOCAL_ARM_MODE))
@@ -168,13 +195,16 @@ $(call check-flags,LOCAL_EXPORT_CXXFLAGS,$(check-flags-debug),$(check-flags-debu
 
 # Forbid module to tweak architecture/cpu flags
 # They shall come from alchemy or product in TARGET_XXX variables
-check-flags-arch-cpu := -march=% -mcpu=% -mtune=% -mfloat-abi=%
+check-flags-arch-cpu := -march=% -mcpu=% -mtune=%
 check-flags-arch-cpu-message := please let alchemy or product determine arch/cpu flags
 
 # Unfortunately, there is one use case where a module overwrites the -mfpu=
 # due to a bug in 2012 toolchain
+# Also allow android armv7a to specify neon (can break at runtime if wrongly used)
 ifeq ("$(call str-starts-with,$(TARGET_CC_PATH),/opt/arm-2012.03)","")
-  check-flags-arch-cpu += -mfpu=%
+ifneq ("$(TARGET_OS)-$(TARGET_OS_FLAVOUR)-$(TARGET_CPU)","linux-android-armv7a")
+  check-flags-arch-cpu += -mfloat-abi=% -mfpu=%
+endif
 endif
 
 $(call check-flags,LOCAL_CFLAGS,$(check-flags-arch-cpu),$(check-flags-arch-cpu-message))
@@ -282,10 +312,10 @@ LOCAL_TARGETS += \
 	$(_module_autoconf_file) \
 	$(_module_revision_h_file)
 
-# Host modules required
+# Modules required (both host and target)
 all_prerequisites += \
-	$(foreach __mod,$(LOCAL_DEPENDS_HOST_MODULES), \
-		$(call module-get-stamp-file,$(__mod),installed))
+	$(foreach __mod,$(LOCAL_DEPENDS_HOST_MODULES) $(LOCAL_DEPENDS_MODULES), \
+		$(call module-get-stamp-file,$(__mod),done))
 
 ###############################################################################
 ## Import of dependencies.
@@ -382,11 +412,7 @@ $(call add-debug-flags)
 
 # Code coverage & analysis flags (for internal modules only)
 ifeq ("$(and $(call is-module-external,$(LOCAL_MODULE)),$(call strneq,$(LOCAL_MODULE_CLASS),QMAKE))","")
-ifeq ("$(USE_COVERAGE)","1")
-  LOCAL_CFLAGS  += -fprofile-arcs -ftest-coverage -O0 -D__COVERAGE__
-  LOCAL_LDFLAGS += -fprofile-arcs -ftest-coverage
-endif
-ifeq ("$(USE_ADDRESS_SANITIZER)","1")
+ifneq ($(filter $(LOCAL_MODULE) 1,$(USE_ADDRESS_SANITIZER)),)
   LOCAL_CFLAGS += -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -O1 -D__ADDRESSSANITIZER__
   LOCAL_LDFLAGS += -fsanitize=address
 endif
@@ -394,11 +420,31 @@ ifeq ("$(USE_MEMORY_SANITIZER)","1")
   LOCAL_CFLAGS += -fsanitize=memory -fno-omit-frame-pointer -fno-optimize-sibling-calls -O1 -D__MEMORYSANITIZER__
   LOCAL_LDFLAGS += -fsanitize=memory
 endif
-ifeq ("$(USE_THREAD_SANITIZER)","1")
+ifneq ($(filter $(LOCAL_MODULE) 1,$(USE_THREAD_SANITIZER)),)
   LOCAL_CFLAGS += -fsanitize=thread -O1 -D__THREADSANITIZER__
   LOCAL_LDFLAGS += -fsanitize=thread
 endif
+ifneq ($(filter $(LOCAL_MODULE) 1,$(USE_UNDEFINED_SANITIZER)),)
+  LOCAL_CFLAGS += -fsanitize=undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls -O1 -D__UNDEFINEDSANITIZER__
+  LOCAL_LDFLAGS += -fsanitize=undefined
 endif
+ifneq ($(filter $(LOCAL_MODULE) 1,$(USE_COVERAGE)),)
+  LOCAL_CFLAGS  += -fprofile-arcs -ftest-coverage -O0 -D__COVERAGE__
+  LOCAL_LDFLAGS += -fprofile-arcs -ftest-coverage
+endif
+endif
+
+###############################################################################
+## Prepend global flags depending on compiler arch
+###############################################################################
+
+LOCAL_CFLAGS := \
+	$($(_mode_prefix)_GLOBAL_CFLAGS_$(_module_arch)) \
+	$(LOCAL_CFLAGS)
+
+LOCAL_LDFLAGS := \
+	$($(_mode_prefix)_GLOBAL_LDFLAGS_$(_module_arch)) \
+	$(LOCAL_LDFLAGS)
 
 ###############################################################################
 ## Determine flags that external modules will need to add manually.
@@ -406,13 +452,19 @@ endif
 ## Moreover CXXFLAGS does not inherit from CFLAGS so it must contains it.
 ###############################################################################
 
-# Compilation flags
-_external_add_ASFLAGS := $(LOCAL_ASFLAGS)
-_external_add_CFLAGS := $(LOCAL_CFLAGS) $(call normalize-c-includes,$(LOCAL_C_INCLUDES))
-_external_add_CXXFLAGS := $(_external_add_CFLAGS) $(LOCAL_CXXFLAGS)
+_external_add_ASFLAGS := \
+	$(LOCAL_ASFLAGS)
 
-# Linker flags
-_external_add_LDFLAGS :=
+_external_add_CFLAGS := \
+	$(call normalize-c-includes,$(LOCAL_C_INCLUDES)) \
+	$(LOCAL_CFLAGS)
+
+_external_add_CXXFLAGS := \
+	$(filter-out -std=%,$(_external_add_CFLAGS)) \
+	$(LOCAL_CXXFLAGS)
+
+_external_add_LDFLAGS := \
+	$(LOCAL_LDFLAGS)
 
 # Whole static libraries
 # As one unique -Wl option otherwise libtool makes a terrible mess with it
@@ -480,8 +532,9 @@ ifeq ("$(LOCAL_COPY_TO_BUILD_DIR)","1")
 # All files under LOCAL_PATH
 _module_copy_to_build_dir_src_files := $(shell find $(LOCAL_PATH) \
 	-name '.git' -prune -o \
-	-name '$(USER_MAKEFILE_NAME)' -prune \
-	-o -not -type d -print)
+	-name '$(USER_MAKEFILE_NAME)' -prune -o \
+	$(foreach __f,$(addprefix $(LOCAL_PATH)/,$(LOCAL_COPY_TO_BUILD_DIR_SKIP_FILES)),-path $(__f) -prune -o) \
+	-not -type d -print)
 
 # Where they wil be copied
 _module_copy_to_build_dir_dst_files := $(patsubst $(LOCAL_PATH)/%,$(_module_copy_to_build_dir_dst_dir)/%, \
@@ -636,8 +689,15 @@ _delete-file = \
 
 _delete-files = $(foreach __f,$1,$(call _delete-file,$(__f)))
 
+# Update list of 'done' files with module file name
+# Using sort ensures there is no duplicates in the list
+ifeq ("$(patsubst %.done,1,$(LOCAL_MODULE_FILENAME))","1")
+  LOCAL_DONE_FILES := $(sort $(LOCAL_DONE_FILES) $(LOCAL_MODULE_FILENAME))
+endif
+
 # If not skipping checks of of module built externally, delete some files
 # TODO: delete custom targets ?
+# TODO: handle absolute file for LOCAL_DONE_FILES
 ifeq ("$(skip_ext_checks)","0")
   $(call _delete-files,$(addprefix $(_module_build_dir)/,$(LOCAL_DONE_FILES)))
   ifneq ("$(call is-module-external,$(LOCAL_MODULE))","")
@@ -689,6 +749,7 @@ include $(BUILD_SYSTEM)/classes/extra-rules.mk
 ## Rule-specific variable definitions.
 ###############################################################################
 
+$(LOCAL_TARGETS): PRIVATE_ARCH := $(_module_arch)
 $(LOCAL_TARGETS): PRIVATE_CC_FLAVOUR := $(_module_cc_flavour)
 $(LOCAL_TARGETS): PRIVATE_CC := $(_module_cc)
 $(LOCAL_TARGETS): PRIVATE_CXX := $(_module_cxx)
@@ -701,6 +762,7 @@ $(LOCAL_TARGETS): PRIVATE_CPP := $(_module_cpp)
 $(LOCAL_TARGETS): PRIVATE_RANLIB := $(_module_ranlib)
 $(LOCAL_TARGETS): PRIVATE_OBJCOPY := $(_module_objcopy)
 $(LOCAL_TARGETS): PRIVATE_OBJDUMP := $(_module_objdump)
+$(LOCAL_TARGETS): PRIVATE_WINDRES := $(_module_windres)
 $(LOCAL_TARGETS): PRIVATE_PATH := $(LOCAL_PATH)
 $(LOCAL_TARGETS): PRIVATE_MODULE := $(LOCAL_MODULE)
 $(LOCAL_TARGETS): PRIVATE_MODULE_FILENAME := $(LOCAL_MODULE_FILENAME)

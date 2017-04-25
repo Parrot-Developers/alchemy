@@ -41,12 +41,14 @@ _autotools_configure_args := \
 # Cache file for target
 _autotools_target_cache_file := $(TARGET_OUT_BUILD)/autotools.cache
 
-# Force timestamp ordering of some generated files to make sure an automatic
-# autoreconf is not triggered
-# Only do it if the source dir is not LOCAL_PATH (so either extracted from
-# archive or copied in build directory)
-# No need to do that if a custom bootstrap is done
-# Not done if a custom bootstrap command is specified
+# - Force timestamp ordering of some generated files to make sure an automatic
+#   autoreconf is not triggered
+#   Only do it if the source dir is not LOCAL_PATH (so either extracted from
+#   archive or copied in build directory)
+#   No need to do that if a custom bootstrap is done
+# - Use our own copy of config.sub to make sure we have an up to date version
+#   for old packages that lack support for some platforms (aarch64, android...)
+#   TODO: do the copy only if our script is newer (compare timestamp with -t)
 define _autotools-hook-pre-configure
 	$(if $(call strneq,$(PRIVATE_SRC_DIR),$(PRIVATE_PATH)), \
 		$(Q) find $(PRIVATE_SRC_DIR) -name Makefile.am -exec touch {} \;$(endl) \
@@ -56,25 +58,31 @@ define _autotools-hook-pre-configure
 		$(Q) find $(PRIVATE_SRC_DIR) -name config.h.in -exec touch {} \;$(endl) \
 		$(Q) find $(PRIVATE_SRC_DIR) -name Makefile.in -exec touch {} \;$(endl) \
 		$(Q) find $(PRIVATE_SRC_DIR) -name configure -exec touch {} \;$(endl) \
+		$(Q) find $(PRIVATE_SRC_DIR) -name config.sub -exec cp -af $(BUILD_SYSTEM)/scripts/config.sub {} \;$(endl) \
 	)
 endef
 
 # Patch libtool to make it work properly for cross-compilation.
-# Modify the libdir in .la files installed in staging dir so that they reference
-# the staging dir and not the final dir. Do this only if dest dir is not empty
-# (in native build staging dir is the final dir specified in configure script).
-# Use -rpath-link instead of -rpath to avoid hardcoding host path in binaries.
+# - Modify the libdir in .la files installed in staging dir so that they reference
+#   the staging dir and not the final dir. Do this only if dest dir is not empty
+#   (in native build staging dir is the final dir specified in configure script).
+# - Use -rpath-link instead of -rpath to avoid hardcoding host path in binaries.
+# - Add more exception to flags that needs to be pass to the linker.
+#   We search for the '-m*' excetion and add other (mainly for clang).
+#   Another alternative would be to create wrapper with those flags.
+#
 # See this link for more information :
 # http://www.metastatic.org/text/libtool.html
 define _autotools-libtool-patch
 	$(Q) for f in `find $(PRIVATE_OBJ_DIR) -name libtool -o -name ltmain.sh`; do \
 		echo "Patching $$f"; \
-		$(if $($(PRIVATE_MODE)_AUTOTOOLS_INSTALL_DESTDIR), \
-			sed -i.bak -e "s|^libdir='\$$install_libdir'|libdir='\$${install_libdir:\+$($(PRIVATE_MODE)_AUTOTOOLS_INSTALL_DESTDIR)\$$install_libdir}'|1" $$f; \
-		) \
 		sed -i.bak \
-			-e 's|\({\?wl}\?\)-\+rpath|\1-rpath-link|1' \
-			-e 's|need_relink=yes|need_relink=no|1' \
+			$(if $($(PRIVATE_MODE)_AUTOTOOLS_INSTALL_DESTDIR), \
+				-e "s!^libdir='\$$install_libdir'!libdir='\$${install_libdir:\+$($(PRIVATE_MODE)_AUTOTOOLS_INSTALL_DESTDIR)\$$install_libdir}'!1" \
+			) \
+			-e 's!\({\?wl}\?\)-\+rpath!\1-rpath-link!1' \
+			-e 's!need_relink=yes!need_relink=no!1' \
+			-e 's!-m\*!-m\*|--sysroot=\*|-B\*|--gcc-toolchain=\*|--target=\*!1' \
 			$$f; \
 		rm -f $$f.bak; \
 	done
@@ -133,10 +141,23 @@ endef
 ###############################################################################
 
 # Setup flags
-HOST_AUTOTOOLS_ASFLAGS := $(HOST_GLOBAL_ASFLAGS)
-HOST_AUTOTOOLS_CPPFLAGS := $(call normalize-system-c-includes,$(HOST_GLOBAL_C_INCLUDES))
-HOST_AUTOTOOLS_CFLAGS := $(HOST_AUTOTOOLS_CPPFLAGS) $(HOST_GLOBAL_CFLAGS)
-HOST_AUTOTOOLS_CXXFLAGS := $(filter-out -std=%,$(HOST_AUTOTOOLS_CFLAGS)) $(HOST_GLOBAL_CXXFLAGS)
+HOST_AUTOTOOLS_ASFLAGS := \
+	$(HOST_GLOBAL_ASFLAGS)
+
+HOST_AUTOTOOLS_CPPFLAGS := \
+	$(call normalize-system-c-includes,$(HOST_GLOBAL_C_INCLUDES))
+
+HOST_AUTOTOOLS_CFLAGS := \
+	$(HOST_AUTOTOOLS_CPPFLAGS) \
+	$(HOST_GLOBAL_CFLAGS)
+
+HOST_AUTOTOOLS_CXXFLAGS := \
+	$(filter-out -std=%,$(HOST_AUTOTOOLS_CFLAGS)) \
+	$(HOST_GLOBAL_CXXFLAGS)
+
+HOST_AUTOTOOLS_LDFLAGS := \
+	$(HOST_GLOBAL_LDFLAGS) \
+	$(HOST_GLOBAL_LDLIBS)
 
 # Setup pkg-config
 # Use packages from both HOST_OUT_STAGING and standard places
@@ -167,10 +188,16 @@ HOST_AUTOTOOLS_CONFIGURE_ENV := \
 	CPPFLAGS="$(HOST_AUTOTOOLS_CPPFLAGS)" \
 	CFLAGS="$(HOST_AUTOTOOLS_CFLAGS)" \
 	CXXFLAGS="$(HOST_AUTOTOOLS_CXXFLAGS)" \
-	LDFLAGS="$(HOST_GLOBAL_LDFLAGS) $(HOST_GLOBAL_LDLIBS)" \
+	LDFLAGS="$(HOST_AUTOTOOLS_LDFLAGS)" \
 	BISON_PATH="$(BISON_BIN)" \
 	XDG_DATA_DIRS=$(HOST_XDG_DATA_DIRS) \
 	$(HOST_PKG_CONFIG_ENV)
+
+ifeq ("$(HOST_OS)","windows")
+  HOST_AUTOTOOLS_CONFIGURE_ENV += \
+      WINDRES="$(HOST_WINDRES)" \
+      RC="$(HOST_WINDRES)"
+endif
 
 HOST_AUTOTOOLS_CONFIGURE_PREFIX := $(HOST_OUT_STAGING)/$(HOST_ROOT_DESTDIR)
 HOST_AUTOTOOLS_CONFIGURE_SYSCONFDIR := $(HOST_OUT_STAGING)/$(HOST_DEFAULT_ETC_DESTDIR)
@@ -210,11 +237,24 @@ endif
 ## Variable used for autotools on target modules.
 ###############################################################################
 
-# Setup compilations flags
-TARGET_AUTOTOOLS_CPPFLAGS := $(call normalize-system-c-includes,$(TARGET_GLOBAL_C_INCLUDES))
-TARGET_AUTOTOOLS_CFLAGS := $(TARGET_AUTOTOOLS_CPPFLAGS) $(TARGET_GLOBAL_CFLAGS) $(TARGET_GLOBAL_CFLAGS_$(TARGET_CC_FLAVOUR))
-TARGET_AUTOTOOLS_CXXFLAGS := $(filter-out -std=%,$(TARGET_AUTOTOOLS_CFLAGS)) $(TARGET_GLOBAL_CXXFLAGS)
-TARGET_AUTOTOOLS_LDFLAGS := $(TARGET_GLOBAL_LDFLAGS) $(TARGET_GLOBAL_LDLIBS) $(TARGET_GLOBAL_LDFLAGS_$(TARGET_CC_FLAVOUR))
+# Setup flags
+TARGET_AUTOTOOLS_ASFLAGS := \
+	$(TARGET_GLOBAL_ASFLAGS)
+
+TARGET_AUTOTOOLS_CPPFLAGS := \
+	$(call normalize-system-c-includes,$(TARGET_GLOBAL_C_INCLUDES))
+
+TARGET_AUTOTOOLS_CFLAGS := \
+	$(TARGET_AUTOTOOLS_CPPFLAGS) \
+	$(TARGET_GLOBAL_CFLAGS)
+
+TARGET_AUTOTOOLS_CXXFLAGS := \
+	$(filter-out -std=%,$(TARGET_AUTOTOOLS_CFLAGS)) \
+	$(TARGET_GLOBAL_CXXFLAGS)
+
+TARGET_AUTOTOOLS_LDFLAGS := \
+	$(TARGET_GLOBAL_LDFLAGS) \
+	$(TARGET_GLOBAL_LDLIBS)
 
 _target_pkg_config_dirs := \
 	lib/$(TARGET_TOOLCHAIN_TRIPLET)/pkgconfig \
@@ -222,10 +262,12 @@ _target_pkg_config_dirs := \
 	$(TARGET_DEFAULT_LIB_DESTDIR)/$(TARGET_TOOLCHAIN_TRIPLET)/pkgconfig \
 	$(TARGET_DEFAULT_LIB_DESTDIR)/pkgconfig
 
-_target_pkg_config_path :=
+ifndef TARGET_PKG_CONFIG_PATH
+  TARGET_PKG_CONFIG_PATH :=
+endif
 $(foreach __dir,$(TARGET_OUT_STAGING) $(TARGET_SDK_DIRS), \
 	$(foreach __dir2,$(_target_pkg_config_dirs), \
-		$(eval _target_pkg_config_path := $(_target_pkg_config_path):$(__dir)/$(__dir2)) \
+		$(eval TARGET_PKG_CONFIG_PATH := $(TARGET_PKG_CONFIG_PATH):$(__dir)/$(__dir2)) \
 	) \
 )
 
@@ -233,7 +275,7 @@ $(foreach __dir,$(TARGET_OUT_STAGING) $(TARGET_SDK_DIRS), \
 # Only use packages found in TARGET_OUT_STAGING by setting PKG_CONFIG_LIBDIR empty
 TARGET_PKG_CONFIG_ENV := \
 	PKG_CONFIG="$(PKGCONFIG_BIN)" \
-	PKG_CONFIG_PATH="$(_target_pkg_config_path)"
+	PKG_CONFIG_PATH="$(TARGET_PKG_CONFIG_PATH)"
 ifeq ("$(TARGET_OS_FLAVOUR)","native")
   TARGET_PKG_CONFIG_ENV += PKG_CONFIG_SYSROOT_DIR=""
 else
@@ -260,6 +302,7 @@ TARGET_AUTOTOOLS_CONFIGURE_ENV := \
 	INSTALL="$(_autotools_install_bin) -p" \
 	MANIFEST_TOOL=":" \
 	CC_FOR_BUILD="$(HOST_CC)" \
+	ASFLAGS="$(TARGET_AUTOTOOLS_ASFLAGS)" \
 	CPPFLAGS="$(TARGET_AUTOTOOLS_CPPFLAGS)" \
 	CFLAGS="$(TARGET_AUTOTOOLS_CFLAGS)" \
 	CXXFLAGS="$(TARGET_AUTOTOOLS_CXXFLAGS)" \
@@ -270,8 +313,8 @@ TARGET_AUTOTOOLS_CONFIGURE_ENV := \
 
 ifeq ("$(TARGET_OS)","windows")
   TARGET_AUTOTOOLS_CONFIGURE_ENV += \
-      WINDRES="$(TARGET_CROSS)windres" \
-      RC="$(TARGET_CROSS)windres"
+      WINDRES="$(TARGET_WINDRES)" \
+      RC="$(TARGET_WINDRES)"
 endif
 
 TARGET_AUTOTOOLS_CONFIGURE_ARGS :=
@@ -280,6 +323,8 @@ TARGET_AUTOTOOLS_CONFIGURE_ARGS :=
 # For all other, force cross-compilation
 # Autotools 'host' is the name of the machine on which the package will run
 # and  we call it 'target'.
+# Setting both '--host' and '--build' avoids the following warning:
+# 'WARNING: If you wanted to set the --build type, don't use --host'
 ifeq ("$(TARGET_OS_FLAVOUR)-$(TARGET_ARCH)","native-$(HOST_ARCH)")
   # Nothing to do let autotools in native mode
 else
@@ -396,3 +441,4 @@ AUTOTOOLS_CONFIGURE_SYSCONFDIR := $(TARGET_AUTOTOOLS_CONFIGURE_SYSCONFDIR)
 AUTOTOOLS_INSTALL_DESTDIR := $(TARGET_AUTOTOOLS_INSTALL_DESTDIR)
 AUTOTOOLS_MAKE_ENV := $(TARGET_AUTOTOOLS_MAKE_ENV)
 AUTOTOOLS_MAKE_ARGS := $(TARGET_AUTOTOOLS_MAKE_ARGS)
+TARGET_AUTOTOOLS_DYN_LDFLAGS := $(TARGET_AUTOTOOLS_LDFLAGS)
