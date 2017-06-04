@@ -52,7 +52,7 @@ include $(BUILD_SYSTEM)/toolchains/setup.mk
 
 # Copy content of host staging from a sdk
 __sdk-copy-host = \
-	$(eval __file := $(TARGET_OUT_BUILD)/sdk_$(subst /,_,$1).done) \
+	$(eval __file := $(HOST_OUT_STAGING)/sdk_$(subst /,_,$1).done) \
 	$(shell \
 		if [ $1/$(USER_MAKEFILE_NAME) -nt $(__file) ]; then \
 			$(info Copying $1/host/ to $(HOST_OUT_STAGING)) \

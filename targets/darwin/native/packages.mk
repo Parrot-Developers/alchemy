@@ -8,6 +8,7 @@
 
 LOCAL_PATH := $(call my-dir)
 
-$(call register-prebuilt-pkg-config-module,libusb,libusb)
-$(call register-prebuilt-pkg-config-module,libusb_1_0,libusb-1.0)
-$(call register-prebuilt-pkg-config-module,json,json-c)
+include $(CLEAR_VARS)
+LOCAL_MODULE := zlib
+LOCAL_EXPORT_LDLIBS := -lz
+include $(BUILD_PREBUILT)

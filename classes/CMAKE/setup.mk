@@ -161,10 +161,29 @@ define _cmake-target-gen-toolchain-file
 	echo "set(CMAKE_LIBRARY_ARCHITECTURE $(TARGET_TOOLCHAIN_TRIPLET))";
 endef
 
+define _cmake-target-gen-toolchain-file-macos
+	echo "set(CMAKE_OSX_ARCHITECTURES $(filter-out -arch,$(APPLE_ARCH)))"; \
+	echo "set(CMAKE_OSX_DEPLOYMENT_TARGET $(TARGET_MACOS_VERSION))"; \
+	echo "set(CMAKE_OSX_SYSROOT $(shell xcrun --sdk $(APPLE_SDK) --show-sdk-path))";
+endef
+
+define _cmake-target-gen-toolchain-file-ios
+	echo "set(CMAKE_OSX_ARCHITECTURES $(filter-out -arch,$(APPLE_ARCH)))"; \
+	echo "set(CMAKE_OSX_DEPLOYMENT_TARGET $(TARGET_IPHONE_VERSION))"; \
+	echo "set(CMAKE_OSX_SYSROOT $(shell xcrun --sdk $(APPLE_SDK) --show-sdk-path))";
+endef
+
 # Always execute commands but update the toolchain file only if needed
 $(TARGET_CMAKE_TOOLCHAIN_FILE): .FORCE
 	@mkdir -p $(dir $@)
 	@($(_cmake-target-gen-toolchain-file)) > $@.tmp
+ifeq ("$(TARGET_OS)","darwin")
+ifeq ("$(APPLE_SDK)","macosx")
+	@($(_cmake-target-gen-toolchain-file-macos)) >> $@.tmp
+else
+	@($(_cmake-target-gen-toolchain-file-ios)) >> $@.tmp
+endif
+endif
 	$(call update-file-if-needed,$@,$@.tmp)
 
 .PHONY: _cmake-target-toolchain-file-clean

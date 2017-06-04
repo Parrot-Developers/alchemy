@@ -12,14 +12,14 @@
 # Get full path to this script (either when executed or sourced)
 executed=0
 if [ "$(basename -- $0)" = "native-wrapper.sh" ]; then
-	SCRIPT_PATH=$(cd $(dirname -- $0) && pwd -P)
+	SCRIPT_PATH=$(cd $(dirname -- $0) >/dev/null && pwd -P)
 	executed=1
 elif [ -n "${BASH_SOURCE}" ]; then
 	# Sourced by bash
-	SCRIPT_PATH=$(cd $(dirname -- ${BASH_SOURCE}) && pwd -P)
+	SCRIPT_PATH=$(cd $(dirname -- ${BASH_SOURCE}) >/dev/null && pwd -P)
 elif [ -n "${ZSH_VERSION}" ]; then
 	# Sourced by zsh
-	SCRIPT_PATH=$(cd $(dirname -- ${(%):-%N}) && pwd -P)
+	SCRIPT_PATH=$(cd $(dirname -- ${(%):-%N}) >/dev/null && pwd -P)
 else
 	echo "Unsupported shell"
 fi
@@ -27,22 +27,22 @@ fi
 SYSROOT=${SCRIPT_PATH}
 
 # Restore previous variables
-if [ "${OLD_PATH}" != "" ]; then
+if [ "${OLD_PATH-}" != "" ]; then
 	export PATH=${OLD_PATH}
 fi
-if [ "${OLD_LD_LIBRARY_PATH}" != "" ]; then
+if [ "${OLD_LD_LIBRARY_PATH-}" != "" ]; then
 	export LD_LIBRARY_PATH=${OLD_LD_LIBRARY_PATH}
 fi
 
 # Save previous variables
 OLD_PATH=${PATH}
-OLD_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
+OLD_LD_LIBRARY_PATH=${LD_LIBRARY_PATH-}
 
 # Update path
 export PATH=${SYSROOT}/bin:${SYSROOT}/usr/bin:${PATH}
 
 # Update library path
-export LD_LIBRARY_PATH=${SYSROOT}/lib:${SYSROOT}/usr/lib:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${SYSROOT}/lib:${SYSROOT}/usr/lib:${LD_LIBRARY_PATH-}
 
 # Execute given command line (only if not sourced)
 if [ "${executed}" = "1" ]; then

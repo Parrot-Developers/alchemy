@@ -16,7 +16,7 @@ define _generic-def-cmd-unpack
 		$(Q) rm -rf $(PRIVATE_ARCHIVE_UNPACK_DIR)/$(PRIVATE_ARCHIVE_SUBDIR) \
 	)
 	$(if $(patsubst %.zip,,$(PRIVATE_ARCHIVE)), \
-		$(Q) tar -C $(PRIVATE_ARCHIVE_UNPACK_DIR) -xf $(PRIVATE_ARCHIVE) \
+		$(Q) $(TAR) -C $(PRIVATE_ARCHIVE_UNPACK_DIR) -xf $(PRIVATE_ARCHIVE) \
 		, \
 		$(Q) unzip -oq -d $(PRIVATE_ARCHIVE_UNPACK_DIR) $(PRIVATE_ARCHIVE) \
 	)

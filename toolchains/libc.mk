@@ -35,7 +35,6 @@ _libc_lib_names := \
 	libc \
 	libcrypt \
 	libdl \
-	libgcc_s \
 	libgomp \
 	libm \
 	libnsl \
@@ -53,10 +52,13 @@ _libc_lib_names := \
 	libthread_db \
 	libutil
 
-# List of files to be put in /usr/lib or /usr/lib/<arch>
+# List of files to be put in /usr/lib or /usr/lib/<arch> (if not found in /lib)
 _libc_usrlib_names := \
-	libstdc++ \
-	libgcc_s
+	libgcc_s \
+	libstdc++
+
+# File normally found in usr/lib may also be in lib instead
+_libc_lib_names += $(_libc_usrlib_names)
 
 ifeq ("$(TARGET_LIBC)","musl")
   _libc_usrlib_names += libc
@@ -99,8 +101,8 @@ ifeq ("$(TARGET_ARCH)","x64")
 endif
 
 # List of files to be put in /usr/lib and /usr/lib/<arch>
-_libc_usrlib_files +=
-_libc_usrlib_arch_files +=
+_libc_usrlib_files :=
+_libc_usrlib_arch_files :=
 $(foreach __f,$(_libc_usrlib_names), \
 	$(eval _libc_usrlib_files += \
 		$(wildcard $(_libc_usrlib_dir)/$(__f).so*) \
@@ -124,18 +126,19 @@ $(foreach __f,$(_libc_lib_names), \
 	) \
 )
 
-# Some toolchains, such as recent Linaro toolchains, store GCC support libraries
-# (libstdc++, libgcc_s, etc.) outside of the sysroot
-ifeq ("$(findstring libstdc++,$(_libc_usrlib_files) $(_libc_usrlib_arch_files))","")
-  _libc_support_dir_cmd := $(TARGET_CC) $(TARGET_GLOBAL_CFLAGS)
-  ifeq ("$(TARGET_ARCH)","arm")
-    _libc_support_dir_cmd += $(TARGET_GLOBAL_CFLAGS_$(TARGET_DEFAULT_ARM_MODE))
-  endif
-  _libc_support_dir_cmd += -print-file-name=libstdc++.a
-  _libc_support_dir := $(wildcard $(dir $(shell $(_libc_support_dir_cmd))))
-  _libc_lib_files += $(wildcard $(_libc_support_dir)/libgcc_s*.so*)
-  _libc_usrlib_files += $(wildcard $(_libc_support_dir)/libstdc++*.so*)
+# Some toolchains (like Linaro Toolchain 2014.04), store GCC support libraries
+# (libstdc++, ) outside of the sysroot
+_libc_support_dir_cmd := $(TARGET_CC) $(TARGET_GLOBAL_CFLAGS)
+ifeq ("$(TARGET_ARCH)","arm")
+  _libc_support_dir_cmd += $(TARGET_GLOBAL_CFLAGS_$(TARGET_DEFAULT_ARM_MODE))
 endif
+$(foreach __f,$(_libc_usrlib_names), \
+	$(if $(findstring $(__f), $(_libc_lib_files) $(_libc_lib_arch_files) $(_libc_usrlib_files) $(_libc_usrlib_arch_files)), \
+		$(empty), \
+		$(eval _libc_support_dir := $(dir $(shell $(_libc_support_dir_cmd) -print-file-name=$(__f).so))) \
+		$(eval _libc_usrlib_files += $(wildcard $(_libc_support_dir)/$(__f)*.so*)) \
+	) \
+)
 
 # Musl libc is all in one.
 ifeq ("$(TARGET_LIBC)","musl")

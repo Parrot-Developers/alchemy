@@ -199,6 +199,12 @@ conflict with other build systems (android for example).
   inside. Also, required options are internally set in linux config. Although
   only the copy in build directory is modified, the original one is not touched.
   </br>Default is `0`
+* `TARGET_LINUX_INSTALL_DEVICE_TREE` : enable linux kernel devicetree install target
+  rule: `dtbs_install`. The install directory shall be defined in `TARGET_LINUX_MAKE_BUILD_ARGS`
+  via linux kernel `INSTALL_DTBS_PATH` environment variable added to it.
+  This override `TARGET_LINUX_DEVICE_TREE_NAMES`
+  </br>(i.e `TARGET_LINUX_MAKE_BUILD_ARGS := INSTALL_DTBS_PATH="$(TARGET_OUT_STAGING)/boot"`)
+  </br>Default is `0`
 * `TARGET_LINUX_DEVICE_TREE_NAMES` : list of device tree name to copy in boot
   directory. It shall be in `$(LINUX_BUILD_DIR)/arch/$(TARGET_ARCH)/boot/dts`.
   The names shall be the ones with the `.dtb` extension. Default is empty.
@@ -314,7 +320,8 @@ Mainly used by the android wrapper.
   for more information.
   </br>Default is `0`.
 * `TARGET_NOSTRIP_FINAL` : Can be set at `1` to prevent stripping binaries when
-  generating final directory.
+  generating final directory. Setting to `2` does a partial stripping: debug info
+  is removed, but symbol table is kept. This is useful for tools like perf.
   </br>Default is `0`.
 * `TARGET_STRIP_FILTER` : List of filenames to filter during strip. Mainly used
   when valgrind or other tracing tool is used and requires debugging symbols
@@ -369,7 +376,8 @@ Mainly used by the android wrapper.
 * `TARGET_IMAGE_FORMAT` : format of the image file to generate wilth `image` command.
   Supported value: `tar`, `cpio`, `ext2`, `ext3`, `ext4`, `plf` and the compressed
   forms `tar.gz`, `cpio.gz`, `ext2.gz`, `ext3.gz`, `ext4.gz`,
-  `tar.bz2`, `cpio.bz2`, `ext2.bz2`, `ext3.bz2`, `ext4.bz2`
+  `tar.bz2`, `cpio.bz2`, `ext2.bz2`, `ext3.bz2`, `ext4.bz2`,
+  `tar.zip`, `cpio.zip`, `ext2.zip`, `ext3.zip`, `ext4.zip`
   </br>Default is `tar.gz`.
 * `TARGET_IMAGE_OPTIONS` : additional options to give during image generation:
   * `--size <val> [<unit>]` : size of image (for `ext` format), unit is `K`, `M`, `G`
@@ -574,6 +582,7 @@ For each registered modules, following `make` targets will be available :
 * `make <module>-dirclean` : will remove the build directory of the module.
 * `make <module>-doc` : will generate the documentation for the module.
 * `make <module>-path` : will display the path of the module.
+* `make <module>-codeformat` : will format source files.
 * `make <module>-codecheck` : will check coding style of source files.
 * `make <module>-cloc` : will count the number of lines of code.
 
@@ -588,7 +597,7 @@ Several classes of modules are managed by `alchemy` :
 * `AUTOTOOLS`
 * `CMAKE`
 * `QMAKE`
-* `PYTHON_EXTENSION`
+* `PYTHON_PACKAGE`
 * `CUSTOM`
 * `META_PACKAGE`
 * `LINUX_MODULE`
@@ -597,7 +606,7 @@ Module will be referred as either `internal` or `external` :
 
 * Internal modules are `STATIC_LIBRARY`, `SHARED_LIBRARY`, `LIBRARY` and
   `EXECUTABLE` modules because they are completely managed by the build system.
-* External modules are `AUTOTOOLS`, `CMAKE`, `QMAKE`, `PYTHON_EXTENSION`,
+* External modules are `AUTOTOOLS`, `CMAKE`, `QMAKE`, `PYTHON_PACKAGE`,
   `CUSTOM`, `META_PACKAGE` and `LINUX_MODULE` modules because the build system has little
   control on the way those modules are built.
 
@@ -705,7 +714,9 @@ system will use it.
 
 This is a list of modules whose headers are required to compile but not for
 link. This does **NOT** introduce a build order, just an automatic import of
-exported headers.
+exported headers. This instruction does **NOT** handle dependencies well, it
+only allows one level dependency. If more than one level of dependency is
+needed, use a `CUSTOM` class module which exports headers.
 
 #### `LOCAL_DEPENDS_MODULES`
 
@@ -917,6 +928,25 @@ original source tree.
 `LOCAL_COPY_TO_BUILD_DIR_SKIP_FILES` can be used to list files that should not
 be copied (ath relative to `LOCAL_PATH`.
 
+#### `LOCAL_CODEFORMAT_xxx` `LOCAL_CODEFORMAT_xxx_ARGS`
+
+It is possible to customize the formatter used to format source code.
+
+`LOCAL_CODEFORMAT_xxx` can be used to specify either an internal formatter name or
+a custom script to use.
+
+If an external script is used, it will be given extra argument as its first
+argument and the list of files to format as its second argument.
+
+If `none` is given, the specified language format will be disabled.
+
+`LOCAL_CODEFORMAT_xxx_ARGS` can be used to pass extra argument to the formatter script.
+
+Available languages:
+* `C`: default formatter is `clang-format`.
+* `CXX`: default formatter is `clang-format`.
+* `OBJC`: default formatter is `clang-format`.
+
 #### `LOCAL_CODECHECK_xxx` `LOCAL_CODECHECK_xxx_ARGS`
 
 It is possible to customize the checker used to verify source code style.
@@ -933,9 +963,9 @@ If `none` is given, the specified language check will be disabled.
 
 Available languages:
 * `AS`: default checker is `none`.
-* `C`: default checker is `linux`.
-* `CXX`: default checker is `cpplint`.
-* `OBJC`: default checker is `linux`.
+* `C`: default checkers are `linux` and `clang-format`.
+* `CXX`: default checker is `clang-format`.
+* `OBJC`: default checker is `none`.
 * `VALA`: default checker is `valastyle`.
 
 ### Internal modules
@@ -1270,16 +1300,32 @@ system.
 
 ### Python extension modules
 
-This class of modules is for the compilation of python extensions using a
-`setup.py` file and `distutils`. `Alchemy` provides internally everything
-needed to correctly build them and install them. The module still need to add
-a dependency to `python` or `python3`.
+This class of modules is obsolete, please migrate to python package class.
+
+### Python packages modules
+
+This class of modules is used to build and install python packages based on
+`distutils` or `setuptools`. It requires the availability of 2 alchemy modules:
+* 'host.python': a module that installs a suitable python version in host staging directory.
+* 'python': a module that installs a suitable python version in staging directory.
+
+Those two modules should be the same python version, that's why for cross-compilation
+it is required to build python for the host as well (it is not possible to use the
+one from the `native` host)
+
+For `native` build it is possible to simplify things and skip the compilation of python.
+You can simply create symlinks in staging directory to the python executable to use.
+Or you can use virtual env to install a dedicated python environment in the staging directory.
+An example of such `atom.k` is available here [python-native-atom.mk](python-native-atom.mk).
 
 #### Customization variables
 
-* `LOCAL_PYTHONEXT_SETUP_PY_ENV` : Additional environment variables to pass to
-  `setup.py`.
-* `LOCAL_PYTHONEXT_SETUP_PY_ARGS` : Additional arguments to pass to `setup.py`.
+* `LOCAL_PYTHONPKG_TYPE` : Type of the package (`distutils` or `setuptools`), mandatory.
+* `LOCAL_PYTHONPKG_SETUP_PY` : Name of the `setup.py` script to execute (relative to `LOCAL_PATH').
+  Default is `setup.py`.
+* `LOCAL_PYTHONPKG_ENV` : Optional extra environment for build/install.
+* `LOCAL_PYTHONPKG_BUILD_ARGS` : Optional extra build arguments.
+* `LOCAL_PYTHONPKG_INSTALL_ARGS` : Optional extra install arguments.
 
 ### Linux kernel modules
 
@@ -1292,7 +1338,7 @@ dependency variables.
 ### GObject introspection type library modules
 
 This class of modules is for the compilation of gobject-introspection `.typelib`
-type libraries used by languages bindings to automatically use a library 
+type libraries used by languages bindings to automatically use a library
 without explicit wrappers. Only GObject introspection of libraries is currently
 supported.
 
@@ -1355,8 +1401,8 @@ Host tools are installed in the directory `HOST_OUT_STAGING` and usually in the
 `usr/bin` sub-directory.
 
 Note that `$(HOST_OUT_STAGING)/bin` and `$(HOST_OUT_STAGING)/usr/bin` are
-automatically added to the `PATH` environment variable for `AUTOTOOLS` and
-`CMAKE` builds.
+automatically added to the `PATH` environment variable for `AUTOTOOLS`,
+`CMAKE` and `QMAKE` builds.
 
 There is some `HOST_xxx` variables that are defined internally and that can be
 customized before invoking `alchemy`. For the meaning, see the corresponding

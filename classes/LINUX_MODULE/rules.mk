@@ -39,11 +39,18 @@ $(_module_built_stamp_file): $(LINUX_MODULE_SRC_FILES)
 ###############################################################################
 
 $(LOCAL_TARGETS): PRIVATE_OBJ_DIR := $(LINUX_MODULE_OBJ_DIR)
-$(LOCAL_TARGETS): PRIVATE_OBJECTS := $(addprefix src/,$(LOCAL_SRC_FILES:.c=.o))
+$(LOCAL_TARGETS): PRIVATE_OBJECTS := $(addprefix src/, $(patsubst %.c,%.o, $(filter %.c, $(LOCAL_SRC_FILES))))
+$(LOCAL_TARGETS): PRIVATE_OBJECTS += $(addprefix src/, $(patsubst %.S,%.o, $(filter %.S, $(LOCAL_SRC_FILES))))
+$(LOCAL_TARGETS): PRIVATE_OBJECTS += $(addprefix src/, $(filter %.o, $(LOCAL_SRC_FILES)))
+$(LOCAL_TARGETS): PRIVATE_OBJECTS += $(addprefix src/, $(patsubst %.c,%.o, $(filter %.c, $(LOCAL_GENERATED_SRC_FILES))))
+$(LOCAL_TARGETS): PRIVATE_OBJECTS += $(addprefix src/, $(patsubst %.S,%.o, $(filter %.S, $(LOCAL_GENERATED_SRC_FILES))))
 $(LOCAL_TARGETS): PRIVATE_C_INCLUDES := $(addprefix -I$(LOCAL_PATH)/, $(call uniq2, $(dir $(LOCAL_SRC_FILES))))
 $(LOCAL_TARGETS): PRIVATE_C_INCLUDES += $(addprefix -I, $(LOCAL_C_INCLUDES))
 $(LOCAL_TARGETS): PRIVATE_CFLAGS := $(LOCAL_CFLAGS)
 $(LOCAL_TARGETS): PRIVATE_KBUILD := $(LINUX_MODULE_KBUILD)
+$(LOCAL_TARGETS): PRIVATE_ALL_LIBS := $(all_libs)
+$(LOCAL_TARGETS): PRIVATE_DESTDIR := $(LOCAL_DESTDIR)
+
 
 # LINUX_XXX variables can NOT be used here, they may not be defined yet
 # So the ARCH argument is given later when invoking make

@@ -68,6 +68,12 @@ vars-LOCAL += SHARED_LIBRARIES
 # Used as dependencies to trigger indirect build.
 vars-LOCAL += EXTERNAL_LIBRARIES
 
+# Prebuilt libraries
+vars-LOCAL += PREBUILT_LIBRARIES
+
+# Meta packages
+vars-LOCAL += META_PACKAGES
+
 # General libraries to add in dependency based on their actual class (STATIC/SHARED/EXTERNAL).
 vars-LOCAL += LIBRARIES
 
@@ -209,6 +215,13 @@ vars-LOCAL += QMAKE_MAKE_INSTALL_ARGS
 vars-LOCAL += PYTHONEXT_SETUP_PY_ENV
 vars-LOCAL += PYTHONEXT_SETUP_PY_ARGS
 
+# Python package customization
+vars-LOCAL += PYTHONPKG_TYPE
+vars-LOCAL += PYTHONPKG_SETUP_PY
+vars-LOCAL += PYTHONPKG_ENV
+vars-LOCAL += PYTHONPKG_BUILD_ARGS
+vars-LOCAL += PYTHONPKG_INSTALL_ARGS
+
 # GObject introspection customization
 vars-LOCAL += GI_NAMESPACE
 vars-LOCAL += GI_LIBRARY
@@ -273,6 +286,18 @@ vars-LOCAL += DOXYFILE
 # List of files or directory to add to doxygen generation. If no DOXYFILE
 # is given, LOCAL_PATH will be added automatically
 vars-LOCAL += DOXYGEN_INPUT
+
+# Code format to use (depending on source code kind)
+# If empty or 'default' an internal default with be used
+# If 'none', it will disable code format
+vars-LOCAL += CODEFORMAT_C
+vars-LOCAL += CODEFORMAT_CXX
+vars-LOCAL += CODEFORMAT_OBJC
+
+# Arguments to give to code formatter
+vars-LOCAL += CODEFORMAT_C_ARGS
+vars-LOCAL += CODEFORMAT_CXX_ARGS
+vars-LOCAL += CODEFORMAT_OBJC_ARGS
 
 # Code check to use (depending on source code kind)
 # If empty or 'default' an internal default with be used

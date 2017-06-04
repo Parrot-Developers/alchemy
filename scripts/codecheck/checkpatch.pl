@@ -1389,7 +1389,11 @@ sub possible {
 my $prefix = '';
 
 sub show_type {
-       return !defined $ignore_type{$_[0]} && !defined $ignore_type_line{$_[0]} && !defined $ignore_type_file{$_[0]} && !defined $ignore_type_file{"ALL"}
+	my $res = !defined $ignore_type{$_[0]} && !defined $ignore_type_line{$_[0]} && !defined $ignore_type_file{$_[0]} && !defined $ignore_type_file{"ALL"};
+	if (defined $ignore_type_line{$_[0]} && $ignore_type_line{$_[0]} > 0) {
+		$ignore_type_line{$_[0]}--;
+	}
+	return $res;
 }
 
 sub report {
@@ -1974,11 +1978,12 @@ sub process {
 # check we are in a valid source file if not then ignore this hunk
 		next if ($realfile !~ /\.(h|c|s|S|pl|sh)$/);
 
-#line length limit
-		if ($line =~ /^\+/ && $prevrawline !~ /\/\*\*/ &&
-		    $rawline !~ /^.\s*\*\s*\@$Ident\s/ &&
-		    !($line =~ /^\+\s*$logFunctions\s*\(\s*(?:(KERN_\S+\s*|[^"]*))?"[X\t]*"\s*(?:|,|\)\s*;)\s*$/ ||
-		    $line =~ /^\+\s*"[^"]*"\s*(?:\s*|,|\)\s*;)\s*$/) &&
+# line length limit
+# Allow lines with a URL to be longer than the limit
+# Allow lines with only a string (and an optional ',', ')' or ';') to be longer
+		if ($line =~ /^\+/ &&
+		    $rawline !~ /^\+.*\b[a-z][\w\.\+\-]*:\/\/\S+/i &&
+		    $line !~ /^\+\s*"[^"]*"\s*(?:\s*|,|\)\s*;)\s*$/ &&
 		    $length > $max_line_length)
 		{
 			WARN("LONG_LINE",
@@ -3085,7 +3090,7 @@ sub process {
 				  "space required before the open brace '{'\n" . $herecurr) &&
 			    $fix) {
 				$fixed[$linenr - 1] =~
-				    s/^(\+.*(?:do|\))){/$1 {/;
+				    s/^(\+.*(?:do|\)))\{/$1 \{/;
 			}
 		}
 
@@ -4103,6 +4108,13 @@ sub process {
 		    $line =~ /DEVICE_ATTR.*S_IWUGO/ ) {
 			WARN("EXPORTED_WORLD_WRITABLE",
 			     "Exporting world writable files is usually an error. Consider more restrictive permissions.\n" . $herecurr);
+		}
+
+		while(my($k, $v) = each %ignore_type_line) {
+			if ($v > 0) {
+				ERROR("UNUSED_IGNORE:" . $k,
+				      "Setting a codecheck_ignore for a line which does not have the ignored issue is an error.\n" . $herecurr);
+			}
 		}
 	}
 

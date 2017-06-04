@@ -112,7 +112,9 @@ LOCAL_TARGETS := \
 	$(LOCAL_MODULE)-path \
 	$(LOCAL_MODULE)-doc \
 	$(LOCAL_MODULE)-cloc \
-	$(call codecheck-get-targets,$(LOCAL_MODULE))
+	$(call codecheck-get-targets,$(LOCAL_MODULE)) \
+	$(call codeformat-get-targets,$(LOCAL_MODULE)) \
+	$(call genproject-get-targets,$(LOCAL_MODULE))
 
 # Configuration file.
 _module_orig_config_file := $(call __get-orig-module-config,$(LOCAL_MODULE))
@@ -217,6 +219,10 @@ $(call check-flags,LOCAL_EXPORT_CXXFLAGS,$(check-flags-arch-cpu),$(check-flags-a
 ###############################################################################
 
 # Get libraries used by us and static libraries
+all_meta_packages := \
+	$(call module-get-static-depends,$(LOCAL_MODULE),META_PACKAGES)
+all_prebuilt_libs := \
+	$(call module-get-static-depends,$(LOCAL_MODULE),PREBUILT_LIBRARIES)
 all_external_libs := \
 	$(call module-get-static-depends,$(LOCAL_MODULE),EXTERNAL_LIBRARIES)
 all_static_libs := \
@@ -228,6 +234,8 @@ all_shared_libs := \
 
 # List of our dependencies and from static (recursive on static libs)
 all_libs := \
+	$(all_meta_packages) \
+	$(all_prebuilt_libs) \
 	$(all_external_libs) \
 	$(all_static_libs) \
 	$(all_whole_static_libs) \
@@ -292,12 +300,15 @@ all_prerequisites += \
 		) \
 	)
 
-# Remove our build module from the list of global deps to avoid circular chain
-# FIXME: do NOT add TARGET_GLOBAL_PREREQUISITES for host modules
 all_prerequisites += \
-	$(filter-out $(LOCAL_MODULE) $(LOCAL_BUILD_MODULE),$(TARGET_GLOBAL_PREREQUISITES)) \
 	$(LOCAL_PREREQUISITES) \
 	$(LOCAL_EXPORT_PREREQUISITES)
+
+# Do not add global prerequisites if our module is one of them.
+# FIXME: do NOT add TARGET_GLOBAL_PREREQUISITES for host modules
+ifeq ("$(filter $(LOCAL_MODULE),$(TARGET_GLOBAL_PREREQUISITES))","")
+  all_prerequisites += $(filter-out $(LOCAL_MODULE) $(LOCAL_BUILD_MODULE),$(TARGET_GLOBAL_PREREQUISITES))
+endif
 
 # Make sure autoconf.h file is generated
 all_prerequisites += $(_module_autoconf_file)
@@ -330,8 +341,8 @@ all_prerequisites += \
 ###############################################################################
 
 # Get list of exported stuff by our dependencies
-ifeq ("$(and $(call is-module-external,$(LOCAL_MODULE)),$(call strneq,$(LOCAL_MODULE_CLASS),QMAKE))","")
-  # Internal module or QMAKE module
+ifeq ("$(and $(call is-module-external,$(LOCAL_MODULE)),$(call strneq,$(LOCAL_MODULE_CLASS),QMAKE),$(call strneq,$(LOCAL_MODULE_CLASS),LINUX_MODULE))","")
+  # Internal module or QMAKE module or LINUX_MODULE
   imported_CFLAGS        := $(call module-get-listed-export,$(all_depends),CFLAGS)
   imported_CXXFLAGS      := $(call module-get-listed-export,$(all_depends),CXXFLAGS)
   imported_C_INCLUDES    := $(call module-get-listed-export,$(all_depends),C_INCLUDES)
@@ -358,14 +369,19 @@ endif
 # Add includes of modules listed in LOCAL_DEPENDS_HEADERS
 imported_C_INCLUDES += $(call module-get-listed-export,$(LOCAL_DEPENDS_HEADERS),C_INCLUDES)
 
+# Move include flags from CFLAGS/CXXFLAGS to C_INCLUDES
+imported_C_INCLUDES += $(patsubst -I%,%,$(filter -I%,$(imported_CFLAGS) $(imported_CXXFLAGS)))
+imported_CFLAGS := $(filter-out -I%,$(imported_CFLAGS))
+imported_CXXFLAGS := $(filter-out -I%,$(imported_CXXFLAGS))
+
 # Import prerequisites (the one for this module are already in all_prerequisites)
 imported_PREREQUISITES := $(call module-get-listed-export,$(all_depends),PREREQUISITES)
 all_prerequisites += $(imported_PREREQUISITES)
 
 # The imported/exported compiler flags are prepended to their LOCAL_XXXX value
 # (this allows the module to override them).
-LOCAL_CFLAGS     := $(strip $(imported_CFLAGS) $(LOCAL_CFLAGS))
-LOCAL_CXXFLAGS   := $(strip $(imported_CXXFLAGS) $(LOCAL_CXXFLAGS))
+LOCAL_CFLAGS := $(strip $(imported_CFLAGS) $(LOCAL_CFLAGS))
+LOCAL_CXXFLAGS := $(strip $(imported_CXXFLAGS) $(LOCAL_CXXFLAGS))
 
 # The imported/exported include directories are appended to their LOCAL_XXX value
 # (this allows the module to override them)
@@ -374,7 +390,10 @@ LOCAL_C_INCLUDES := $(strip $(LOCAL_C_INCLUDES) $(imported_C_INCLUDES))
 # Similarly, you want the imported/exported flags to appear _after_ the LOCAL_LDLIBS
 # due to the way Unix linkers work (depending libraries must appear before
 # dependees on final link command).
-LOCAL_LDLIBS     := $(strip $(LOCAL_LDLIBS) $(imported_LDLIBS))
+LOCAL_LDLIBS := $(strip $(LOCAL_LDLIBS) $(imported_LDLIBS))
+
+# Simplify variable by keeping only first occurence of each item
+LOCAL_C_INCLUDES := $(strip $(call uniq,$(LOCAL_C_INCLUDES)))
 
 # Get all autoconf files that we depend on, don't forget to add ourself
 # External modules only get internal ones. Mainly because we don't want to break
@@ -410,7 +429,8 @@ endif
 # Add debug flags at the end
 $(call add-debug-flags)
 
-# Code coverage & analysis flags (for internal modules only)
+# Code coverage & analysis flags (for internal, non host modules only)
+ifeq ("$(_mode_host)","")
 ifeq ("$(and $(call is-module-external,$(LOCAL_MODULE)),$(call strneq,$(LOCAL_MODULE_CLASS),QMAKE))","")
 ifneq ($(filter $(LOCAL_MODULE) 1,$(USE_ADDRESS_SANITIZER)),)
   LOCAL_CFLAGS += -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -O1 -D__ADDRESSSANITIZER__
@@ -431,6 +451,7 @@ endif
 ifneq ($(filter $(LOCAL_MODULE) 1,$(USE_COVERAGE)),)
   LOCAL_CFLAGS  += -fprofile-arcs -ftest-coverage -O0 -D__COVERAGE__
   LOCAL_LDFLAGS += -fprofile-arcs -ftest-coverage
+endif
 endif
 endif
 
@@ -746,6 +767,8 @@ $(LOCAL_MODULE)-path:
 	@echo "$(PRIVATE_MODULE): $(PRIVATE_PATH)"
 
 include $(BUILD_SYSTEM)/classes/codecheck-rules.mk
+include $(BUILD_SYSTEM)/classes/codeformat-rules.mk
+include $(BUILD_SYSTEM)/classes/genproject-rules.mk
 include $(BUILD_SYSTEM)/classes/extra-rules.mk
 
 ###############################################################################
@@ -783,6 +806,7 @@ $(LOCAL_TARGETS): PRIVATE_CLEAN_FILES += $(_module_build_config_file)
 $(LOCAL_TARGETS): PRIVATE_CLEAN_FILES += $(_module_autoconf_file)
 $(LOCAL_TARGETS): PRIVATE_CLEAN_DIRS := $(LOCAL_CLEAN_DIRS)
 $(LOCAL_TARGETS): PRIVATE_MODE := $(_mode_prefix)
+$(LOCAL_TARGETS): PRIVATE_MODE_IS_HOST := $(_mode_host)
 $(LOCAL_TARGETS): PRIVATE_REV_FILE := $(_module_revision_file)
 $(LOCAL_TARGETS): PRIVATE_REV_FILE_H := $(_module_revision_h_file)
 $(LOCAL_TARGETS): PRIVATE_SRC_FILES := $(LOCAL_SRC_FILES)

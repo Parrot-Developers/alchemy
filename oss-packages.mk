@@ -29,7 +29,7 @@ oss-gen-package-from-archive = \
 	$(call oss-gen-package-prepare,$1) \
 	inpkg=$(__modules.$1.PATH)/$(__modules.$1.ARCHIVE); \
 	patches="$(addprefix $(__modules.$1.PATH)/,$(__modules.$1.ARCHIVE_PATCHES))"; \
-	tar --transform="s|[^/]*/||g" -Pcjf \
+	$(TAR) --transform="s|[^/]*/||g" -Pcjf \
 		$${outpkg} $${inpkg} $${patches} $${atom} $${config};
 
 # Create package from git
@@ -40,7 +40,7 @@ oss-gen-package-from-git = \
 	gitarchive=$(OSS_PACKAGES_DIR)/git/$1-$${version}.tar; \
 	patches=; \
 	cd $${gitdir} && git archive --prefix=$1-$${version}/ -o $${gitarchive} HEAD; \
-	tar --transform="s|[^/]*/||g" -Pcjf \
+	$(TAR) --transform="s|[^/]*/||g" -Pcjf \
 		$${outpkg} $${gitarchive} $${patches} $${atom} $${config};
 
 # Create package

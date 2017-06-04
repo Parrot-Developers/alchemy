@@ -75,6 +75,12 @@ ifneq ("$(call check-version,$(TARGET_CC_VERSION),4.5.2)","")
   WARNINGS_COMMON_FLAGS_gcc += -Wlogical-op
 endif
 
+# Disable format-truncation for gcc >= 7
+ifneq ("$(call check-version,$(TARGET_CC_VERSION),7)","")
+  WARNINGS_COMMON_FLAGS_gcc += -Wno-format-truncation
+endif
+
+
 ###############################################################################
 ## Specific flags.
 ###############################################################################

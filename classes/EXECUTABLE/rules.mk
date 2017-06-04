@@ -11,8 +11,19 @@ _module_msg := $(if $(_mode_host),Host )Executable
 include $(BUILD_SYSTEM)/classes/BINARY/rules.mk
 
 ifneq ("$(LOCAL_LDSCRIPT)","")
+
+ifeq ("$(call is-path-absolute,$(LOCAL_LDSCRIPT))","")
+
 $(LOCAL_BUILD_MODULE): $(LOCAL_PATH)/$(LOCAL_LDSCRIPT)
 $(LOCAL_TARGETS): PRIVATE_LDFLAGS += -T $(LOCAL_PATH)/$(LOCAL_LDSCRIPT)
+
+else
+
+$(LOCAL_BUILD_MODULE): $(LOCAL_LDSCRIPT)
+$(LOCAL_TARGETS): PRIVATE_LDFLAGS += -T $(LOCAL_LDSCRIPT)
+
+endif
+
 endif
 
 $(LOCAL_BUILD_MODULE): $(all_objects) $(all_link_libs_filenames)

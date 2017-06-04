@@ -313,9 +313,15 @@ def doCopy(dstFileName, srcFileName, options, forceCopy=False):
             and canStrip(srcFileName):
         doStrip = True
 
-    # If the file to be stripped is in usr/lib/debug, simply skip it
-    if doStrip and relPath.startswith("usr/lib/debug"):
-        return
+    # Files in usr/lib/debug are never to be stripped
+    # Either they are kept as they are (option --strip-debug),
+    # Or they are not copied.
+    if relPath.startswith("usr/lib/debug"):
+        if options.strip and '--strip-debug' in options.strip:
+            doStrip = False
+        elif doStrip:
+            # simply skip it
+            return
 
     addPathInFileList(relPath, False, options)
 

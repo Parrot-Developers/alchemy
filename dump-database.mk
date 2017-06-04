@@ -189,7 +189,10 @@ ifdef __dump_xml_with_file
 else ifdef __dump_xml_with_info
 	@# Force passing TARGET_ARCH because it was unexported in setup.mk
 	+@( \
+		set -e; \
 		tmpfile=$$(mktemp tmp.XXXXXXXXXX); \
+		function cleanup { rm -f $${tmpfile}; }; \
+		trap cleanup SIGINT SIGTERM; \
 		$(filter-out $(MAKECMDGOALS),$(ALCHEMAKE_CMDLINE)) \
 			USE_SCAN_CACHE=1 \
 			TARGET_ARCH=$(TARGET_ARCH) \
@@ -198,7 +201,7 @@ else ifdef __dump_xml_with_info
 		n1=$$(($$(grep -hne "@@@@@XML-BEGIN@@@@@" $${tmpfile} | cut -d: -f1)+1)); \
 		n2=$$(($$(grep -hne "@@@@@XML-END@@@@@" $${tmpfile} | cut -d: -f1)-1)); \
 		sed -ne "$${n1},$${n2}p" $${tmpfile} > $(DUMP_DATABASE_XML_FILE); \
-		rm -f $${tmpfile}; \
+		cleanup; \
 	)
 else
 	$(call __dump-database-setup)

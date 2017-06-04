@@ -15,5 +15,7 @@ LOCAL_MODULE_CLASS := PYTHON_EXTENSION
 LOCAL_MODULE_FILENAME := $(LOCAL_MODULE).done
 LOCAL_DONE_FILES += $(LOCAL_MODULE).done
 
+$(warning $(LOCAL_PATH): PYTHON_EXTENSION is deprecated, please migrate to PYTHON_PACKAGE)
+
 # Register in the system
 $(module-add)

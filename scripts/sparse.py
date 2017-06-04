@@ -3,7 +3,7 @@
 import sys, os, logging
 import argparse
 import struct
-from io import StringIO
+from io import BytesIO
 
 from mkextfs import ExtfsSuperBlock, EXTFS_SUPER_BLOCK_STRUCT_SIZE
 from mkextfs import ExtfsGroupDescV2, EXTFS_GROUP_DESC_V2_STRUCT_SIZE
@@ -202,7 +202,7 @@ class ChunkHeader(object):
 #===============================================================================
 class Chunk(object):
     _COPY_SIZE = 65536
-    _ZERO_BUF = "\x00" * 65536
+    _ZERO_BUF = b'\x00' * 65536
     def __init__(self, headerSize=CHUNK_HEADER_SIZE):
         self.header = ChunkHeader(headerSize)
         self.value = 0
@@ -248,8 +248,9 @@ class Chunk(object):
         if self.value == 0:
             return Chunk._ZERO_BUF
         else:
-            fillBuf = StringIO()
+            fillBuf = BytesIO()
             valBuf = struct.pack("<I", self.value)
+
             for _ in range(0, Chunk._COPY_SIZE // 4):
                 fillBuf.write(valBuf)
             return fillBuf.getvalue()

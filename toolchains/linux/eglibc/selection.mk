@@ -13,7 +13,7 @@ ifndef TARGET_CROSS
     else ifeq ("$(TARGET_CPU)","p6i")
       TARGET_CROSS := /opt/arm-2009q1/bin/arm-none-linux-gnueabi-
     else ifeq ("$(TARGET_CPU)","o3")
-      TARGET_CROSS := /opt/arm-2015.02-ct-ng/bin/arm-unknown-linux-gnueabi-
+      TARGET_CROSS := /opt/arm-2017.02-octopus3/bin/arm-octopus3-linux-gnueabi-
     else
       TARGET_CROSS := /opt/arm-2012.03/bin/arm-none-linux-gnueabi-
     endif

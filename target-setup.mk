@@ -93,6 +93,13 @@ HOST_DEFAULT_BIN_DESTDIR := usr/bin
 HOST_DEFAULT_LIB_DESTDIR := usr/lib
 HOST_DEFAULT_ETC_DESTDIR := etc
 
+# Add --force-local to tar command on windows to avoid interpretation of ':'
+# as network resource
+TAR := tar
+ifeq ("$(HOST_OS)","windows")
+  TAR += --force-local
+endif
+
 ###############################################################################
 ###############################################################################
 
@@ -281,6 +288,9 @@ TARGET_LINUX_LINK_CPIO_IMAGE ?= 0
 # Generate a Uboot image of linux
 TARGET_LINUX_GENERATE_UIMAGE ?= 0
 
+# Proceed install device-tree blobs via kernel target build ('no' by default)
+TARGET_LINUX_INSTALL_DEVICE_TREE ?= 0
+
 # Copy device tree files to the boot directory
 TARGET_LINUX_DEVICE_TREE_NAMES ?=
 
@@ -303,7 +313,7 @@ ifeq ("$(TARGET_OS_FLAVOUR:-chroot=)","native")
 endif
 
 # Target image format (tar, cpio, ext2, ext3, ext4, plf)
-# It can optionaly be suffixed with .gz or .bz2 to compress the image
+# It can optionaly be suffixed with .gz, .bz2 or zip to compress the image
 TARGET_IMAGE_FORMAT ?= tar.gz
 
 # Target image generation options (not used for plf images)

@@ -146,7 +146,12 @@ EM_PJ = 91                    # picoJava
 EM_OPENRISC = 92              # OpenRISC 32-bit embedded processor
 EM_ARC_A5 = 93                # ARC Cores Tangent-A5
 EM_XTENSA = 94                # Tensilica Xtensa Architecture
-EM_NUM = 95                   #
+EM_ALTERA_NIOS2 = 113         # Altera Nios II
+EM_AARCH64 = 183              # ARM AARCH64
+EM_TILEPRO = 188              # Tilera TILEPro
+EM_MICROBLAZE = 189           # Xilinx MicroBlaze
+EM_TILEGX = 191               # Tilera TILE-Gx
+EM_NUM = 192                  #
 
 #===============================================================================
 # Values for e_version (version).
@@ -204,7 +209,7 @@ SHT_GNU_verneed = 0x6ffffffe  # Versions needed by file
 SHT_GNU_versym = 0x6fffffff   # Symbol versions
 
 #===============================================================================
-# Values for sh_flags (section flags).
+# Values for sh_flags (section flags)
 #===============================================================================
 SHF_WRITE = (1 << 0)          # Writable data during execution
 SHF_ALLOC = (1 << 1)          # Occupies memory during execution
@@ -220,7 +225,7 @@ SHF_MASKOS = 0x0ff00000       # OS-specific semantics
 SHF_MASKPROC = 0xf0000000     # Processor-specific semantics
 
 #===============================================================================
-# Values for p_type (segment type). 
+# Values for p_type (segment type).
 #===============================================================================
 PT_NULL = 0                   # Program header table entry unused
 PT_LOAD = 1                   # Loadable program segment
@@ -241,7 +246,7 @@ PT_GNU_STACK = 0x6474e551     # Indicates stack executability
 PT_GNU_RELRO = 0x6474e552     # Read-only after relocation
 
 #===============================================================================
-# Values for p_flags (segment flags). 
+# Values for p_flags (segment flags).
 #===============================================================================
 PF_X = (1 << 0)               # Segment is executable
 PF_W = (1 << 1)               # Segment is writable
@@ -371,6 +376,19 @@ DF_1_CONFALT = 0x00002000     # Configuration alternative created.
 DF_1_ENDFILTEE = 0x00004000   # Filtee terminates filters search.
 DF_1_DISPRELDNE = 0x00008000  # Disp reloc applied at build time.
 DF_1_DISPRELPND = 0x00010000  # Disp reloc applied at run-time.
+
+#===============================================================================
+# ARM specific declarations
+#===============================================================================
+EF_ARM_ABI_FLOAT_SOFT = 0x200
+EF_ARM_ABI_FLOAT_HARD = 0x400
+EF_ARM_EABIMASK = 0xff000000
+EF_ARM_EABI_UNKNOWN = 0x00000000
+EF_ARM_EABI_VER1 = 0x01000000
+EF_ARM_EABI_VER2 = 0x02000000
+EF_ARM_EABI_VER3 = 0x03000000
+EF_ARM_EABI_VER4 = 0x04000000
+EF_ARM_EABI_VER5 =  0x05000000
 
 #===============================================================================
 #===============================================================================
@@ -714,6 +732,9 @@ class Elf(object):
             if shdr.namestr == name:
                 return shdr
         return None
+
+    def getSectionData(self, shdr):
+        return self._data[shdr.sh_offset:shdr.sh_offset+shdr.sh_size]
 
     def hasSection(self, name):
         return self.getSection(name) is not None

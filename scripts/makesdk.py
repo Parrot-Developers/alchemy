@@ -58,11 +58,20 @@ class Context(object):
 
         if "OS_FLAVOUR" in self.moduledb.targetVars and \
                 self.moduledb.targetVars["OS_FLAVOUR"] == "android":
+            abi = os.path.basename(os.path.dirname(self.buildDir))
             self.android = StringIO()
             self.android.write("# GENERATED FILE, DO NOT EDIT\n\n")
+            self.android.write("ifndef ALCHEMY_SDK_ANDROID_{}_INCLUDED\n".format(abi))
+            self.android.write("ALCHEMY_SDK_ANDROID_{}_INCLUDED = 1\n\n".format(abi))
             self.android.write("LOCAL_PATH := $(call my-dir)\n\n")
+            self.android_static = StringIO()
+            self.android_static.write("# GENERATED FILE, DO NOT EDIT\n\n")
+            self.android_static.write("ifndef ALCHEMY_SDK_ANDROID_STATIC_{}_INCLUDED\n".format(abi))
+            self.android_static.write("ALCHEMY_SDK_ANDROID_STATIC_{}_INCLUDED = 1\n\n".format(abi))
+            self.android_static.write("LOCAL_PATH := $(call my-dir)\n\n")
         else:
             self.android = None
+            self.android_static = None
 
     def finishFile(self, fileData, fileName):
         if self.tarFile is not None:
@@ -81,7 +90,12 @@ class Context(object):
         self.finishFile(self.atom, "atom.mk")
         self.finishFile(self.setup, "setup.mk")
         if self.android is not None:
+            self.android.write("include $(LOCAL_PATH)/Android-static.mk\n\n")
+            self.android.write("endif\n")
             self.finishFile(self.android, "Android.mk")
+        if self.android_static is not None:
+            self.android_static.write("endif\n")
+            self.finishFile(self.android_static, "Android-static.mk")
 
     def addFile(self, srcFilePath, dstFilePath):
         if dstFilePath in self.files:
@@ -394,7 +408,7 @@ def processModule(ctx, module, headersOnly=False):
                 copyHeaders(ctx, exportedInclude[0], os.path.join(ctx.outDir, exportedInclude[1]))
             if os.path.isabs(exportedInclude[1]):
                 ctx.atom.write(" \\\n\t%s" % exportedInclude[1])
-            elif exportedInclude[1] != "usr/include":
+            elif exportedInclude[1] != "usr/include" or moduleClass == "LINUX_MODULE":
                 ctx.atom.write(" \\\n\t$(LOCAL_PATH)/%s" % exportedInclude[1])
         ctx.atom.write("\n")
 
@@ -431,10 +445,10 @@ def processModule(ctx, module, headersOnly=False):
 
 #===============================================================================
 #===============================================================================
-def processModuleAndroidInternal(ctx, module, name, libPath, kind):
-    ctx.android.write("include $(CLEAR_VARS)\n")
-    ctx.android.write("LOCAL_MODULE := %s\n" % name)
-    ctx.android.write("LOCAL_SRC_FILES := $(LOCAL_PATH)/%s\n" % libPath)
+def processModuleAndroidInternal(ctx, writer, module, name, libPath, kind):
+    writer.write("include $(CLEAR_VARS)\n")
+    writer.write("LOCAL_MODULE := %s\n" % name)
+    writer.write("LOCAL_SRC_FILES := $(LOCAL_PATH)/%s\n" % libPath)
 
     # Exported flags
     fields = {
@@ -443,24 +457,63 @@ def processModuleAndroidInternal(ctx, module, name, libPath, kind):
     }
     for field in fields:
         if field[0] in module.fields and module.fields[field[0]]:
-            ctx.android.write("LOCAL_%s := %s\n" % (field[1], module.fields[field[0]]))
+            writer.write("LOCAL_%s := %s\n" % (field[1], module.fields[field[0]]))
 
     # Exported includes, always put 'usr/include'
-    ctx.android.write("LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/usr/include")
+    writer.write("LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/usr/include")
     if "EXPORT_C_INCLUDES" in module.fields:
         exportedIncludeDirs = getExportedIncludes(ctx, module)
         for exportedInclude in exportedIncludeDirs:
             if exportedInclude[0] is not None:
                 copyHeaders(ctx, exportedInclude[0], os.path.join(ctx.outDir, exportedInclude[1]))
             if os.path.isabs(exportedInclude[1]):
-                ctx.android.write(" \\\n\t%s" % exportedInclude[1])
+                writer.write(" \\\n\t%s" % exportedInclude[1])
             elif exportedInclude[1] != "usr/include":
-                ctx.android.write(" \\\n\t$(LOCAL_PATH)/%s" % exportedInclude[1])
-    ctx.android.write("\n")
+                writer.write(" \\\n\t$(LOCAL_PATH)/%s" % exportedInclude[1])
+    writer.write("\n")
+
+    # Deps (only for static libraries)
+    if kind == "STATIC" and "depends" in module.fields:
+        raw_deps_list = module.fields["depends"].split()
+        static_libs_deps = []
+        shared_libs_deps = []
+        for name in raw_deps_list:
+            try:
+                mod = ctx.moduledb[name]
+            except KeyError:
+                continue
+            moduleClass = mod.fields["MODULE_CLASS"]
+            if moduleClass == "SHARED_LIBRARY":
+                shared_libs_deps.append(name)
+            elif moduleClass == "STATIC_LIBRARY" or moduleClass == "LIBRARY":
+                static_libs_deps.append("%s-static" % name)
+            elif "EXPORT_LDLIBS" in mod.fields:
+                libNames = mod.fields["EXPORT_LDLIBS"].split()
+                for libName in ("lib" + libName[2:] for libName in libNames if libName.startswith("-l")):
+                    name = mod.name + "-" + libName if len(libNames) > 1 else mod.name
+                    libPathShared = None
+                    libPathStatic = None
+                    # Search shared/static lib path
+                    for libDir in "lib", "usr/lib":
+                        libPath = os.path.join(libDir, libName)
+                        if os.path.exists(os.path.join(ctx.stagingDir, libPath) + ".so"):
+                            libPathShared = libPath + ".so"
+                        if os.path.exists(os.path.join(ctx.stagingDir, libPath) + ".a"):
+                            libPathStatic = libPath + ".a"
+                    if libPathStatic is not None:
+                        static_libs_deps.append("%s-static" % name)
+                    elif libPathShared is not None:
+                        shared_libs_deps.append(name)
+
+        if static_libs_deps:
+            writer.write("LOCAL_STATIC_LIBRARIES := %s\n" % " \\\n\t".join(static_libs_deps))
+        if shared_libs_deps:
+            writer.write("LOCAL_SHARED_LIBRARIES := %s\n" % " \\\n\t".join(shared_libs_deps))
+
 
     # End of module
-    ctx.android.write("include $(PREBUILT_%s_LIBRARY)\n" % kind)
-    ctx.android.write("\n")
+    writer.write("include $(PREBUILT_%s_LIBRARY)\n" % kind)
+    writer.write("\n")
 
 #===============================================================================
 #===============================================================================
@@ -473,43 +526,64 @@ def processModuleAndroid(ctx, module):
     if moduleClass == "SHARED_LIBRARY":
         # SHARED
         libPath = module.fields["DESTDIR"] + "/" + module.fields["MODULE_FILENAME"]
-        processModuleAndroidInternal(ctx, module, module.name, libPath, "SHARED")
+        processModuleAndroidInternal(ctx, ctx.android, module, module.name, libPath, "SHARED")
     elif moduleClass == "STATIC_LIBRARY":
         # STATIC
         libPath = module.fields["DESTDIR"] + "/" + module.fields["MODULE_FILENAME"]
-        processModuleAndroidInternal(ctx, module, module.name + "-static", libPath, "STATIC")
+        processModuleAndroidInternal(ctx, ctx.android_static, module, module.name + "-static", libPath, "STATIC")
     elif moduleClass == "LIBRARY":
         # Both SHARED and STATIC
         libPath = module.fields["DESTDIR"] + "/" + module.fields["MODULE_FILENAME"]
-        processModuleAndroidInternal(ctx, module, module.name, libPath, "SHARED")
+        processModuleAndroidInternal(ctx, ctx.android, module, module.name, libPath, "SHARED")
         if libPath.endswith(".so"):
             libPath = libPath[:-3] + ".a"
-            processModuleAndroidInternal(ctx, module, module.name + "-static", libPath, "STATIC")
+            processModuleAndroidInternal(ctx, ctx.android_static, module, module.name + "-static", libPath, "STATIC")
     elif "EXPORT_LDLIBS" in module.fields:
         # register all exported libs
         libNames = module.fields["EXPORT_LDLIBS"].split()
-        for libName in ("lib" + libName[2:] for libName in libNames if libName.startswith("-l")):
-            moduleName = module.name + "-" + libName if len(libNames) > 1 else module.name
+
+        for libName in libNames:
             libPathShared = None
             libPathStatic = None
-            # Search shared/static lib path
-            for libDir in "lib", "usr/lib":
-                libPath = os.path.join(libDir, libName)
-                if os.path.exists(os.path.join(ctx.stagingDir, libPath) + ".so"):
-                    libPathShared = libPath + ".so"
-                if os.path.exists(os.path.join(ctx.stagingDir, libPath) + ".a"):
-                    libPathStatic = libPath + ".a"
+            libPath = None
+            modulePath = module.fields["PATH"]
+
+            if libName.startswith("-l"):
+                libName = "lib" + libName[2:]
+                # Search shared/static lib path
+                for libDir in "lib", "usr/lib":
+                    lPath = os.path.join(libDir, libName)
+                    if os.path.exists(os.path.join(ctx.stagingDir, lPath) + ".so"):
+                        libPathShared = lPath + ".so"
+                    if os.path.exists(os.path.join(ctx.stagingDir, lPath) + ".a"):
+                        libPathStatic = lPath + ".a"
+            elif libName.startswith(modulePath):
+                # lib is defined by its full name (abs dir + lib name)
+                if os.path.exists(modulePath):
+                    relPath = os.path.relpath(libName, modulePath)
+                    if relPath != ".":
+                        libPath = os.path.join("usr", "lib", module.name, relPath)
+                    else:
+                        libPath = os.path.join("usr", "lib", module.name)
+            elif libName.startswith(ctx.stagingDir):
+                libPath = os.path.relpath(libName, ctx.stagingDir)
+            else:
+                 libPath = libName
+
+            if libPath is not None and libPath.endswith(".so"):
+                libPathShared = libPath
+            elif libPath is not None and libPath.endswith(".a"):
+                libPathStatic = libPath
+
+            moduleName = module.name + "-" + libName if len(libNames) > 1 else module.name
+
             # Register
-            if libPathShared is not None and libPathStatic is not None:
-                # Both SHARED and STATIC
-                processModuleAndroidInternal(ctx, module, moduleName, libPathShared, "SHARED")
-                processModuleAndroidInternal(ctx, module, moduleName + "-static", libPathStatic, "STATIC")
-            elif libPathShared is not None:
+            if libPathShared is not None:
                 # SHARED
-                processModuleAndroidInternal(ctx, module, moduleName, libPathShared, "SHARED")
-            elif libPathStatic is not None:
+                processModuleAndroidInternal(ctx, ctx.android, module, moduleName, libPathShared, "SHARED")
+            if libPathStatic is not None:
                 # STATIC
-                processModuleAndroidInternal(ctx, module, moduleName + "-static", libPathStatic, "STATIC")
+                processModuleAndroidInternal(ctx, ctx.android_static, module, moduleName + "-static", libPathStatic, "STATIC")
 
 #===============================================================================
 #===============================================================================

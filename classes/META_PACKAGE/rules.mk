@@ -18,6 +18,8 @@ $1: $2
 $1-clean: $2-clean
 $1-dirclean: $2-dirclean
 $1-codecheck: $2-codecheck
+$1-codeformat: $2-codeformat
+$1-genproject: $2-genproject
 $1-doc: $2-doc
 $1-cloc: $2-cloc
 endef

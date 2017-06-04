@@ -1,4 +1,3 @@
-
 # eclipse files
 .cproject
 .pydevproject
@@ -11,13 +10,21 @@
 # diff files from config
 test/config/*/*.diff
 
+# PyCharm files
+.idea
+
 # python files
 *.pyc
 *.pyo
+__pycache__
 
 # Debian stuff
 debian/files
 debian/*.debhelper.log
 debian/*.substvars
 debian/*/
+
+# VSCode files
+.vscode
+
 

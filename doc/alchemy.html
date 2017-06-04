@@ -227,6 +227,12 @@ kernel. During cpio image generation, the kernel will be re-linked to add it
 inside. Also, required options are internally set in linux config. Although
 only the copy in build directory is modified, the original one is not touched.
 </br>Default is <code>0</code></li>
+<li><code>TARGET_LINUX_INSTALL_DEVICE_TREE</code> : enable linux kernel devicetree install target
+rule: <code>dtbs_install</code>. The install directory shall be defined in <code>TARGET_LINUX_MAKE_BUILD_ARGS</code>
+via linux kernel <code>INSTALL_DTBS_PATH</code> environment variable added to it.
+This override <code>TARGET_LINUX_DEVICE_TREE_NAMES</code>
+</br>(i.e <code>TARGET_LINUX_MAKE_BUILD_ARGS := INSTALL_DTBS_PATH="$(TARGET_OUT_STAGING)/boot"</code>)
+</br>Default is <code>0</code></li>
 <li><code>TARGET_LINUX_DEVICE_TREE_NAMES</code> : list of device tree name to copy in boot
 directory. It shall be in <code>$(LINUX_BUILD_DIR)/arch/$(TARGET_ARCH)/boot/dts</code>.
 The names shall be the ones with the <code>.dtb</code> extension. Default is empty.</li>
@@ -362,7 +368,8 @@ even if they are already built. See chapter relating to recompilation checks
 for more information.
 </br>Default is <code>0</code>.</li>
 <li><code>TARGET_NOSTRIP_FINAL</code> : Can be set at <code>1</code> to prevent stripping binaries when
-generating final directory.
+generating final directory. Setting to <code>2</code> does a partial stripping: debug info
+is removed, but symbol table is kept. This is useful for tools like perf.
 </br>Default is <code>0</code>.</li>
 <li><code>TARGET_STRIP_FILTER</code> : List of filenames to filter during strip. Mainly used
 when valgrind or other tracing tool is used and requires debugging symbols
@@ -419,7 +426,8 @@ by <code>Alchemy</code> (/lib/<arch>, /lib, /usr/lib/<arch>, /usr/lib).</li>
 <li><code>TARGET_IMAGE_FORMAT</code> : format of the image file to generate wilth <code>image</code> command.
 Supported value: <code>tar</code>, <code>cpio</code>, <code>ext2</code>, <code>ext3</code>, <code>ext4</code>, <code>plf</code> and the compressed
 forms <code>tar.gz</code>, <code>cpio.gz</code>, <code>ext2.gz</code>, <code>ext3.gz</code>, <code>ext4.gz</code>,
-<code>tar.bz2</code>, <code>cpio.bz2</code>, <code>ext2.bz2</code>, <code>ext3.bz2</code>, <code>ext4.bz2</code>
+<code>tar.bz2</code>, <code>cpio.bz2</code>, <code>ext2.bz2</code>, <code>ext3.bz2</code>, <code>ext4.bz2</code>,
+<code>tar.zip</code>, <code>cpio.zip</code>, <code>ext2.zip</code>, <code>ext3.zip</code>, <code>ext4.zip</code>
 </br>Default is <code>tar.gz</code>.</li>
 <li><code>TARGET_IMAGE_OPTIONS</code> : additional options to give during image generation:
 <ul>
@@ -634,6 +642,7 @@ unpacked sources and applied patches will be kept in the build directory.</li>
 <li><code>make &lt;module&gt;-dirclean</code> : will remove the build directory of the module.</li>
 <li><code>make &lt;module&gt;-doc</code> : will generate the documentation for the module.</li>
 <li><code>make &lt;module&gt;-path</code> : will display the path of the module.</li>
+<li><code>make &lt;module&gt;-codeformat</code> : will format source files.</li>
 <li><code>make &lt;module&gt;-codecheck</code> : will check coding style of source files.</li>
 <li><code>make &lt;module&gt;-cloc</code> : will count the number of lines of code.</li>
 </ul>
@@ -650,7 +659,7 @@ unpacked sources and applied patches will be kept in the build directory.</li>
 <li><code>AUTOTOOLS</code></li>
 <li><code>CMAKE</code></li>
 <li><code>QMAKE</code></li>
-<li><code>PYTHON_EXTENSION</code></li>
+<li><code>PYTHON_PACKAGE</code></li>
 <li><code>CUSTOM</code></li>
 <li><code>META_PACKAGE</code></li>
 <li><code>LINUX_MODULE</code></li>
@@ -661,7 +670,7 @@ unpacked sources and applied patches will be kept in the build directory.</li>
 <ul>
 <li>Internal modules are <code>STATIC_LIBRARY</code>, <code>SHARED_LIBRARY</code>, <code>LIBRARY</code> and
 <code>EXECUTABLE</code> modules because they are completely managed by the build system.</li>
-<li>External modules are <code>AUTOTOOLS</code>, <code>CMAKE</code>, <code>QMAKE</code>, <code>PYTHON_EXTENSION</code>,
+<li>External modules are <code>AUTOTOOLS</code>, <code>CMAKE</code>, <code>QMAKE</code>, <code>PYTHON_PACKAGE</code>,
 <code>CUSTOM</code>, <code>META_PACKAGE</code> and <code>LINUX_MODULE</code> modules because the build system has little
 control on the way those modules are built.</li>
 </ul>
@@ -770,7 +779,9 @@ system will use it.</p>
 
 <p>This is a list of modules whose headers are required to compile but not for
 link. This does <strong>NOT</strong> introduce a build order, just an automatic import of
-exported headers.</p>
+exported headers. This instruction does <strong>NOT</strong> handle dependencies well, it
+only allows one level dependency. If more than one level of dependency is
+needed, use a <code>CUSTOM</code> class module which exports headers.</p>
 
 <h4><code>LOCAL_DEPENDS_MODULES</code></h4>
 
@@ -992,6 +1003,25 @@ original source tree.</p>
 <p><code>LOCAL_COPY_TO_BUILD_DIR_SKIP_FILES</code> can be used to list files that should not
 be copied (ath relative to <code>LOCAL_PATH</code>.</p>
 
+<h4><code>LOCAL_CODEFORMAT_xxx</code> <code>LOCAL_CODEFORMAT_xxx_ARGS</code></h4>
+
+<p>It is possible to customize the formatter used to format source code.</p>
+
+<p><code>LOCAL_CODEFORMAT_xxx</code> can be used to specify either an internal formatter name or
+a custom script to use.</p>
+
+<p>If an external script is used, it will be given extra argument as its first
+argument and the list of files to format as its second argument.</p>
+
+<p>If <code>none</code> is given, the specified language format will be disabled.</p>
+
+<p><code>LOCAL_CODEFORMAT_xxx_ARGS</code> can be used to pass extra argument to the formatter script.</p>
+
+<p>Available languages:
+* <code>C</code>: default formatter is <code>clang-format</code>.
+* <code>CXX</code>: default formatter is <code>clang-format</code>.
+* <code>OBJC</code>: default formatter is <code>clang-format</code>.</p>
+
 <h4><code>LOCAL_CODECHECK_xxx</code> <code>LOCAL_CODECHECK_xxx_ARGS</code></h4>
 
 <p>It is possible to customize the checker used to verify source code style.</p>
@@ -1008,9 +1038,9 @@ argument and the list of files to check as its second argument.</p>
 
 <p>Available languages:
 * <code>AS</code>: default checker is <code>none</code>.
-* <code>C</code>: default checker is <code>linux</code>.
-* <code>CXX</code>: default checker is <code>cpplint</code>.
-* <code>OBJC</code>: default checker is <code>linux</code>.
+* <code>C</code>: default checkers are <code>linux</code> and <code>clang-format</code>.
+* <code>CXX</code>: default checker is <code>clang-format</code>.
+* <code>OBJC</code>: default checker is <code>none</code>.
 * <code>VALA</code>: default checker is <code>valastyle</code>.</p>
 
 <h3>Internal modules</h3>
@@ -1371,17 +1401,33 @@ relative to <code>LOCAL_PATH</code></li>
 
 <h3>Python extension modules</h3>
 
-<p>This class of modules is for the compilation of python extensions using a
-<code>setup.py</code> file and <code>distutils</code>. <code>Alchemy</code> provides internally everything
-needed to correctly build them and install them. The module still need to add
-a dependency to <code>python</code> or <code>python3</code>.</p>
+<p>This class of modules is obsolete, please migrate to python package class.</p>
+
+<h3>Python packages modules</h3>
+
+<p>This class of modules is used to build and install python packages based on
+<code>distutils</code> or <code>setuptools</code>. It requires the availability of 2 alchemy modules:
+* 'host.python': a module that installs a suitable python version in host staging directory.
+* 'python': a module that installs a suitable python version in staging directory.</p>
+
+<p>Those two modules should be the same python version, that's why for cross-compilation
+it is required to build python for the host as well (it is not possible to use the
+one from the <code>native</code> host)</p>
+
+<p>For <code>native</code> build it is possible to simplify things and skip the compilation of python.
+You can simply create symlinks in staging directory to the python executable to use.
+Or you can use virtual env to install a dedicated python environment in the staging directory.
+An example of such <code>atom.k</code> is available here <a href="python-native-atom.mk">python-native-atom.mk</a>.</p>
 
 <h4>Customization variables</h4>
 
 <ul>
-<li><code>LOCAL_PYTHONEXT_SETUP_PY_ENV</code> : Additional environment variables to pass to
-<code>setup.py</code>.</li>
-<li><code>LOCAL_PYTHONEXT_SETUP_PY_ARGS</code> : Additional arguments to pass to <code>setup.py</code>.</li>
+<li><code>LOCAL_PYTHONPKG_TYPE</code> : Type of the package (<code>distutils</code> or <code>setuptools</code>), mandatory.</li>
+<li><code>LOCAL_PYTHONPKG_SETUP_PY</code> : Name of the <code>setup.py</code> script to execute (relative to <code>LOCAL_PATH').
+Default is</code>setup.py`.</li>
+<li><code>LOCAL_PYTHONPKG_ENV</code> : Optional extra environment for build/install.</li>
+<li><code>LOCAL_PYTHONPKG_BUILD_ARGS</code> : Optional extra build arguments.</li>
+<li><code>LOCAL_PYTHONPKG_INSTALL_ARGS</code> : Optional extra install arguments.</li>
 </ul>
 
 <h3>Linux kernel modules</h3>
@@ -1395,7 +1441,7 @@ dependency variables.</p>
 <h3>GObject introspection type library modules</h3>
 
 <p>This class of modules is for the compilation of gobject-introspection <code>.typelib</code>
-type libraries used by languages bindings to automatically use a library 
+type libraries used by languages bindings to automatically use a library
 without explicit wrappers. Only GObject introspection of libraries is currently
 supported.</p>
 
@@ -1461,8 +1507,8 @@ dependency in the <code>LOCAL_DEPENDS_HOST_MODULES</code> variable.</p>
 <code>usr/bin</code> sub-directory.</p>
 
 <p>Note that <code>$(HOST_OUT_STAGING)/bin</code> and <code>$(HOST_OUT_STAGING)/usr/bin</code> are
-automatically added to the <code>PATH</code> environment variable for <code>AUTOTOOLS</code> and
-<code>CMAKE</code> builds.</p>
+automatically added to the <code>PATH</code> environment variable for <code>AUTOTOOLS</code>,
+<code>CMAKE</code> and <code>QMAKE</code> builds.</p>
 
 <p>There is some <code>HOST_xxx</code> variables that are defined internally and that can be
 customized before invoking <code>alchemy</code>. For the meaning, see the corresponding

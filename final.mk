@@ -11,19 +11,20 @@
 ###############################################################################
 
 MAKEFINAL_SCRIPT := $(BUILD_SYSTEM)/scripts/makefinal.py
-LDCONFIG := $(BUILD_SYSTEM)/ldconfig/ldconfig
+LDCONFIG := $(BUILD_SYSTEM)/scripts/ldconfig.py
 
 ifneq ("$(V)","0")
   MAKEFINAL_SCRIPT += -v
+  LDCONFIG += -v
 endif
 
 MAKEFINAL_ARGS :=
 
 # Stripping kernel modules requires --strip-debug option and its
 # specific strip program
-ifeq ("$(TARGET_NOSTRIP_FINAL)","0")
+ifneq ("$(TARGET_NOSTRIP_FINAL)","1")
   ifneq ("$(TARGET_STRIP)","")
-    MAKEFINAL_ARGS += --strip="$(TARGET_STRIP)"
+      MAKEFINAL_ARGS += --strip="$(TARGET_STRIP)"
   endif
   ifeq ("$(TARGET_OS)","linux")
     ifneq ("$(TARGET_LINUX_CROSS)","")
@@ -85,9 +86,7 @@ _ld_so_preload_contents := $(strip $(foreach __mod,$(ALL_BUILD_MODULES), \
 ## Internal generation of final tree.
 ##
 ## Create /etc/ld.so.conf and create cache with ldconfig
-## We use the ldconfig from the host to generate. Hopefully it will be compatible
-## with the target. This is what buildroot do if there is no ldconfig in the
-## cross toolchain.
+## We use a clone of ldconfig to handle correctly cross architecture.
 ## Do not recreate missing links (-X option).
 ##
 ## Check that there is no missing libraies needed by some binaries and that

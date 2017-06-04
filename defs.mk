@@ -94,6 +94,15 @@ strneq = $(call not,$(call streq,$1,$2))
 # $2 : minimum version.
 check-version = $(call strneq,0,$(shell expr $1 \>= $2))
 
+# Make sure an item appears only once in a list, keeping only the first reference.
+# $1 : input list.
+uniq = \
+	$(eval __r := $(empty)) \
+	$(foreach __f,$1, \
+		$(if $(filter $(__f),$(__r)),,$(eval __r += $(__f))) \
+	) \
+	$(__r)
+
 # Make sure an item appears only once in a list, keeping only the last reference.
 # $1 : input list.
 uniq2 = \
@@ -224,6 +233,8 @@ clear-vars = $(foreach __varname,$1,$(eval $(__varname) := $(empty)))
 ###############################################################################
 modules-fields-depends := \
 	depends \
+	depends.META_PACKAGES \
+	depends.PREBUILT_LIBRARIES \
 	depends.EXTERNAL_LIBRARIES \
 	depends.STATIC_LIBRARIES \
 	depends.WHOLE_STATIC_LIBRARIES \
@@ -255,9 +266,11 @@ module-add = \
 				$(call streq,$(LOCAL_MODULE_CLASS),CUSTOM), \
 				$(call streq,$(LOCAL_MODULE_CLASS),EXECUTABLE), \
 				$(call streq,$(LOCAL_MODULE_CLASS),STATIC_LIBRARY), \
-				$(call streq,$(LOCAL_MODULE_CLASS),PREBUILT)), \
+				$(call streq,$(LOCAL_MODULE_CLASS),PREBUILT), \
+				$(call streq,$(LOCAL_MODULE_CLASS),META_PACKAGE), \
+				$(call streq,$(LOCAL_MODULE_CLASS),PYTHON_PACKAGE)), \
 			$(eval LOCAL_MODULE := host.$(LOCAL_MODULE)), \
-			$(error $(LOCAL_PATH): Only AUTOTOOLS/CUSTOM/EXECUTABLE/STATIC_LIBRARY/PREBUILT supported for host modules) \
+			$(error $(LOCAL_PATH): Only AUTOTOOLS/CUSTOM/EXECUTABLE/STATIC_LIBRARY/PREBUILT/META_PACKAGE/PYTHON_PACKAGE supported for host modules) \
 		) \
 	) \
 	$(eval __mod := $(LOCAL_MODULE)) \
@@ -341,7 +354,9 @@ is-targets-in-make-goals = $(strip \
 ###############################################################################
 is-module-in-make-goals = $(strip \
 	$(call is-targets-in-make-goals,$1 $1-clean $1-dirclean $1-path $1-cloc $1-doc \
-		$(call codecheck-get-targets,$1)))
+		$(call codecheck-get-targets,$1) \
+		$(call codeformat-get-targets,$1) \
+		$(call genproject-get-targets,$1)))
 
 ###############################################################################
 ## Check if a module is registered. It simply verifies that the variable
@@ -351,10 +366,19 @@ is-module-in-make-goals = $(strip \
 is-module-registered = $(call is-var-defined,__modules.$1.PATH)
 
 ###############################################################################
+## Check if a list of modules are registered. It simply verifies that none of
+## the variable __modules.$1.PATH have not been.
+## $1 : module list to check.
+###############################################################################
+is-module-list-registered = $(call not,$(strip $(foreach __lib,$1, \
+	$(call is-var-undefined,__modules.$(__lib).PATH))))
+
+###############################################################################
 ## Check if a module is built externally (by autotools or custom rules).
 ## $1 : module to check.
 ## AUTOTOOLS/CMAKE/QMAKE/PYTHON_EXTENSION/GENERIC/CUSTOM/META_PACKAGE class or empty
 ## class means external.
+## TODO: Use _classes_external list instead
 ###############################################################################
 is-module-external = $(strip \
 	$(eval __class := $(__modules.$1.MODULE_CLASS)) \
@@ -362,6 +386,7 @@ is-module-external = $(strip \
 		$(call streq,$(__class),CMAKE), \
 		$(call streq,$(__class),QMAKE), \
 		$(call streq,$(__class),PYTHON_EXTENSION), \
+		$(call streq,$(__class),PYTHON_PACKAGE), \
 		$(call streq,$(__class),GENERIC), \
 		$(call streq,$(__class),CUSTOM) \
 		$(call streq,$(__class),META_PACKAGE) \
@@ -681,7 +706,7 @@ modules-compute-depends = \
 		$(call __module-compute-depends-direct,$(__mod)) \
 	) \
 	$(foreach __mod,$(__modules), \
-		$(foreach __field,EXTERNAL_LIBRARIES STATIC_LIBRARIES WHOLE_STATIC_LIBRARIES SHARED_LIBRARIES, \
+		$(foreach __field,META_PACKAGES PREBUILT_LIBRARIES EXTERNAL_LIBRARIES STATIC_LIBRARIES WHOLE_STATIC_LIBRARIES SHARED_LIBRARIES, \
 			$(eval __depends-loop := $(empty)) \
 			$(eval __dummy := $(call __module-compute-depends-static,$(__mod),$(__field))) \
 		) \
@@ -713,14 +738,22 @@ __module-update-depends-direct = \
 				$(eval __modules.$1.WHOLE_STATIC_LIBRARIES += $(__lib)), \
 				$(eval __modules.$1.STATIC_LIBRARIES += $(__lib)) \
 			) \
-		, \
+			, \
 			$(if $(call streq,$(__class),SHARED_LIBRARY), \
 				$(eval __modules.$1.SHARED_LIBRARIES += $(__lib)) \
-			, \
+				, \
 				$(if $(call streq,$(__class),LIBRARY), \
 					$(eval __modules.$1.SHARED_LIBRARIES += $(__lib)) \
 					, \
-					$(eval __modules.$1.EXTERNAL_LIBRARIES += $(__lib)) \
+					$(if $(call streq,$(__class),META_PACKAGE), \
+						$(eval __modules.$1.META_PACKAGES += $(__lib)) \
+						, \
+						$(if $(call streq,$(__class),PREBUILT), \
+							$(eval __modules.$1.PREBUILT_LIBRARIES += $(__lib)) \
+							, \
+							$(eval __modules.$1.EXTERNAL_LIBRARIES += $(__lib)) \
+						) \
+					) \
 				) \
 			) \
 		) \
@@ -732,6 +765,8 @@ __module-compute-depends-direct = \
 	$(call __module-add-depends-direct,$1,$(__modules.$1.STATIC_LIBRARIES)) \
 	$(call __module-add-depends-direct,$1,$(__modules.$1.WHOLE_STATIC_LIBRARIES)) \
 	$(call __module-add-depends-direct,$1,$(__modules.$1.SHARED_LIBRARIES)) \
+	$(call __module-add-depends-direct,$1,$(__modules.$1.META_PACKAGES)) \
+	$(call __module-add-depends-direct,$1,$(__modules.$1.PREBUILT_LIBRARIES)) \
 	$(call __module-add-depends-direct,$1,$(__modules.$1.EXTERNAL_LIBRARIES)) \
 	$(eval __modules.$1.depends.headers := $(__modules.$1.DEPENDS_HEADERS)) \
 	$(eval __modules.$1.depends.build += $(__modules.$1.DEPENDS_MODULES)) \
@@ -784,6 +819,14 @@ __module-compute-depends-static-internal = \
 		) \
 	)
 
+# Recurse prebuilt and meta packages as well
+__module-compute-depends-static-internal += \
+	$(foreach __mod,$(__modules.$1.META_PACKAGES) $(__modules.$1.PREBUILT_LIBRARIES), \
+		$(if $(call is-module-registered,$(__mod)), \
+			$(call __module-compute-depends-static,$(__mod),$2) \
+		) \
+	)
+
 # When forcing static libraries, take into account external libraries as well
 # Otherwise assume they are mostly shared libraries
 __module-compute-depends-static-internal += \
@@ -799,6 +842,8 @@ __module-compute-depends-static-internal += \
 # $1 : module name.
 __module-compute-depends-link = \
 	$(eval __modules.$1.depends.link := $(strip $(sort \
+		$(__modules.$1.depends.META_PACKAGES) \
+		$(__modules.$1.depends.PREBUILT_LIBRARIES) \
 		$(__modules.$1.depends.EXTERNAL_LIBRARIES) \
 		$(__modules.$1.depends.STATIC_LIBRARIES) \
 		$(__modules.$1.depends.WHOLE_STATIC_LIBRARIES) \
@@ -910,7 +955,8 @@ module-get-all-depends = \
 module-get-build-depends = \
 	$(__modules.$1.depends.all) \
 	$(__modules.$1.depends.headers) \
-	$(__modules.$1.depends.build)
+	$(__modules.$1.depends.build) \
+	$(filter $(TARGET_GLOBAL_PREREQUISITES),$(__modules))
 
 # Get headers dependencies
 module-get-headers-depends = \

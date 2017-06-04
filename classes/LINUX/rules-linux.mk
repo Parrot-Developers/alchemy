@@ -42,7 +42,9 @@ endif
 ###############################################################################
 
 # Linux configuration file or target
-LINUX_CONFIG_FILE := $(call module-get-config,$(LOCAL_MODULE))
+ifndef LINUX_CONFIG_FILE
+  LINUX_CONFIG_FILE := $(call module-get-config,$(LOCAL_MODULE))
+endif
 LINUX_CONFIG_FILE_IS_TARGET := $(false)
 ifeq ("$(wildcard $(LINUX_CONFIG_FILE))","")
   ifdef LINUX_CONFIG_TARGET
@@ -67,6 +69,7 @@ endif
 # Headers to be copied in $(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)
 LINUX_EXPORTED_HEADERS_OVER := \
 	include/linux/media.h \
+	include/linux/media-bus-format.h \
 	include/linux/videodev2.h \
 	include/linux/v4l2-common.h \
 	include/linux/v4l2-mediabus.h \
@@ -89,7 +92,8 @@ LINUX_EXPORTED_HEADERS_OVER := \
 	include/linux/iio/types.h \
 	include/linux/cn_proc.h \
 	include/linux/prctl.h \
-	include/linux/input-event-codes.h
+	include/linux/input-event-codes.h \
+	include/linux/mii.h
 
 ###############################################################################
 ###############################################################################
@@ -197,15 +201,20 @@ $(if $(call streq,$(LINUX_ARCH),arm), \
 		find arch/$(LINUX_SRCARCH)/*/include -type f \
 		>> $(LINUX_BUILD_DIR)/sdksrcfiles) \
 )
+$(if $(call streq,$(LINUX_ARCH),arm64), \
+	$(Q) (cd $(PRIVATE_PATH); \
+		find arch/arm/include -type f \
+		>> $(LINUX_BUILD_DIR)/sdksrcfiles) \
+)
 	$(Q) (cd $(LINUX_BUILD_DIR); \
 		[ ! -d arch/$(LINUX_SRCARCH)/include ] || \
 		find arch/$(LINUX_SRCARCH)/include include scripts .config Module.symvers -type f \
 		>> $(LINUX_BUILD_DIR)/sdkobjfiles)
 	$(Q) mkdir -p $(LINUX_SDK_DIR)
-	$(Q) tar -C $(PRIVATE_PATH) -cf - -T $(LINUX_BUILD_DIR)/sdksrcfiles | \
-		tar -C $(LINUX_SDK_DIR) -xf -
-	$(Q) tar -C $(LINUX_BUILD_DIR) -cf - -T $(LINUX_BUILD_DIR)/sdkobjfiles | \
-		tar -C $(LINUX_SDK_DIR) -xf -
+	$(Q) $(TAR) -C $(PRIVATE_PATH) -cf - -T $(LINUX_BUILD_DIR)/sdksrcfiles | \
+		$(TAR) -C $(LINUX_SDK_DIR) -xf -
+	$(Q) $(TAR) -C $(LINUX_BUILD_DIR) -cf - -T $(LINUX_BUILD_DIR)/sdkobjfiles | \
+		$(TAR) -C $(LINUX_SDK_DIR) -xf -
 	$(Q) rm -f $(LINUX_BUILD_DIR)/sdksrcfiles
 	$(Q) rm -f $(LINUX_BUILD_DIR)/sdkobjfiles
 	$(Q) echo "$(LINUX_ARCH)" > $(LINUX_SDK_DIR)/linuxarch
@@ -242,7 +251,9 @@ ifeq ("$(TARGET_LINUX_IMAGE)","uImage")
 endif
 	@mkdir -p $(TARGET_OUT_STAGING)/boot
 	$(call linux-copy-images)
-ifneq ("$(TARGET_LINUX_DEVICE_TREE_NAMES)","")
+ifneq ("$(TARGET_LINUX_INSTALL_DEVICE_TREE)","0")
+	$(Q) $(MAKE) $(LINUX_MAKE_ARGS) dtbs_install
+else ifneq ("$(TARGET_LINUX_DEVICE_TREE_NAMES)","")
 	$(foreach __f,$(TARGET_LINUX_DEVICE_TREE_NAMES), \
 		$(Q) cp -af $(LINUX_BUILD_DIR)/arch/$(LINUX_SRCARCH)/boot/dts/$(__f) \
 			$(TARGET_OUT_STAGING)/boot/$(endl) \
@@ -361,8 +372,10 @@ linux-reset-config:
 ###############################################################################
 
 # Default rule to invoke kernel specific targets (like cscope, tags, help ...)
+ifneq ("$(filter linux-%,$(MAKECMDGOALS))","")
 .PHONY: linux-%
 linux-%: $(LINUX_BUILD_DIR)/.config
 	@echo "Building linux kernel $* target with $(LINUX_CONFIG_FILE)"
 	$(Q) $(MAKE) $(LINUX_MAKE_ARGS) $*
 	$(Q) $(linux-save-config)
+endif

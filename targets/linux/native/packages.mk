@@ -17,14 +17,11 @@ endif
 
 $(call register-prebuilt-pkg-config-module,alsa-lib,alsa)
 $(call register-prebuilt-pkg-config-module,libudev,libudev)
-$(call register-prebuilt-pkg-config-module,libusb,libusb)
-$(call register-prebuilt-pkg-config-module,libusb_1_0,libusb-1.0)
+
 
 ifeq ("$(TARGET_ARCH)","$(HOST_ARCH)")
 
-$(call register-prebuilt-pkg-config-module,avahi,avahi-client)
-$(call register-prebuilt-pkg-config-module,json,json-c)
-$(call register-prebuilt-pkg-config-module,glib,glib-2.0 gobject-2.0 gio-2.0)
+$(call register-prebuilt-pkg-config-module,avahi-client,avahi-client)
 $(call register-prebuilt-pkg-config-module,opengles,glesv2)
 $(call register-prebuilt-pkg-config-module,opengl,gl)
 $(call register-prebuilt-pkg-config-module,libpng,libpng)
@@ -36,6 +33,7 @@ $(call register-prebuilt-pkg-config-module,sdl-image,SDL_image)
 $(call register-prebuilt-pkg-config-module,freetype,freetype2)
 $(call register-prebuilt-pkg-config-module,libcrypto,libcrypto)
 $(call register-prebuilt-pkg-config-module,egl,egl)
+$(call register-prebuilt-pkg-config-module,opencv,opencv)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libjpeg-turbo
@@ -45,15 +43,6 @@ $(call local-register-prebuilt-overridable)
 include $(CLEAR_VARS)
 LOCAL_MODULE := libtiff
 LOCAL_EXPORT_LDLIBS := -ltiff
-$(call local-register-prebuilt-overridable)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := opencv
-LOCAL_EXPORT_LDLIBS := -lopencv_flann -lopencv_core -lopencv_imgproc \
-	-lopencv_calib3d -lopencv_contrib -lopencv_features2d -lopencv_gpu \
-	-lopencv_highgui -lopencv_legacy -lopencv_ml -lopencv_objdetect \
-	-lopencv_ocl -lopencv_photo -lopencv_stitching -lopencv_superres \
-	-lopencv_ts -lopencv_video -lopencv_videostab
 $(call local-register-prebuilt-overridable)
 
 include $(CLEAR_VARS)

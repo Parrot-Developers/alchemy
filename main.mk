@@ -13,7 +13,7 @@
 # Alchemy version
 ALCHEMY_VERSION_MAJOR := 1
 ALCHEMY_VERSION_MINOR := 3
-ALCHEMY_VERSION_REV   := 3
+ALCHEMY_VERSION_REV   := 4
 ALCHEMY_VERSION := $(ALCHEMY_VERSION_MAJOR).$(ALCHEMY_VERSION_MINOR).$(ALCHEMY_VERSION_REV)
 
 # Make sure SHELL is correctly set
@@ -404,7 +404,7 @@ $(info Generating rules...)
 # If a module is specified in goals, only include this one and its dependencies.
 # If 'all' or 'check' is also given do not do the filter
 # For meta packages, also get config dependencies (for build/clean shortcuts)
-ifeq ("$(call is-targets-in-make-goals,all check all-clean all-dirclean all-doc all-codecheck)","")
+ifeq ("$(call is-targets-in-make-goals,all check all-clean all-dirclean all-doc all-codecheck all-codeformat all-genproject)","")
 $(foreach __mod,$(ALL_BUILD_MODULES) $(ALL_BUILD_MODULES_HOST), \
 	$(if $(call is-module-in-make-goals,$(__mod)), \
 		$(eval __modlist += $(__mod)) \
@@ -499,6 +499,14 @@ all-doc: $(foreach __mod,$(ALL_BUILD_MODULES),$(if $(call is-module-prebuilt,$(_
 all-codecheck: $(foreach __mod,$(ALL_BUILD_MODULES),$(if $(call is-module-prebuilt,$(__mod)),$(empty),$(__mod)-codecheck))
 	@echo "Done all-codecheck"
 
+.PHONY: all-codeformat
+all-codeformat: $(foreach __mod,$(ALL_BUILD_MODULES),$(if $(call is-module-prebuilt,$(__mod)),$(empty),$(__mod)-codeformat))
+	@echo "Done all-codeformat"
+
+.PHONY: all-genproject
+all-genproject: $(foreach __mod,$(ALL_BUILD_MODULES),$(if $(call is-module-prebuilt,$(__mod)),$(empty),$(__mod)-genproject))
+	@echo "Done all-genproject"
+
 .PHONY: all-cloc
 all-cloc: $(foreach __mod,$(ALL_BUILD_MODULES),$(if $(call is-module-prebuilt,$(__mod)),$(empty),$(__mod)-cloc))
 	@echo "Done all-cloc"
@@ -579,6 +587,9 @@ include $(BUILD_SYSTEM)/oss-packages.mk
 
 # Code coverage helpers
 include $(BUILD_SYSTEM)/coverage.mk
+
+# Genproject helpers
+include $(BUILD_SYSTEM)/genproject.mk
 
 # Help
 include $(BUILD_SYSTEM)/help.mk

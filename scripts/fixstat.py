@@ -203,6 +203,8 @@ def main():
     # Read file names on stdin
     for line in sys.stdin:
         filePath = line.rstrip("\n")
+        if filePath.startswith("./"):
+            filePath = filePath[2:]
         st = fixstat(ctx, filePath, MyStat(os.lstat(filePath)))
         buf = "%s;mode=0%o;uid=%d;gid=%d" % (filePath, st.mode, st.uid, st.gid)
         logging.debug("%s", buf)

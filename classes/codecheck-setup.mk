@@ -11,8 +11,8 @@
 ###############################################################################
 
 _default_codecheck_as := none
-_default_codecheck_c := linux
-_default_codecheck_cxx := cpplint
+_default_codecheck_c := linux clang-format
+_default_codecheck_cxx := clang-format
 _default_codecheck_objc := none
 _default_codecheck_vala := valastyle
 
@@ -65,7 +65,7 @@ _codecheck-get-checker = $(strip \
 ## $1 : language (in lower case)
 ## $2 : language (in uppercase case)
 ##
-## Put ARGS and FILES between quotes to pass space then as 1 single shel arg
+## Put ARGS and FILES between quotes to pass space then as 1 single shell arg
 ###############################################################################
 define _codecheck-gen-rules
 _codecheck-script := $(call _codecheck-get-script,$1,$2)
@@ -82,9 +82,10 @@ $(LOCAL_MODULE)-codecheck-$1:
 			, \
 			@echo "$$(PRIVATE_MODULE): Checking '$1' files..."$$(endl) \
 			$(Q) $$(PRIVATE_CODECHECK_SCRIPT) \
-				$$(PRIVATE_CODECHECK_CHECKER) \
+				"$$(PRIVATE_CODECHECK_CHECKER)" \
 				"$$(PRIVATE_CODECHECK_ARGS)" \
-				"$$(PRIVATE_CODECHECK_FILES)" || true \
+				"$$(PRIVATE_CODECHECK_FILES)" \
+				"$$(PRIVATE_PATH)" || true \
 		) \
 	)
 $(LOCAL_MODULE)-codecheck: $(LOCAL_MODULE)-codecheck-$1

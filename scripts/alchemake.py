@@ -187,7 +187,7 @@ def main():
     os.environ["ALCHEMAKE_CMDLINE"] = " ".join([makeProg] + sys.argv[1:])
 
     # If not on a terminal, do NOT use job control, simply execute make...
-    if not os.isatty(0):
+    if not os.isatty(0) or sys.platform == "win32":
         logging.warning("Not using job control")
         process = subprocess.Popen([makeProg] + sys.argv[1:], shell=False, close_fds=False)
         process.wait()
@@ -229,7 +229,10 @@ def main():
     while True:
         try:
             # Empty line means EOF detected, so exit loop
-            line = jobCtrl.job.process.stderr.readline()
+            try:
+                line = jobCtrl.job.process.stderr.readline()
+            except UnicodeDecodeError as err:
+                line = err.object.decode('utf-8', 'ignore')
             if len(line) == 0:
                 logging.debug("EOF detected")
                 break

@@ -113,9 +113,9 @@ $(Q) $(CCACHE) $(PRIVATE_CXX) \
 	$(filter-out -std=%,$(PRIVATE_GLOBAL_CFLAGS)) \
 	$(PRIVATE_GLOBAL_CXXFLAGS) \
 	$(PRIVATE_WARNINGS_CXXFLAGS) \
+	$(PRIVATE_PCH_INCLUDE) \
 	$(filter-out -std=%,$(PRIVATE_CFLAGS)) \
 	$(PRIVATE_CXXFLAGS) \
-	$(PRIVATE_PCH_INCLUDE) \
 	-MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
 	-c $(call path-from-top,$3)
@@ -350,7 +350,9 @@ $(Q) $(PRIVATE_CXX) \
 	) \
 	-shared \
 	-Wl,-soname -Wl,$(notdir $2) \
-	-Wl,--no-undefined \
+	$(if $(call streq,$(USE_ADDRESS_SANITIZER),0), \
+		-Wl$(comma)--no-undefined\
+	) \
 	-Wl,--gc-sections \
 	-Wl,--as-needed \
 	$(if $(call streq,$($(PRIVATE_MODE)_OS),windows), \

@@ -47,6 +47,11 @@ __toolchain_sysroot := $(shell $(TARGET_CROSS)gcc \
 	$(TARGET_GLOBAL_CFLAGS_gcc) \
 	-print-sysroot)
 __toolchain_root := $(shell PARAM=$(TARGET_CROSS)gcc; echo $${PARAM%/bin*})
+ifeq ("$(__toolchain_sysroot)","")
+ifeq ("$(TARGET_OS_FLAVOUR)","android")
+__toolchain_sysroot := $(__toolchain_root)/sysroot
+endif
+endif
 __toolchain_cflags_clang := \
 	--target=$(TARGET_TOOLCHAIN_TRIPLET) \
 	--sysroot=$(__toolchain_sysroot) \
@@ -88,6 +93,8 @@ ifeq ("$(TARGET_OS)","linux")
         TOOLCHAIN_GDBSERVER := $(TARGET_TOOLCHAIN_SYSROOT)/../../bin/gdbserver
       else ifneq ("$(wildcard $(TARGET_TOOLCHAIN_SYSROOT)/../debug-root/usr/bin/gdbserver)","")
         TOOLCHAIN_GDBSERVER := $(TARGET_TOOLCHAIN_SYSROOT)/../debug-root/usr/bin/gdbserver
+      else ifneq ("$(wildcard $(TARGET_TOOLCHAIN_SYSROOT)/../host_bin/gdbserver)","")
+        TOOLCHAIN_GDBSERVER := $(TARGET_TOOLCHAIN_SYSROOT)/../host_bin/gdbserver
       endif
     endif
   endif

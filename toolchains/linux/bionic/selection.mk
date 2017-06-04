@@ -35,15 +35,16 @@ ifeq ("$(TARGET_USE_CLANG)","1")
 
   # TARGET_ANDROID_TOOLCHAIN_VERSION & TARGET_ANDROID_TOOLCHAIN are ignored as
   # newer NDKs only have one toolchain anyway.
-
   ANDROID_TOOLCHAIN_SCRIPT := $(TARGET_ANDROID_NDK)/build/tools/make_standalone_toolchain.py
   ANDROID_TOOLCHAIN_OPTIONS := \
 	--api=$(TARGET_ANDROID_MINAPILEVEL) \
 	--arch=$(ANDROID_ARCH) \
 	--install-dir=$(ANDROID_TOOLCHAIN_PATH) \
-	--stl=$(TARGET_ANDROID_STL) \
-	--unified-headers
-  ANDROID_TOOLCHAIN_TOKEN := $(ANDROID_TOOLCHAIN_PATH)/$(TARGET_ANDROID_TOOLCHAIN).android-$(TARGET_ANDROID_MINAPILEVEL)-unified-headers
+	--stl=$(TARGET_ANDROID_STL)
+  # For ndk r15 or older, we need to add the "--unified-headers" flag
+  ifneq ("$(firstword $(sort $(ANDROID_NDK_MAJOR_VERSION) 16))", "16")
+    ANDROID_TOOLCHAIN_OPTIONS += --unified-headers
+  endif
 
 else
   # Legacy mode
@@ -74,27 +75,30 @@ else
 	--toolchain=$(TARGET_ANDROID_TOOLCHAIN) \
 	--stl=$(TARGET_ANDROID_STL)
 
-    ANDROID_TOOLCHAIN_TOKEN := $(ANDROID_TOOLCHAIN_PATH)/$(TARGET_ANDROID_TOOLCHAIN).android-$(TARGET_ANDROID_MINAPILEVEL)
-
-  # For ndk r15, use the new script, but request deprecated (non unified) headers
+  # For ndk r15 or newer, use the new script, but request deprecated (non unified) headers if possible
   else
     ANDROID_TOOLCHAIN_SCRIPT := $(TARGET_ANDROID_NDK)/build/tools/make_standalone_toolchain.py
     ANDROID_TOOLCHAIN_OPTIONS := \
 	--api=$(TARGET_ANDROID_MINAPILEVEL) \
 	--arch=$(ANDROID_ARCH) \
 	--install-dir=$(ANDROID_TOOLCHAIN_PATH) \
-	--stl=$(TARGET_ANDROID_STL) \
-	--deprecated-headers
-    ANDROID_TOOLCHAIN_TOKEN := $(ANDROID_TOOLCHAIN_PATH)/$(TARGET_ANDROID_TOOLCHAIN).android-$(TARGET_ANDROID_MINAPILEVEL)-deprecated-headers
+	--stl=$(TARGET_ANDROID_STL)
+     # For ndk r15, we add the "--deprecated-headers" flag
+    ifneq ("$(firstword $(sort $(ANDROID_NDK_MAJOR_VERSION) 16))", "16")
+      ANDROID_TOOLCHAIN_OPTIONS += --deprecated-headers
+    endif
   endif
 endif
 
+ANDROID_TOOLCHAIN_TOKEN_SUFFIX := $(ANDROID_TOOLCHAIN_SCRIPT) $(ANDROID_TOOLCHAIN_OPTIONS)
+ANDROID_TOOLCHAIN_TOKEN_SUFFIX := $(shell echo $(ANDROID_TOOLCHAIN_TOKEN_SUFFIX) | md5sum | cut -d' ' -f1)
+ANDROID_TOOLCHAIN_TOKEN := $(ANDROID_TOOLCHAIN_PATH)/$(ANDROID_NDK_VERSION)-$(ANDROID_TOOLCHAIN_TOKEN_SUFFIX)
 
 ifeq ("$(wildcard $(ANDROID_TOOLCHAIN_TOKEN))","")
   $(info Installing Android-$(TARGET_ANDROID_MINAPILEVEL) toolchain $(TARGET_ANDROID_TOOLCHAIN) from NDK)
-  $(shell (if [ -e $(ANDROID_TOOLCHAIN_PATH) ] ; then rm -rf $(ANDROID_TOOLCHAIN_PATH); fi ; \
+  dummy := $(shell (if [ -e $(ANDROID_TOOLCHAIN_PATH) ] ; then rm -rf $(ANDROID_TOOLCHAIN_PATH); fi ; \
 	$(ANDROID_TOOLCHAIN_SCRIPT) $(ANDROID_TOOLCHAIN_OPTIONS) && \
-		touch $(ANDROID_TOOLCHAIN_TOKEN)) >&2)
+		echo $(ANDROID_TOOLCHAIN_SCRIPT) $(ANDROID_TOOLCHAIN_OPTIONS) > $(ANDROID_TOOLCHAIN_TOKEN)))
 endif
 
 # Find the prefix by listing the toolchain bin directory
@@ -128,6 +132,9 @@ ifeq ("$(TARGET_USE_CLANG)", "1")
 else
   # Legacy mode, use TARGET_CROSS
   TARGET_CROSS := $(ANDROID_TOOLCHAIN_PATH)/bin/$(ANDROID_TOOLCHAIN_PREFIX)-
+
+  # For unified headers & gcc, we must add the __ANDROID_API__ define manually
+  TARGET_GLOBAL_CFLAGS += -D__ANDROID_API__=$(TARGET_ANDROID_MINAPILEVEL)
 endif
 
 endif

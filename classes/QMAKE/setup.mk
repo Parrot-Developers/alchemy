@@ -6,6 +6,12 @@
 ## Setup QMAKE modules.
 ###############################################################################
 
+# Update host compilation path
+_qmake_host_path := $(HOST_OUT_STAGING)/bin:$(HOST_OUT_STAGING)/$(HOST_DEFAULT_BIN_DESTDIR):$(PATH)
+
+# Update target compilation path (use host binaries)
+_qmake_target_path := $(_qmake_host_path)
+
 ###############################################################################
 ## Variables used for qmake.
 ###############################################################################
@@ -92,7 +98,7 @@ ifndef TARGET_QMAKE
   endif
 endif
 
-TARGET_QMAKE_ENV :=
+TARGET_QMAKE_ENV := PATH="$(_qmake_target_path)"
 TARGET_QMAKE_ARG :=
 TARGET_QMAKE_MAKE_ARG :=
 
@@ -118,6 +124,8 @@ TARGET_QMAKE_LDFLAGS := $(shell echo $(TARGET_QMAKE_LDFLAGS) | sed 's/-isysroot 
 
 ###############################################################################
 ## Generate a .pri file to be included by the .pro file with dependencies found by alchemy
+## Remove optimization flags, let qmake put them based on debug/release config
+## By default release is choosen unless -O0 is found in CFLAGS (via Alchemy-debug-setup.mk)
 ###############################################################################
 
 define _internal-qmake-gen-deps-darwin
@@ -133,13 +141,13 @@ define _internal-qmake-gen-deps-darwin
 		echo "INSTALLS += target"; \
 		echo "INCLUDEPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "DEPENDPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
-		echo "QMAKE_CFLAGS += $(TARGET_QMAKE_CFLAGS) $(PRIVATE_CFLAGS)"; \
-		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(TARGET_QMAKE_CFLAGS))"; \
-		echo "QMAKE_CXXFLAGS += $(TARGET_GLOBAL_CXXFLAGS)"; \
-		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(PRIVATE_CFLAGS))"; \
-		echo "QMAKE_CXXFLAGS += $(PRIVATE_CXXFLAGS)"; \
-		echo "LIBS += $(subst $(APPLE_ARCH),,$(TARGET_QMAKE_LDFLAGS) $(PRIVATE_LDFLAGS))"; \
-		echo "LIBS += $(foreach __lib, $(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES), -force_load $(__lib))"; \
+		echo "QMAKE_CFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(TARGET_QMAKE_CFLAGS) $(PRIVATE_CFLAGS))"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(filter-out -std=%,$(TARGET_QMAKE_CFLAGS)))"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(TARGET_GLOBAL_CXXFLAGS))"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(filter-out -std=%,$(PRIVATE_CFLAGS)))"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(PRIVATE_CXXFLAGS))"; \
+		echo "LIBS += $(filter-out -O0 -O1 -O2 -O3,$(subst $(APPLE_ARCH),,$(TARGET_QMAKE_LDFLAGS) $(PRIVATE_LDFLAGS)))"; \
+		echo "LIBS += $(foreach __lib, $(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES), -Wl,-force_load,$(__lib))"; \
 		echo "LIBS += $(PRIVATE_ALL_STATIC_LIBRARIES)"; \
 		echo "LIBS += $(PRIVATE_ALL_SHARED_LIBRARIES)"; \
 		echo "LIBS += $(PRIVATE_LDLIBS)"; \
@@ -150,9 +158,9 @@ define _internal-qmake-gen-deps-darwin
 		echo "QMAKE_IOS_SIMULATOR_ARCHS = $(filter-out -arch,$(APPLE_ARCH))"; \
 		echo "QMAKE_IOS_DEPLOYMENT_TARGET = $(TARGET_IPHONE_VERSION)"; \
 		echo "QMAKE_MACOSX_DEPLOYMENT_TARGET = $(TARGET_MACOS_VERSION)"; \
-		echo "deployement.files = $(shell find $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_LIB_DESTDIR) -maxdepth 1 -name '*.dylib' -type f)"; \
-		echo "deployement.path = Contents/Frameworks/"; \
-		echo "QMAKE_BUNDLE_DATA += deployement"; \
+		echo "deployment.files = $(shell find $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_LIB_DESTDIR) -maxdepth 1 -name '*.dylib' -type f)"; \
+		echo "deployment.path = Contents/Frameworks/"; \
+		echo "QMAKE_BUNDLE_DATA += deployment"; \
 	) >> $(PRIVATE_ALCHEMY_PRI_FILE)
 endef
 
@@ -162,24 +170,48 @@ define _internal-qmake-gen-deps
 		echo "equals(TEMPLATE, lib) {"; \
 		echo "    target.path = $(if $(PRIVATE_HAS_QT_SYSROOT),$(TARGET_OUT_STAGING))/$(TARGET_DEFAULT_LIB_DESTDIR)"; \
 		$(if $(call streq,$(TARGET_FORCE_STATIC),1),echo "    CONFIG += staticlib";) \
+		$(if $(call streq,$(TARGET_OS),windows), \
+			echo "    CONFIG += skip_target_version_ext"; \
+			echo "    CONFIG(debug, debug|release): TARGET = \$$\$${TARGET}_debug"; \
+			echo "    !CONFIG(staticlib) {"; \
+			echo "        target.CONFIG = no_dll"; \
+			echo "        dlltarget.path = $(if $(PRIVATE_HAS_QT_SYSROOT),$(TARGET_OUT_STAGING))/$(TARGET_DEFAULT_BIN_DESTDIR)"; \
+			echo "        INSTALLS += dlltarget"; \
+			echo "    }"; \
+		) \
 		echo "} else {"; \
 		echo "    target.path = $(if $(PRIVATE_HAS_QT_SYSROOT),$(TARGET_OUT_STAGING))/$(TARGET_DEFAULT_BIN_DESTDIR)"; \
 		echo "}"; \
 		echo "INSTALLS += target"; \
 		echo "INCLUDEPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "DEPENDPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
-		echo "QMAKE_CFLAGS += $(TARGET_QMAKE_CFLAGS) $(PRIVATE_CFLAGS)"; \
-		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(TARGET_QMAKE_CFLAGS))"; \
-		echo "QMAKE_CXXFLAGS += $(TARGET_GLOBAL_CXXFLAGS)"; \
-		echo "QMAKE_CXXFLAGS += $(filter-out -std=%,$(PRIVATE_CFLAGS))"; \
-		echo "QMAKE_CXXFLAGS += $(PRIVATE_CXXFLAGS)"; \
-		echo "LIBS += $(TARGET_QMAKE_LDFLAGS) $(PRIVATE_LDFLAGS)"; \
+		echo "QMAKE_CFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(TARGET_QMAKE_CFLAGS) $(PRIVATE_CFLAGS))"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(filter-out -std=%,$(TARGET_QMAKE_CFLAGS)))"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(TARGET_GLOBAL_CXXFLAGS))"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(filter-out -std=%,$(PRIVATE_CFLAGS)))"; \
+		echo "QMAKE_CXXFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(PRIVATE_CXXFLAGS))"; \
+		echo "LIBS += $(filter-out -O0 -O1 -O2 -O3,$(TARGET_QMAKE_LDFLAGS) $(PRIVATE_LDFLAGS))"; \
 		echo "LIBS += -Wl,--whole-archive $(PRIVATE_ALL_WHOLE_STATIC_LIBRARIES) -Wl,--no-whole-archive"; \
 		echo "LIBS += $(PRIVATE_ALL_STATIC_LIBRARIES)"; \
 		echo "LIBS += $(PRIVATE_ALL_SHARED_LIBRARIES)"; \
-		echo "LIBS += $(PRIVATE_LDLIBS)"; \
+		$(if $(call streq,$(TARGET_OS),windows), \
+			echo "CONFIG(debug, debug|release) {"; \
+			echo "    LIBS += $(PRIVATE_LDLIBS_DEBUG)"; \
+			echo "} else {"; \
+			echo "    LIBS += $(PRIVATE_LDLIBS)"; \
+			echo "}"; \
+			, \
+			echo "LIBS += $(PRIVATE_LDLIBS)"; \
+		) \
 		echo "LIBS += $(TARGET_GLOBAL_LDLIBS)"; \
-		echo "ANDROID_EXTRA_LIBS = $(shell find $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_LIB_DESTDIR) -maxdepth 1 -name 'lib*.so' -type f)"; \
+		$(if $(call streq,$(TARGET_OS_FLAVOUR),android), \
+			echo "ANDROID_EXTRA_LIBS = $(shell find $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_LIB_DESTDIR) -maxdepth 1 -name 'lib*.so' -type f)"; \
+		) \
+		$(if $(call streq,$(HOST_OS),windows), \
+			echo "QMAKE_INSTALL_FILE = cp -dpf"; \
+			echo "QMAKE_INSTALL_PROGRAM = cp -dpf"; \
+			echo "QMAKE_INSTALL_DIR = cp -Rdpf"; \
+		) \
 	) >> $(PRIVATE_ALCHEMY_PRI_FILE).tmp
 	$(call update-file-if-needed,$(PRIVATE_ALCHEMY_PRI_FILE),$(PRIVATE_ALCHEMY_PRI_FILE).tmp)
 endef
@@ -207,7 +239,7 @@ endef
 
 define _qmake-def-cmd-build
 	$(Q) cd $(PRIVATE_BUILD_DIR) \
-		&& $(MAKE) $(TARGET_QMAKE_MAKE_ARG) \
+		&& $(TARGET_QMAKE_ENV) $(MAKE) $(TARGET_QMAKE_MAKE_ARG) \
 			$(PRIVATE_QMAKE_MAKE_BUILD_ARGS)
 endef
 

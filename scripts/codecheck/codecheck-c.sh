@@ -2,15 +2,20 @@
 
 SCRIPT_PATH=$(cd $(dirname $0) && pwd -P)
 
-CHECKER=$1
+CHECKERS=$1
 ARGS=$2
 FILES=$3
+MODULE_DIR=$4
 
-if [ "${CHECKER}" = "linux" ]; then
-	${SCRIPT_PATH}/checkpatch.pl \
-		--no-tree --no-summary --terse --show-types -f \
-		${ARGS} \
-		${FILES}
-else
-	echo "Unknown 'c' checker '${CHECKER}'"
-fi
+for CHECKER in ${CHECKERS}; do
+	if [ "${CHECKER}" = "linux" ]; then
+		${SCRIPT_PATH}/checkpatch.pl \
+			--no-tree --no-summary --terse --show-types -f \
+			${ARGS} \
+			${FILES}
+	elif [ "${CHECKER}" = "clang-format" ]; then
+		${SCRIPT_PATH}/clang-format-check.sh "${FILES}" ${MODULE_DIR}
+	else
+		echo "Unknown 'c' checker '${CHECKER}'"
+	fi
+done

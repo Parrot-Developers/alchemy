@@ -6,6 +6,14 @@
 ## Setup LINUX_MODULE modules.
 ###############################################################################
 
+export LINUX_DEPMOD_LOCKFILE := $(TARGET_OUT_BUILD)/depmod.lock
+LINUX_DEPMOD := $(BUILD_SYSTEM)/scripts/depmod.sh
+
+# Public macro, can be used by atom.mk
+module-get-linux-extra-symbols = $(foreach __mod,$1, \
+	$(wildcard $(call module-get-build-dir,$(__mod))/obj/Module.symvers) \
+)
+
 # Create Kbuild file
 define _linux-module-gen-kbuild
 	@mkdir -p $(dir $(PRIVATE_KBUILD))
@@ -24,6 +32,7 @@ define _linux-module-def-cmd-build
 		$(if $(wildcard $(PRIVATE_LINUX_BUILD_DIR)/linuxarch),ARCH=$$(cat $(PRIVATE_LINUX_BUILD_DIR)/linuxarch)) \
 		$(PRIVATE_KBUILD_FLAGS) \
 		CROSS_COMPILE=$(if $(TARGET_LINUX_CROSS),$(TARGET_LINUX_CROSS),$(TARGET_CROSS)) \
+		KBUILD_EXTRA_SYMBOLS="$(call module-get-linux-extra-symbols,$(PRIVATE_ALL_LIBS))" \
 		modules
 endef
 
@@ -33,8 +42,17 @@ define _linux-module-def-cmd-install
 		$(if $(wildcard $(PRIVATE_LINUX_BUILD_DIR)/linuxarch),ARCH=$$(cat $(PRIVATE_LINUX_BUILD_DIR)/linuxarch)) \
 		$(PRIVATE_KBUILD_FLAGS) \
 		CROSS_COMPILE=$(if $(TARGET_LINUX_CROSS),$(TARGET_LINUX_CROSS),$(TARGET_CROSS)) \
+		DEPMOD="$(LINUX_DEPMOD)" \
+		KBUILD_EXTRA_SYMBOLS="$(call module-get-linux-extra-symbols,$(PRIVATE_ALL_LIBS))" \
 		modules_install
-	$(Q) cp -af $(PRIVATE_OBJ_DIR)/$(PRIVATE_MODULE_FILENAME) $(PRIVATE_BUILD_DIR)/$(PRIVATE_MODULE_FILENAME)
+	$(Q) if [ -n "$(PRIVATE_DESTDIR)" ]; then \
+		mkdir -p $(TARGET_OUT_STAGING)/$(PRIVATE_DESTDIR); \
+		if [ -e $(TARGET_OUT_STAGING)/$(PRIVATE_DESTDIR)/$(PRIVATE_MODULE_FILENAME) ]; then \
+			rm -f $(TARGET_OUT_STAGING)/$(PRIVATE_DESTDIR)/$(PRIVATE_MODULE_FILENAME); \
+		fi; \
+		ln -r -s $(TARGET_OUT_STAGING)/lib/modules/*/extra/$(PRIVATE_MODULE_FILENAME) \
+			$(TARGET_OUT_STAGING)/$(PRIVATE_DESTDIR)/$(PRIVATE_MODULE_FILENAME); \
+	fi
 endef
 
 define _linux-module-def-cmd-clean
@@ -46,5 +64,8 @@ define _linux-module-def-cmd-clean
 			clean || echo "Ignoring clean errors"; \
 	fi
 	$(Q) rm -f $(PRIVATE_BUILD_DIR)/$(PRIVATE_MODULE_FILENAME)
+	$(Q) if [ -n "$(PRIVATE_DESTDIR)" ]; then \
+		rm -f $(TARGET_OUT_STAGING)/$(PRIVATE_DESTDIR)/$(PRIVATE_MODULE_FILENAME); \
+	fi
 	$(Q) rm -f $(TARGET_OUT_STAGING)/lib/modules/*/extra/$(PRIVATE_MODULE_FILENAME)
 endef

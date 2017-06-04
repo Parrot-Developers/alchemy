@@ -32,9 +32,45 @@ _module_def_cmd_clean := _qmake-def-cmd-clean
 
 ifneq ("$(findstring -O0,$(LOCAL_CFLAGS))","")
   LOCAL_QMAKE_CONFIGURE_ARGS += CONFIG+=debug
+else
+  LOCAL_QMAKE_CONFIGURE_ARGS += CONFIG+=release
+endif
+
+_qmake_spec :=
+ifeq ("$(TARGET_OS)-$(TARGET_OS_FLAVOUR)","linux-native")
+  ifeq ("$(_module_cc_flavour)","gcc")
+    _qmake_spec := linux-g++
+  else ifeq ("$(_module_cc_flavour)","clang")
+    _qmake_spec := linux-clang
+  endif
+endif
+ifneq ("$(_qmake_spec)","")
+  LOCAL_QMAKE_CONFIGURE_ARGS += -spec $(_qmake_spec)
 endif
 
 include $(BUILD_SYSTEM)/classes/GENERIC/rules.mk
+
+# Restart configure if debug/release mode is changed
+_qmake_configure_flags := $(_module_build_dir)/$(LOCAL_MODULE).configure.flags
+$(_module_configured_stamp_file): $(_qmake_configure_flags)
+$(_qmake_configure_flags): .FORCE
+	@mkdir -p $(dir $@)
+	@echo "$(PRIVATE_QMAKE_CONFIGURE_ARGS)" > $@.tmp
+	$(call update-file-if-needed,$@,$@.tmp)
+
+# Determine debug libraries of qmake dependencies
+# Get the first word of LOCAL_EXPORT_LDLIBS and append '_debug'
+_qmake_ldlibs_debug := $(LOCAL_LDLIBS)
+ifeq ("$(TARGET_OS)","windows")
+$(foreach __mod,$(all_external_libs), \
+	$(if $(call streq,$(__modules.$(__mod).MODULE_CLASS),QMAKE), \
+		$(eval __lib := $(firstword $(call module-get-export,$(__mod),LDLIBS))) \
+		$(if $(__lib), \
+			$(eval _qmake_ldlibs_debug := $(patsubst $(__lib),$(__lib)_debug,$(_qmake_ldlibs_debug))) \
+		) \
+	) \
+)
+endif
 
 $(LOCAL_TARGETS): PRIVATE_HAS_QT_SYSROOT := $(_qmake_has_qt_sysroot)
 $(LOCAL_TARGETS): PRIVATE_QMAKE := $(QMAKE)
@@ -47,6 +83,7 @@ $(LOCAL_TARGETS): PRIVATE_CFLAGS := $(LOCAL_CFLAGS)
 $(LOCAL_TARGETS): PRIVATE_CXXFLAGS := $(LOCAL_CXXFLAGS)
 $(LOCAL_TARGETS): PRIVATE_LDFLAGS := $(LOCAL_LDFLAGS)
 $(LOCAL_TARGETS): PRIVATE_LDLIBS := $(LOCAL_LDLIBS)
+$(LOCAL_TARGETS): PRIVATE_LDLIBS_DEBUG := $(_qmake_ldlibs_debug)
 $(LOCAL_TARGETS): PRIVATE_ALL_SHARED_LIBRARIES := $(all_shared_libs_filename)
 $(LOCAL_TARGETS): PRIVATE_ALL_STATIC_LIBRARIES := $(all_static_libs_filename)
 $(LOCAL_TARGETS): PRIVATE_ALL_WHOLE_STATIC_LIBRARIES := $(all_whole_static_libs_filename)

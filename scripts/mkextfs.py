@@ -8,6 +8,7 @@ import ctypes
 import mmap
 import random
 import time
+import math
 
 EXTFS_SUPER_MAGIC = 0xef53
 
@@ -430,19 +431,18 @@ JFS_REVOKE_BLOCK = 5
 #===============================================================================
 #===============================================================================
 class Extfs(object):
-    LOG_BLOCKSIZE = 0
-    BLOCKSIZE = 1024 * (1 << LOG_BLOCKSIZE)
-    MAX_BLOCKS_PER_GROUP = BLOCKSIZE * 8
-    MAX_INODES_PER_GROUP = BLOCKSIZE * 8
     INODE_BLOCKSIZE = 512
-    INOBLK = BLOCKSIZE // INODE_BLOCKSIZE
     INODE_RATIO = 4096
     RESERVED_RATIO = 5
 
-    def __init__(self, buf, blockCount, inodeCount, reservedBlockCount, version=2):
+    def __init__(self, buf, blocksize, blockCount, inodeCount, reservedBlockCount, version=2):
         self.buf = buf
         self.sb = _from_buffer(ExtfsSuperBlock, self.buf, 1024)
         self.groups = []
+        self.blocksize = blocksize;
+        self.max_blocks_per_group = blocksize * 8
+        self.max_inodes_per_group = blocksize * 8
+        self.inoblk = self.blocksize // Extfs.INODE_BLOCKSIZE
         logging.debug("blockCount=%d", blockCount)
         logging.debug("inodeCount=%d", inodeCount)
 
@@ -463,14 +463,14 @@ class Extfs(object):
         if blockCount < 8:
             raise ValueError("Bad block count")
 
-        firstDataBlock = 1 if (Extfs.BLOCKSIZE == 1024) else 0
+        firstDataBlock = 1 if (self.blocksize == 1024) else 0
         logging.debug("firstDataBlock=%d", firstDataBlock)
 
         # Determine number of groups
-        minGroupCount = ((inodeCount + Extfs.MAX_INODES_PER_GROUP - 1) //
-                Extfs.MAX_INODES_PER_GROUP)
-        groupCount = ((blockCount - firstDataBlock + Extfs.MAX_BLOCKS_PER_GROUP - 1) //
-                Extfs.MAX_BLOCKS_PER_GROUP)
+        minGroupCount = ((inodeCount + self.max_inodes_per_group - 1) //
+                self.max_inodes_per_group)
+        groupCount = ((blockCount - firstDataBlock + self.max_blocks_per_group - 1) //
+                self.max_blocks_per_group)
         if groupCount < minGroupCount:
             groupCount = minGroupCount
         logging.debug("groupCount=%d", groupCount)
@@ -480,22 +480,22 @@ class Extfs(object):
         if blocksPerGroup % 8 != 0:
             blocksPerGroup += 8 - blocksPerGroup % 8
         logging.debug("blocksPerGroup=%d", blocksPerGroup)
-        assert blocksPerGroup <= Extfs.MAX_BLOCKS_PER_GROUP
+        assert blocksPerGroup <= self.max_blocks_per_group
 
         # Determine number of inodes per group
         inodesPerGroup = (inodeCount + groupCount - 1) // groupCount
         if inodesPerGroup < 16:
             inodesPerGroup = 16
-        if inodesPerGroup > Extfs.MAX_INODES_PER_GROUP:
-            inodesPerGroup = Extfs.MAX_INODES_PER_GROUP
+        if inodesPerGroup > self.max_inodes_per_group:
+            inodesPerGroup = self.max_inodes_per_group
         if inodesPerGroup % 8 != 0:
             inodesPerGroup += 8 - inodesPerGroup % 8
         logging.debug("inodesPerGroup=%d", inodesPerGroup)
 
         groupDescSize = groupCount * self.groupDescStructSize
-        groupDescSize = (groupDescSize + Extfs.BLOCKSIZE - 1) // Extfs.BLOCKSIZE
+        groupDescSize = (groupDescSize + self.blocksize - 1) // self.blocksize
         inodeTableSize = inodesPerGroup * self.inodeStructSize
-        inodeTableSize = (inodeTableSize + Extfs.BLOCKSIZE - 1) // Extfs.BLOCKSIZE
+        inodeTableSize = (inodeTableSize + self.blocksize - 1) // self.blocksize
         logging.debug("groupDescSize=%d", groupDescSize)
         logging.debug("inodeTableSize=%d", inodeTableSize)
 
@@ -523,7 +523,7 @@ class Extfs(object):
         self.sb.free_blocks_count = freeBlockCount
         self.sb.free_inodes_count = self.sb.inodes_count - EXTFS_FIRST_INO + 1
         self.sb.first_data_block = firstDataBlock
-        self.sb.log_block_size = Extfs.LOG_BLOCKSIZE
+        self.sb.log_block_size = int(math.log(self.blocksize >> 10, 2))
         self.sb.log_frag_size = self.sb.log_block_size
         self.sb.blocks_per_group = blocksPerGroup
         self.sb.frags_per_group = blocksPerGroup
@@ -556,8 +556,8 @@ class Extfs(object):
         for i in range(0, groupCount):
             # Get group descriptor structure (in first block group)
             group = _from_buffer(self.groupDescStructType, self.buf,
-                    firstDataBlock * Extfs.BLOCKSIZE +
-                    Extfs.BLOCKSIZE +
+                    firstDataBlock * self.blocksize +
+                    self.blocksize +
                     i * self.groupDescStructSize)
 
             # Setup free block count
@@ -594,7 +594,7 @@ class Extfs(object):
             ibm = self.getGroupIBM(i)
 
             # Non-filesystem blocks
-            for j in range(group.free_blocks_count + overheadPerGroup, Extfs.BLOCKSIZE * 8):
+            for j in range(group.free_blocks_count + overheadPerGroup, self.blocksize * 8):
                 Extfs.allocate(bbm, j)
 
             # System blocks
@@ -602,7 +602,7 @@ class Extfs(object):
                 Extfs.allocate(bbm, j)
 
             # Non-filesystem inodes
-            for j in range(self.sb.inodes_per_group, Extfs.BLOCKSIZE * 8):
+            for j in range(self.sb.inodes_per_group, self.blocksize * 8):
                 Extfs.allocate(ibm, j)
 
             # System inodes
@@ -630,21 +630,21 @@ class Extfs(object):
 
     def finalize(self):
         groupDescSize = len(self.groups) * self.groupDescStructSize
-        groupDescSize = (groupDescSize + Extfs.BLOCKSIZE - 1) // Extfs.BLOCKSIZE
+        groupDescSize = (groupDescSize + self.blocksize - 1) // self.blocksize
         for grp in range(1, len(self.groups)):
             # Copy super block in other groups
             srcStart = 1024
             srcStop = srcStart + EXTFS_SUPER_BLOCK_STRUCT_SIZE
             dstStart = (self.sb.first_data_block + grp * self.sb.blocks_per_group) \
-                    * Extfs.BLOCKSIZE
+                    * self.blocksize
             dstStop = dstStart + EXTFS_SUPER_BLOCK_STRUCT_SIZE
             self.buf[dstStart:dstStop] = self.buf[srcStart:srcStop]
             # Copy group descriptors in other groups
-            srcStart = (self.sb.first_data_block + 1) * Extfs.BLOCKSIZE
-            srcStop = srcStart + groupDescSize * Extfs.BLOCKSIZE
+            srcStart = (self.sb.first_data_block + 1) * self.blocksize
+            srcStop = srcStart + groupDescSize * self.blocksize
             dstStart = (self.sb.first_data_block + 1 + grp * self.sb.blocks_per_group) \
-                    * Extfs.BLOCKSIZE
-            dstStop = dstStart + groupDescSize * Extfs.BLOCKSIZE
+                    * self.blocksize
+            dstStop = dstStart + groupDescSize * self.blocksize
             self.buf[dstStart:dstStop] = self.buf[srcStart:srcStop]
         self.sb.wtime = int(time.time())
         self.sb.lastcheck = self.sb.wtime
@@ -666,13 +666,13 @@ class Extfs(object):
 
     # Return a given block from filesystem
     def getBlock(self, blk):
-        blockType = ctypes.c_uint8 * Extfs.BLOCKSIZE
-        return blockType.from_buffer(self.buf, blk * Extfs.BLOCKSIZE)
+        blockType = ctypes.c_uint8 * self.blocksize
+        return blockType.from_buffer(self.buf, blk * self.blocksize)
 
     # Return a given inode from filesystem
     def getInode(self, inum):
         grp = self.getGroupOfInode(inum)
-        off = self.groups[grp].inode_table * Extfs.BLOCKSIZE
+        off = self.groups[grp].inode_table * self.blocksize
         off += self.getIBMOffset(inum) * self.inodeStructSize
         return _from_buffer(self.inodeStructType, self.buf, off)
 
@@ -694,7 +694,7 @@ class Extfs(object):
 
     def getInodeBlock(self, inum, idx):
         inode = self.getInode(inum)
-        numPerBlock = Extfs.BLOCKSIZE // 4
+        numPerBlock = self.blocksize // 4
         idxList = []
 
         # Level of indirection required
@@ -728,7 +728,7 @@ class Extfs(object):
         for i in range(0, len(idxList)):
             if blockNumArray[idxList[i]] == 0:
                 blockNumArray[idxList[i]] = self.allocBlock(inum)
-                inode.blocks += Extfs.INOBLK
+                inode.blocks += self.inoblk
             block = self.getBlock(blockNumArray[idxList[i]])
             blockNumArray = ctypes.cast(block, ctypes.POINTER(ctypes.c_uint32))
         return block
@@ -772,10 +772,10 @@ class Extfs(object):
         srcLen = amount
 
         # Is there room in last block of inode ?
-        if inode.size % Extfs.BLOCKSIZE != 0:
-            dst = self.getInodeBlock(inum, inode.size // Extfs.BLOCKSIZE)
-            dstOff = inode.size % Extfs.BLOCKSIZE
-            dstLen = Extfs.BLOCKSIZE - inode.size % Extfs.BLOCKSIZE
+        if inode.size % self.blocksize != 0:
+            dst = self.getInodeBlock(inum, inode.size // self.blocksize)
+            dstOff = inode.size % self.blocksize
+            dstLen = self.blocksize - inode.size % self.blocksize
             cpyLen = min(srcLen, dstLen)
             if not nocopy:
                 ctypes.memmove(
@@ -788,8 +788,8 @@ class Extfs(object):
 
         # Continue with aligned block copy
         while srcLen > 0:
-            dst = self.getInodeBlock(inum, inode.size // Extfs.BLOCKSIZE)
-            cpyLen = min(srcLen, Extfs.BLOCKSIZE)
+            dst = self.getInodeBlock(inum, inode.size // self.blocksize)
+            cpyLen = min(srcLen, self.blocksize)
             if not nocopy:
                 ctypes.memmove(dst,
                         (ctypes.c_uint8 * cpyLen).from_buffer_copy(src, srcOff),
@@ -806,12 +806,12 @@ class Extfs(object):
         reclen = EXTFS_DIRENTRY_STRUCT_NO_NAME_SIZE + (nlen + 3) & (~3)
         # Search a free entry in last block
         if parent_inode.size != 0:
-            idx = (parent_inode.size // Extfs.BLOCKSIZE) - 1
+            idx = (parent_inode.size // self.blocksize) - 1
             block = self.getInodeBlock(parent_inum, idx)
             # For all dir entries in block
             off = 0
-            while off < Extfs.BLOCKSIZE \
-                    and off + EXTFS_DIRENTRY_STRUCT_NO_NAME_SIZE < Extfs.BLOCKSIZE:
+            while off < self.blocksize \
+                    and off + EXTFS_DIRENTRY_STRUCT_NO_NAME_SIZE < self.blocksize:
                 dent = _from_address(ExtfsDirEntry, ctypes.addressof(block) + off)
                 # If empty dir entry, large enough, use it
                 if dent.inode == 0 and dent.rec_len >= reclen:
@@ -846,17 +846,17 @@ class Extfs(object):
                     break
 
         # We found no free entry in the directory, so we add a block
-        buf = bytearray(Extfs.BLOCKSIZE)
+        buf = bytearray(self.blocksize)
         dent = _from_buffer(ExtfsDirEntry, buf)
         dent.inode = inum
         inode.links_count += 1
-        dent.rec_len = Extfs.BLOCKSIZE
+        dent.rec_len = self.blocksize
         dent.name_len = nlen
         dent.file_type = EXTFS_FILE_TYPE_FROM_STAT_TYPE[stat.S_IFMT(inode.mode)]
         ctypes.memmove(dent.name,
                 (ctypes.c_uint8 * dent.name_len).from_buffer_copy(name),
                 dent.name_len)
-        self.extendBlock(parent_inum, buf, Extfs.BLOCKSIZE)
+        self.extendBlock(parent_inum, buf, self.blocksize)
 
     # Create a simple inode
     def addNode(self, parent_inum, entry):
@@ -926,11 +926,11 @@ class Extfs(object):
         inode.links_count = 1
 
         # Setup journal superblock
-        content = bytearray(Extfs.BLOCKSIZE)
+        content = bytearray(self.blocksize)
         jsb = _from_buffer(ExtfsJournalSuperBlock, content)
         jsb.magic = JFS_MAGIC_NUMBER
         jsb.blocktype = JFS_SUPERBLOCK_V2
-        jsb.blocksize = Extfs.BLOCKSIZE
+        jsb.blocksize = self.blocksize
         jsb.maxlen = 1024
         jsb.nr_users = 1
         jsb.first = 1
@@ -939,10 +939,10 @@ class Extfs(object):
             jsb.uuid[i] = self.sb.uuid[i]
 
         # Write journal super block and pad with empty data
-        self.extendBlock(inum, content, Extfs.BLOCKSIZE)
-        empty = bytearray(Extfs.BLOCKSIZE)
+        self.extendBlock(inum, content, self.blocksize)
+        empty = bytearray(self.blocksize)
         for _ in range(1, jsb.maxlen):
-            self.extendBlock(inum, empty, Extfs.BLOCKSIZE)
+            self.extendBlock(inum, empty, self.blocksize)
 
         # Update fd super block
         self.sb.feature_compat |= EXTFS_FEATURE_COMPAT_HAS_JOURNAL
@@ -960,13 +960,21 @@ class Extfs(object):
 
 #===============================================================================
 #===============================================================================
-def genImage(image, root, version=2):
+def genImage(image, root, version=2, blocksize=1024):
+
+    if blocksize < 1024 or (blocksize & (blocksize - 1)) != 0:
+        raise ValueError("Bad value of blocksize: %d" % blocksize)
+
     os.ftruncate(image.fout.fileno(), image.size)
     buf = mmap.mmap(image.fout.fileno(), image.size)
-    blockCount = image.size // Extfs.BLOCKSIZE
-    inodeCount = (blockCount * Extfs.BLOCKSIZE) // Extfs.INODE_RATIO
+    blockCount = image.size // blocksize
+
+    # add a factor to inode_ratio according to an configuration example
+    # available in mke2fs.conf
+    ratio_factor = 8 if blocksize >= 4096 else 1
+    inodeCount = (blockCount * blocksize) // (Extfs.INODE_RATIO * ratio_factor)
     reservedBlockCount = (blockCount * Extfs.RESERVED_RATIO) // 100
-    fs = Extfs(buf, blockCount, inodeCount, reservedBlockCount, version)
+    fs = Extfs(buf, blocksize, blockCount, inodeCount, reservedBlockCount, version)
     fs.populate(EXTFS_ROOT_INO, root)
     fs.finalize()
     try:

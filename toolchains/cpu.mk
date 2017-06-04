@@ -6,6 +6,11 @@
 ## Setup toolchain variables.
 ###############################################################################
 
+# Note for aarch64:
+#   https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html
+#   Feature crypto implies aes, sha2, and simd, which implies fp
+
+
 # arm v5te flags (to be used in cpu flags below)
 # ecos already set them
 ifneq ("$(TARGET_OS)","ecos")
@@ -58,6 +63,7 @@ endif
 ###############################################################################
 # Texas Instrument cpus.
 ###############################################################################
+
 ifeq ("$(TARGET_CPU)","omap3")
   cpu_flags += $(cpu_flags_armv7a_neon)
   TARGET_GLOBAL_LDFLAGS += -Wl,--fix-cortex-a8
@@ -75,46 +81,15 @@ ifeq ("$(TARGET_CPU)","omap4")
 endif
 
 ###############################################################################
-# Nvidia cpus.
-###############################################################################
-
-ifeq ("$(TARGET_CPU)","tegrak1")
-ifneq ("$(call check-version,$(TARGET_CC_VERSION),4.9.0)","")
-  cpu_flags += -march=armv7ve -mcpu=cortex-a15
-else
-  cpu_flags += -march=armv7-a
-endif
-  cpu_flags += -mtune=cortex-a15 -mfpu=neon-vfpv4
-  TARGET_CPU_HAS_NEON := 1
-  TARGET_FLOAT_ABI ?= hard
-  TARGET_GLOBAL_NVCFLAGS += -arch=sm_32 -lineinfo -m32
-endif
-
-ifeq ("$(TARGET_CPU)","tegrax1")
-  cpu_flags += -march=armv8-a+crc -mtune=cortex-a57 -mcpu=cortex-a57
-  cpu_flags += -mfpu=crypto-neon-fp-armv8
-  TARGET_CPU_HAS_NEON := 1
-  TARGET_FLOAT_ABI ?= hard
-  TARGET_GLOBAL_NVCFLAGS += -arch=sm_53 -lineinfo -m32
-endif
-
-###############################################################################
 # Ambarella cpus
 ###############################################################################
 
-ifeq ("$(TARGET_CPU)","a9s")
-  cpu_flags += $(cpu_flags_armv7a_neon)
-  cpu_flags += -mtune=cortex-a9 -mcpu=cortex-a9
-  TARGET_GLOBAL_LDFLAGS += -Wl,--fix-cortex-a8
-  TARGET_CPU_ARMV7A_NEON := 1
-  TARGET_CPU_HAS_NEON := 1
-  TARGET_FLOAT_ABI ?= softfp
-endif
-
 ifeq ("$(TARGET_CPU)","h22")
-  cpu_flags += -march=armv8-a+crc -mtune=cortex-a53 -mcpu=cortex-a53
   TARGET_CPU_HAS_NEON := 1
-  ifneq ("$(TARGET_ARCH)","aarch64")
+  ifeq ("$(TARGET_ARCH)","aarch64")
+    cpu_flags += -march=armv8-a+crc+crypto -mtune=cortex-a53
+  else
+    cpu_flags += -march=armv8-a+crc -mtune=cortex-a53
     cpu_flags += -mfpu=crypto-neon-fp-armv8
     TARGET_FLOAT_ABI ?= hard
   endif
@@ -164,16 +139,22 @@ ifeq ("$(TARGET_CPU)","arm7tdmi")
   cpu_flags += -mcpu=arm7tdmi
 endif
 
-ifeq ("$(TARGET_CPU)", "stm32f3")
-  cpu_flags += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16
-  TARGET_DEFAULT_ARM_MODE ?= thumb
-  TARGET_FLOAT_ABI ?= hard
-endif
-
 ifeq ("$(TARGET_CPU)", "cortex-m0")
   cpu_flags += -mcpu=cortex-m0
   TARGET_DEFAULT_ARM_MODE ?= thumb
   TARGET_FLOAT_ABI ?= soft
+endif
+
+ifeq ("$(TARGET_CPU)", "cortex-m3")
+  cpu_flags += -mcpu=cortex-m3
+  TARGET_DEFAULT_ARM_MODE ?= thumb
+  TARGET_FLOAT_ABI ?= soft
+endif
+
+ifeq ("$(TARGET_CPU)", "cortex-m4-fpu")
+  cpu_flags += -mcpu=cortex-m4 -mfpu=fpv4-sp-d16
+  TARGET_DEFAULT_ARM_MODE ?= thumb
+  TARGET_FLOAT_ABI ?= hard
 endif
 
 ###############################################################################

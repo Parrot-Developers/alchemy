@@ -11,7 +11,7 @@ import xml.parsers.expat
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import moduledb
 
-_PROJECT_KINDS = {"eclipse": None, "qtcreator": None, "jsondb": None}
+_PROJECT_KINDS = {"eclipse": None, "qtcreator": None, "jsondb": None, "vscode": None}
 
 _SOURCE_EXTENSIONS = [".c", ".cpp", ".cc", ".cxx"]
 _HEADER_EXTENSIONS = [".h", ".hpp", ".hh", ".hxx"]
@@ -120,6 +120,23 @@ class Project(object):
             name = "BUILD_" + dep.replace("-", "_").replace(".", "_").upper()
             self.defines_c[name] = ""
             self.defines_cxx[name] = ""
+        for module in self.modules:
+            config = os.path.join(self.get_target_var("OUT_BUILD"),
+                                  module,
+                                  module + ".config")
+            try:
+                with open(config, "r") as c:
+                    for l in c:
+                        if not l.startswith("CONFIG_"):
+                            continue
+                        name, _, value = l.strip().partition("=")
+                        name = name[7:]  # remove "CONFIG_" prefix
+                        if value == "y":
+                            value = ""
+                        self.defines_c[name] = value
+                        self.defines_cxx[name] = value
+            except FileNotFoundError:
+                pass
 
         # Compute list of source files and headers
         self.sources = set()
@@ -250,13 +267,22 @@ class Project(object):
 #===============================================================================
 #===============================================================================
 def main():
+    setup_log()
+
     # Load project specific packages
     for kind in _PROJECT_KINDS:
-        _PROJECT_KINDS[kind] = importlib.import_module(kind)
+        try:
+            _PROJECT_KINDS[kind] = importlib.import_module(kind)
+        except ImportError as ex:
+            logging.warning("Error while loading module '%s', generator disabled: %s", kind, str(ex))
 
     # Parse arguments
     options = parse_args()
-    setup_log()
+
+    # Test if generator is available
+    if _PROJECT_KINDS[options.kind] is None:
+        logging.error("Generator for '%s' not available.", options.kind)
+        sys.exit(1)
 
     # Load module db from xml
     try:
@@ -390,9 +416,10 @@ def parse_args():
 
     # Project generator specific options
     for kind in sorted(_PROJECT_KINDS.keys()):
-        title = "%s specific optional arguments" % kind
-        group = parser.add_argument_group(title=title)
-        _PROJECT_KINDS[kind].setup_argparse(group)
+        if _PROJECT_KINDS[kind] is not None:
+            title = "%s specific optional arguments" % kind
+            group = parser.add_argument_group(title=title)
+            _PROJECT_KINDS[kind].setup_argparse(group)
 
     # Parse arguments and check validity
     return parser.parse_args()
