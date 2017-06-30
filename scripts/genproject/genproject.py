@@ -242,6 +242,8 @@ class Project(object):
             return None
         elif archive and archive_subdir:
             return os.path.join(self.get_module_build_dir(module), archive_subdir)
+        elif self.get_module_field(module, "GENERATED_SRC_FILES"):
+            return self.get_module_build_dir(module)
         else:
             return Project._get_real_src_dir(self.get_module_field(module, "PATH"))
 

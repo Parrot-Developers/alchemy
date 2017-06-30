@@ -31,8 +31,6 @@ def processTree(tarfd, tree):
         info.mtime = child.st.st_mtime
         info.uid = child.st.st_uid
         info.gid = child.st.st_gid
-        info.devmajor = os.major(child.st.st_dev)
-        info.devminor = os.minor(child.st.st_dev)
 
         # Setup content and links
         content = None
@@ -41,6 +39,10 @@ def processTree(tarfd, tree):
             content = io.BytesIO(child.getData())
         elif stat.S_IFMT(child.st.st_mode) == stat.S_IFLNK:
             info.linkname = child.getData().decode("UTF-8")
+        elif stat.S_IFMT(child.st.st_mode) == stat.S_IFCHR or \
+                stat.S_IFMT(child.st.st_mode) == stat.S_IFBLK:
+            info.devmajor = os.major(child.st.st_dev)
+            info.devminor = os.minor(child.st.st_dev)
 
         # Add file and itd content
         tarfd.addfile(info, content)

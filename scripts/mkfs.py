@@ -4,11 +4,11 @@ import sys, os, logging
 import argparse
 import re
 import stat
-import mktar, mkextfs, mkcpio
+import mktar, mkextfs, mkcpio, mkubi
 
 # List of supported file systems
 FS_LIST = [
-    "tar", "cpio", "ext2", "ext3", "ext4"
+    "tar", "cpio", "ext2", "ext3", "ext4", "ubi"
 ]
 
 _DEFAULT_IMAGE_SIZE = "256M"
@@ -55,7 +55,8 @@ class FsEntry(object):
 #===============================================================================
 #===============================================================================
 class FsImage(object):
-    def __init__(self, fout, size):
+    def __init__(self, filePath, size, fout):
+        self.filePath = filePath
         self.fout = fout
         self.size = size
 
@@ -78,13 +79,17 @@ def addFsEntry(root, entry):
 
 #===============================================================================
 #===============================================================================
-def addFsEntries(root):
+def addFsEntries(root, filters):
     # Read file names on stdin
     reLine = re.compile("([^;]*)(;mode=([0-7]*);uid=([0-9]*);gid=([0-9]*))?")
     for line in sys.stdin:
         buf = line.rstrip("\n")
         match = reLine.match(buf)
         filePath = match.group(1)
+
+        if filePath in filters:
+            logging.info("Skipping entry: %s", filePath)
+            continue
 
         # Get file info
         st = MyStat(os.lstat(filePath))
@@ -143,15 +148,6 @@ def main():
     options = parseArgs()
     setupLog(options)
 
-    # Open output image file (for reading and writing to be mapped)
-    outImagePath = options.imageFile
-    try:
-        fout = open(outImagePath, "w+b")
-    except IOError as ex:
-        logging.error("Failed to create file: %s [err=%d %s]",
-                outImagePath, ex.errno, ex.strerror)
-        sys.exit(1)
-
     # Determine image size
     if options.imageSize.endswith("K"):
         imageSize = int(options.imageSize[:-1]) * 1024
@@ -161,11 +157,23 @@ def main():
         imageSize = int(options.imageSize[:-1]) * 1024 * 1024 * 1024
     else:
         imageSize = int(options.imageSize)
-    image = FsImage(fout, imageSize)
+
+    # Open output image file (for reading and writing to be mapped)
+    if options.fstype != "ubi":
+        try:
+            fout = open(options.imageFile, "w+b")
+        except IOError as ex:
+            logging.error("Failed to create file: %s [err=%d %s]",
+                    options.imageFile, ex.errno, ex.strerror)
+            sys.exit(1)
+    else:
+        fout = None
+
+    image = FsImage(options.imageFile, imageSize, fout)
 
     # Construct image from root
     root = FsEntry(None, 0, None)
-    addFsEntries(root)
+    addFsEntries(root, options.filters)
     addDevNodes(root, options.devNodes)
 
     # Generate the ouput file
@@ -180,12 +188,11 @@ def main():
             mkextfs.genImage(image, root, 3)
         elif options.fstype == "ext4":
             mkextfs.genImage(image, root, 4)
+        elif options.fstype == "ubi":
+            mkubi.genImage(image, root, options)
     except Exception as ex:
         logging.error(str(ex))
         sys.exit(1)
-
-    # Free resources
-    fout.close()
 
 #===============================================================================
 # Setup option parser and parse command line.
@@ -214,6 +221,27 @@ def parseArgs():
         default=[],
         metavar="NODE",
         help="add a device node (format is name:mode:uid:gid:c|b:maj:min)")
+
+    parser.add_argument("--filter",
+        dest="filters",
+        action="append",
+        default=[],
+        metavar="FILTER",
+        help="filter out some files from generated image")
+
+    # ubi image specific options
+    parser.add_argument("--mkubifs",
+        dest="mkubifs",
+        default=None,
+        help="arguments to give to mkfs.ubifs")
+    parser.add_argument("--ubinize",
+        dest="ubinize",
+        default=None,
+        help="arguments to give to ubinize")
+    parser.add_argument("--ubinize-root",
+        dest="ubinizeRoot",
+        default=None,
+        help="directory where ubinize should be executed from")
 
     parser.add_argument("-q",
         dest="quiet",

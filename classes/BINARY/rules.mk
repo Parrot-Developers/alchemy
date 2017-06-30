@@ -64,10 +64,10 @@ ifeq ("$($(_mode_prefix)_OS)","windows")
   all_gen_sources += $(gen_rc_sources)
   all_objects += $(rc_objects) $(gen_rc_objects)
 else
- rc_sources :=
- rc_objects :=
- gen_rc_sources :=
- gen_rc_objects :=
+  rc_sources :=
+  rc_objects :=
+  gen_rc_sources :=
+  gen_rc_objects :=
 endif
 
 vala_sources := $(filter %.vala,$(LOCAL_SRC_FILES))

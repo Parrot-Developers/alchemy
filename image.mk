@@ -10,12 +10,16 @@ MKFS_SCRIPT := $(BUILD_SYSTEM)/scripts/mkfs.py
 SPARSE_SCRIPT := $(BUILD_SYSTEM)/scripts/sparse.py
 
 # Script that will modify mode/uid/gid of files while generating the image
-FIXSTAT := $(BUILD_SYSTEM)/scripts/fixstat.py \
+FIXSTAT := $(BUILD_SYSTEM)/scripts/fixstat.py
+
+ifeq ("$(TARGET_OS)","linux")
+ifeq ("$(is-full-system)","1")
+FIXSTAT += \
 	--user-file=$(TARGET_OUT_FINAL)/$(TARGET_DEFAULT_ETC_DESTDIR)/passwd \
 	--group-file=$(TARGET_OUT_FINAL)/$(TARGET_DEFAULT_ETC_DESTDIR)/group \
-	$(foreach __f,$(TARGET_PERMISSIONS_FILES), \
-		--permissions-file=$(__f) \
-	)
+	$(foreach __f,$(TARGET_PERMISSIONS_FILES), --permissions-file=$(__f))
+endif
+endif
 
 # Apply default permissions (quite restrictives) only if other rules are present
 ifneq ("$(TARGET_PERMISSIONS_FILES)","")
@@ -28,33 +32,28 @@ ifneq ("$(V)","0")
   FIXSTAT += -v
 endif
 
+MKUBIFS ?= $(wildcard /usr/sbin/mkfs.ubifs)
+UBINIZE ?= $(wildcard /usr/sbin/ubinize)
 
 ###############################################################################
 ## Generic image generation macro.
 ## $1: image type.
 ## $2: image file name.
-## $3 : extra arguments.
+## $3: extra arguments.
+## $4: env/wrapper for MKFS_SCRIPT
 ###############################################################################
 define gen-image
 	$(Q) cd $(TARGET_OUT_FINAL); \
 		find . $(if $(call streq,$1,cpio),-name 'boot' -prune -o) \
 			! -name '.' -printf '%P\n' | $(FIXSTAT) | \
-			$(MKFS_SCRIPT) --fstype $1 $3 $2
+			$4 $(MKFS_SCRIPT) --fstype $1 $3 $2
 endef
 
 define gen-image-sparse
-	$(call gen-image,$1,$2.tmp,$3)
+	$(call gen-image,$1,$2.tmp,$3,$4)
 	$(Q) $(SPARSE_SCRIPT) --sparse $2.tmp $2
 	$(Q) rm -f $2.tmp
 endef
-
-# Extract some part of the TARGET_IMAGE_OPTIONS variables
-# $1 : option to extract (argument shall be enclosed betwwen double quotes)
-# TARGET_IMAGE_OPTIONS := \
-#	--mkubifs="-m 0x800 -e 0x1f000 -c 2047 -x none -F" \
-#	--ubinize="-p 0x20000 -m 0x800 -s 2048 $(TARGET_CONFIG_DIR)/ubinize.cfg"
-image-extract-args = \
-	`echo '$(TARGET_IMAGE_OPTIONS)' | sed -e 's%.*$1="\([^"]\+\)".*%\1%'`
 
 ###############################################################################
 ## Generate image in plf format.
@@ -62,13 +61,19 @@ image-extract-args = \
 ###############################################################################
 PLFTOOL ?= plftool
 MK_KERNEL_PLF ?= mk_kernel_plf
+
+ifndef gen-kernel-plf
+gen-kernel-plf = \
+	$(MK_KERNEL_PLF) \
+		"ignore-boot.cfg" \
+		$(TARGET_OUT_FINAL)/boot/zImage \
+		$(TARGET_OUT_BUILD)/linux/.config \
+		$1;
+endif
+
 define gen-image-plf
 	$(Q) if [ -f "$(TARGET_OUT_FINAL)/boot/zImage" ]; then \
-		$(MK_KERNEL_PLF) \
-			"ignore-boot.cfg" \
-			$(TARGET_OUT_FINAL)/boot/zImage \
-			$(TARGET_OUT_BUILD)/linux/.config \
-			$(TARGET_OUT)/kernel.plf; \
+		$(call gen-kernel-plf,$(TARGET_OUT)/kernel.plf) \
 		$(PLFTOOL) -a u_data=$(TARGET_OUT)/kernel.plf $1; \
 	elif [ "$(TARGET_CHROOT)" = "0" ]; then \
 		echo "Image plf: no kernel image found"; \
@@ -79,41 +84,20 @@ define gen-image-plf
 endef
 
 ###############################################################################
-## Generate image in ubi format.
-## $1: image file name.
-## TODO: pass options properly
-## TODO: generate cfg with relative file paths
-###############################################################################
-MKUBIFS ?= $(wildcard /usr/sbin/mkfs.ubifs)
-UBINIZE ?= $(wildcard /usr/sbin/ubinize)
-
-define gen-image-ubi
-	@if [ -z "$(MKUBIFS)" -o -z "$(UBINIZE)" ]; then \
-		echo "Missing mkfs.ubifs/ubinize tools"; \
-		exit 1; \
-	fi
-	$(Q) chmod -R g-w,o-w $(TARGET_OUT_FINAL)
-	$(Q) fakeroot $(MKUBIFS) \
-		$(call image-extract-args,--mkubifs) \
-		-r $(TARGET_OUT_FINAL) \
-		$1.ubifs
-	$(Q) cd $(TARGET_OUT) && $(UBINIZE) \
-		-o $1 \
-		$(call image-extract-args,--ubinize)
-endef
-
-###############################################################################
 ## Specialized macros.
 ## $1: image file name.
 ###############################################################################
-gen-image-tar = $(call gen-image,tar,$1,$(TARGET_IMAGE_OPTIONS))
-gen-image-cpio = $(call gen-image,cpio,$1,$(TARGET_IMAGE_OPTIONS) --devnode "dev/console:622:0:0:c:5:1")
-gen-image-ext2 = $(call gen-image,ext2,$1,$(TARGET_IMAGE_OPTIONS))
-gen-image-ext3 = $(call gen-image,ext3,$1,$(TARGET_IMAGE_OPTIONS))
-gen-image-ext4 = $(call gen-image,ext4,$1,$(TARGET_IMAGE_OPTIONS))
-gen-image-sext2 = $(call gen-image-sparse,ext2,$1,$(TARGET_IMAGE_OPTIONS))
-gen-image-sext3 = $(call gen-image-sparse,ext3,$1,$(TARGET_IMAGE_OPTIONS))
-gen-image-sext4 = $(call gen-image-sparse,ext4,$1,$(TARGET_IMAGE_OPTIONS))
+gen-image-tar = $(call gen-image,tar,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
+gen-image-cpio = $(call gen-image,cpio,$1,$(TARGET_IMAGE_OPTIONS) --devnode "dev/console:622:0:0:c:5:1",$(empty))
+gen-image-ext2 = $(call gen-image,ext2,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
+gen-image-ext3 = $(call gen-image,ext3,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
+gen-image-ext4 = $(call gen-image,ext4,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
+gen-image-sext2 = $(call gen-image-sparse,ext2,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
+gen-image-sext3 = $(call gen-image-sparse,ext3,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
+gen-image-sext4 = $(call gen-image-sparse,ext4,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
+gen-image-ubi = $(call gen-image,ubi,$1, \
+	$(TARGET_IMAGE_OPTIONS) --ubinize-root=$(TARGET_OUT), \
+	MKUBIFS=$(MKUBIFS) UBINIZE=$(UBINIZE) fakeroot)
 
 ###############################################################################
 ## Generate rules to build an image.

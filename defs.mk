@@ -229,7 +229,8 @@ modules-fields-depends := \
 	depends.WHOLE_STATIC_LIBRARIES \
 	depends.SHARED_LIBRARIES \
 	depends.link \
-	depends.other \
+	depends.build \
+	depends.runtime \
 	depends.headers \
 	depends.all
 
@@ -489,17 +490,17 @@ modules-check-depends = \
 __module-check-depends = \
 	$(eval __path := $(__modules.$1.PATH)) \
 	$(call __module-check-depends-direct,$1) \
-	$(call __module-check-depends-other,$1) \
+	$(call __module-check-depends-runtime,$1) \
 	$(call __module-check-depends-headers,$1) \
 	$(call __module-check-depends-mode,$1) \
 	$(call __module-check-libs-class,$1,WHOLE_STATIC_LIBRARIES,STATIC_LIBRARY) \
 	$(call __module-check-libs-class,$1,STATIC_LIBRARIES,STATIC_LIBRARY) \
 	$(call __module-check-libs-class,$1,SHARED_LIBRARIES,SHARED_LIBRARY)
 
-# Check direct dependencies
+# Check direct (and build order) dependencies
 # $1 : module name.
 __module-check-depends-direct = \
-	$(foreach __lib,$(__modules.$1.depends), \
+	$(foreach __lib,$(__modules.$1.depends) $(__modules.$1.build), \
 		$(if $(call is-module-registered,$(__lib)), \
 			$(if $(call is-module-in-build-config,$(__lib)),$(empty), \
 				$(if $(call is-var-defined,TARGET_TEST),$(empty), \
@@ -510,10 +511,10 @@ __module-check-depends-direct = \
 		) \
 	)
 
-# Make sure runtime dependencies (other) are OK. Print warning only
+# Make sure runtime dependencies are OK. Print warning only
 # $1 : module name.
-__module-check-depends-other = \
-	$(foreach __lib,$(__modules.$1.depends.other), \
+__module-check-depends-runtime = \
+	$(foreach __lib,$(__modules.$1.depends.runtime), \
 		$(if $(call is-module-registered,$(__lib)), \
 			$(if $(call is-module-in-build-config,$(__lib)),$(empty), \
 				$(warning $(__path): module '$1' requires disabled module '$(__lib)') \
@@ -733,8 +734,8 @@ __module-compute-depends-direct = \
 	$(call __module-add-depends-direct,$1,$(__modules.$1.SHARED_LIBRARIES)) \
 	$(call __module-add-depends-direct,$1,$(__modules.$1.EXTERNAL_LIBRARIES)) \
 	$(eval __modules.$1.depends.headers := $(__modules.$1.DEPENDS_HEADERS)) \
-	$(eval __modules.$1.depends.other := $(__modules.$1.DEPENDS_MODULES)) \
-	$(eval __modules.$1.depends.other += $(__modules.$1.REQUIRED_MODULES))
+	$(eval __modules.$1.depends.build += $(__modules.$1.DEPENDS_MODULES)) \
+	$(eval __modules.$1.depends.runtime += $(__modules.$1.REQUIRED_MODULES))
 
 # Add direct dependencies to a module
 # $1 : module name.
@@ -901,9 +902,15 @@ module-get-static-depends = \
 module-get-link-depends = \
 	$(__modules.$1.depends.link)
 
-# Get all dependencies for the build
+# Get all dependencies (except the ones required only for build order)
 module-get-all-depends = \
 	$(__modules.$1.depends.all)
+
+# Get all build dependencies (including the ones required only for build order)
+module-get-build-depends = \
+	$(__modules.$1.depends.all) \
+	$(__modules.$1.depends.headers) \
+	$(__modules.$1.depends.build)
 
 # Get headers dependencies
 module-get-headers-depends = \
@@ -916,7 +923,8 @@ module-get-depends = \
 # Get dependencies for configuration
 module-get-config-depends = \
 	$(__modules.$1.depends) \
-	$(__modules.$1.depends.other)
+	$(__modules.$1.depends.build) \
+	$(__modules.$1.depends.runtime)
 
 ###############################################################################
 ## Get path of module main target file (in build or staging directory).
@@ -1340,9 +1348,8 @@ copy-get-dst-path-host = $(strip \
 ###############################################################################
 install-headers-setup = \
 	$(foreach __pair,$(__modules.$1.INSTALL_HEADERS), \
-		$(eval __pair2 := $(subst :,$(space),$(__pair))) \
-		$(eval __w1 := $(word 1,$(__pair2))) \
-		$(eval __w2 := $(word 2,$(__pair2))) \
+		$(eval __w1 := $(firstword $(subst :,$(space),$(__pair)))) \
+		$(eval __w2 := $(patsubst $(__w1):%,%,$(__pair))) \
 		$(if $(__w2),$(empty), \
 			$(if $(call is-module-host,$1), \
 				$(eval __w2 := $(HOST_ROOT_DESTDIR)/include/) \

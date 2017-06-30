@@ -423,7 +423,8 @@ forms <code>tar.gz</code>, <code>cpio.gz</code>, <code>ext2.gz</code>, <code>ext
 </br>Default is <code>tar.gz</code>.</li>
 <li><code>TARGET_IMAGE_OPTIONS</code> : additional options to give during image generation:
 <ul>
-<li><code>--size &lt;val&gt; [&lt;unit&gt;]</code> : size of image (for <code>ext</code> format), unit is <code>K</code>, <code>M</code>, <code>G</code>
+<li><code>--size &lt;val&gt; [&lt;unit&gt;]</code> : size of image (for <code>ext</code> format), unit is <code>K</code>, <code>M</code>, <code>G</code></li>
+<li><code>--filter &lt;path&gt;</code> : path (relative to root fs) to skip during image generation
 </br>Default is empty.</li>
 </ul></li>
 <li><code>TARGET_FINAL_MODE</code>: how to create the final directory. Supported value:
@@ -436,7 +437,7 @@ execution.
 <li><p><code>TARGET_LINUX_RELEASE</code> : linux kernel release to build kernel modules against it.
 This variable can be used only if building for <code>native</code> target.
 </br>Default is <code>$(shell uname -r)</code>.</p></li>
-<li><p><code>USE_CLANG</code> : Use clang instead of gcc for compilation.
+<li><p><code>USE_CLANG</code> <code>TARGET_USE_CLANG</code>: Use clang instead of gcc for compilation.
 </br>Default is <code>0</code>.</p></li>
 <li><code>USE_CCACHE</code> : Use ccache to speed up compilation.
 </br>Default is <code>0</code>.</li>
@@ -771,15 +772,16 @@ system will use it.</p>
 link. This does <strong>NOT</strong> introduce a build order, just an automatic import of
 exported headers.</p>
 
-<h4><code>LOCAL_DEPENDS_MODULES</code> <code>LOCAL_REQUIRED_MODULES</code></h4>
+<h4><code>LOCAL_DEPENDS_MODULES</code></h4>
+
+<p>This is a list of modules required at build time. They will be built before
+this module but nothing will be imported from them (flags, headers, libs).</p>
+
+<h4><code>LOCAL_REQUIRED_MODULES</code></h4>
 
 <p>This is a list of modules required at runtime that will automatically be
 selected in the <code>qconf</code> configuration window. This does <strong>NOT</strong> introduce a
 build order.</p>
-
-<p><strong>Note</strong>: <code>LOCAL_REQUIRED_MODULES</code> is preferred over <code>LOCAL_DEPENDS_MODULES</code>.
-Once migrated to <code>LOCAL_REQUIRED_MODULES</code>, <code>LOCAL_DEPENDS_MODULES</code> might be used
-for another purpose (like really have a build dependency).</p>
 
 <h4><code>LOCAL_FORCE_STATIC</code></h4>
 
@@ -1585,6 +1587,8 @@ the error:</p>
 <pre>
     codecheck_ignore_file[TYPE1(,TYPE2...)]
 </pre>
+
+<p>If <code>TYPE</code> is <code>ALL</code>, <em>all</em> codecheck warnings will be disabled for the file</p>
 
 <h2>Codecheck for C++ false positives or intentional deviations</h2>
 

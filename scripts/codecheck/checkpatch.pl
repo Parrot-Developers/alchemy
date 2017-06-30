@@ -1389,7 +1389,7 @@ sub possible {
 my $prefix = '';
 
 sub show_type {
-       return !defined $ignore_type{$_[0]} && !defined $ignore_type_line{$_[0]} && !defined $ignore_type_file{$_[0]}
+       return !defined $ignore_type{$_[0]} && !defined $ignore_type_line{$_[0]} && !defined $ignore_type_file{$_[0]} && !defined $ignore_type_file{"ALL"}
 }
 
 sub report {

@@ -16,9 +16,9 @@ endif
 
 LOCAL_MODULE_CLASS := LINUX_MODULE
 
-ifneq ("$(TARGET_OS_FLAVOUR:-chroot=)","native")
-  LOCAL_LIBRARIES += linux
-endif
+# In native or native-chroot mode the 'linux' module is declared if we have
+# acces to kernel headers
+LOCAL_LIBRARIES += linux
 
 # Register in the system
 $(module-add)

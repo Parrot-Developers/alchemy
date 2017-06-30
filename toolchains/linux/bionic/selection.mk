@@ -19,7 +19,18 @@ endif
 
 ANDROID_TOOLCHAIN_PATH := $(TARGET_OUT)/toolchain
 
-ifeq ("$(USE_CLANG)","1")
+# Android ndk version naming rule:
+# MAJOR is the ndk number
+# MINOR is the ndk letter (0 = no letter, 1 = b, ...)
+# Ex: r14b is 14.1, r11c is 11.2, r15 is 15.0
+ANDROID_NDK_SOURCE_PROP := $(TARGET_ANDROID_NDK)/source.properties
+ANDROID_NDK_VERSION := $(shell test -f $(ANDROID_NDK_SOURCE_PROP) \
+			&& grep -o -E '[0-9]+\.[0-9+]' $(ANDROID_NDK_SOURCE_PROP) \
+			|| echo '0.0')
+ANDROID_NDK_MAJOR_VERSION := $(firstword $(subst ., ,$(ANDROID_NDK_VERSION)))
+ANDROID_NDK_MINOR_VERSION := $(word 2,$(subst ., ,$(ANDROID_NDK_VERSION)))
+
+ifeq ("$(TARGET_USE_CLANG)","1")
   # Requires NDK r14b or newer, use new scripts, new args, and new toolchain
 
   # TARGET_ANDROID_TOOLCHAIN_VERSION & TARGET_ANDROID_TOOLCHAIN are ignored as
@@ -37,30 +48,45 @@ ifeq ("$(USE_CLANG)","1")
 else
   # Legacy mode
 
-  # Choose Toolchain
-  ifndef TARGET_ANDROID_TOOLCHAIN_VERSION
-    TARGET_ANDROID_TOOLCHAIN_VERSION := \
+  # On ndk before r15 use the legacy code below
+  ifneq ("$(firstword $(sort $(ANDROID_NDK_MAJOR_VERSION) 15))", "15")
+
+    # Choose Toolchain
+    ifndef TARGET_ANDROID_TOOLCHAIN_VERSION
+      TARGET_ANDROID_TOOLCHAIN_VERSION := \
 	$(shell ANDROID_NDK_ROOT=$(TARGET_ANDROID_NDK) . $(TARGET_ANDROID_NDK)/build/tools/dev-defaults.sh && \
 		echo $$(get_default_gcc_version_for_arch $(ANDROID_ARCH)))
-  endif
-  ifndef TARGET_ANDROID_TOOLCHAIN
-    TARGET_ANDROID_TOOLCHAIN := \
+    endif
+    ifndef TARGET_ANDROID_TOOLCHAIN
+      TARGET_ANDROID_TOOLCHAIN := \
 	$(shell ANDROID_NDK_ROOT=$(TARGET_ANDROID_NDK) . $(TARGET_ANDROID_NDK)/build/tools/dev-defaults.sh && \
 		echo $$(get_toolchain_name_for_arch $(ANDROID_ARCH) $(TARGET_ANDROID_TOOLCHAIN_VERSION)))
-  endif
-  ifeq ("$(TARGET_ANDROID_TOOLCHAIN)","")
-    $(error Failed to detect Android toolchain, set the name of the toolchain in the TARGET_ANDROID_TOOLCHAIN variable)
-  endif
+    endif
+    ifeq ("$(TARGET_ANDROID_TOOLCHAIN)","")
+      $(error Failed to detect Android toolchain, set the name of the toolchain in the TARGET_ANDROID_TOOLCHAIN variable)
+    endif
 
-  ANDROID_TOOLCHAIN_SCRIPT := $(TARGET_ANDROID_NDK)/build/tools/make-standalone-toolchain.sh
-  ANDROID_TOOLCHAIN_OPTIONS := \
+    ANDROID_TOOLCHAIN_SCRIPT := $(TARGET_ANDROID_NDK)/build/tools/make-standalone-toolchain.sh
+    ANDROID_TOOLCHAIN_OPTIONS := \
 	--platform=android-$(TARGET_ANDROID_MINAPILEVEL) \
 	--arch=$(ANDROID_ARCH) \
 	--install-dir=$(ANDROID_TOOLCHAIN_PATH) \
 	--toolchain=$(TARGET_ANDROID_TOOLCHAIN) \
 	--stl=$(TARGET_ANDROID_STL)
 
-  ANDROID_TOOLCHAIN_TOKEN := $(ANDROID_TOOLCHAIN_PATH)/$(TARGET_ANDROID_TOOLCHAIN).android-$(TARGET_ANDROID_MINAPILEVEL)
+    ANDROID_TOOLCHAIN_TOKEN := $(ANDROID_TOOLCHAIN_PATH)/$(TARGET_ANDROID_TOOLCHAIN).android-$(TARGET_ANDROID_MINAPILEVEL)
+
+  # For ndk r15, use the new script, but request deprecated (non unified) headers
+  else
+    ANDROID_TOOLCHAIN_SCRIPT := $(TARGET_ANDROID_NDK)/build/tools/make_standalone_toolchain.py
+    ANDROID_TOOLCHAIN_OPTIONS := \
+	--api=$(TARGET_ANDROID_MINAPILEVEL) \
+	--arch=$(ANDROID_ARCH) \
+	--install-dir=$(ANDROID_TOOLCHAIN_PATH) \
+	--stl=$(TARGET_ANDROID_STL) \
+	--deprecated-headers
+    ANDROID_TOOLCHAIN_TOKEN := $(ANDROID_TOOLCHAIN_PATH)/$(TARGET_ANDROID_TOOLCHAIN).android-$(TARGET_ANDROID_MINAPILEVEL)-deprecated-headers
+  endif
 endif
 
 
@@ -77,7 +103,7 @@ ifeq ("$(ANDROID_TOOLCHAIN_PREFIX)", "")
   $(error Failed to detect android toolchain prefix)
 endif
 
-ifeq ("$(USE_CLANG)", "1")
+ifeq ("$(TARGET_USE_CLANG)", "1")
   # Clang mode, do not define TARGET_CROSS but define our own TARGET_tools
   ANDROID_CROSS := $(ANDROID_TOOLCHAIN_PATH)/bin/$(ANDROID_TOOLCHAIN_PREFIX)-
   TARGET_CC ?= $(ANDROID_CROSS)clang
@@ -91,6 +117,14 @@ ifeq ("$(USE_CLANG)", "1")
   TARGET_RANLIB ?= $(ANDROID_CROSS)ranlib
   TARGET_OBJCOPY ?= $(ANDROID_CROSS)objcopy
   TARGET_OBJDUMP ?= $(ANDROID_CROSS)objdump
+
+  # For Android NDK 15 + clang, we need to add "-fintegrated-as" to the clang CFLAGS
+  # (see https://android.googlesource.com/platform/ndk/+/ndk-r15-release/CHANGELOG.md)
+  ifeq ("$(ANDROID_NDK_MAJOR_VERSION)", "15")
+    ifeq ("$(ANDROID_ARCH)", "mips64")
+      TARGET_GLOBAL_CFLAGS += -fintegrated-as
+    endif
+  endif
 else
   # Legacy mode, use TARGET_CROSS
   TARGET_CROSS := $(ANDROID_TOOLCHAIN_PATH)/bin/$(ANDROID_TOOLCHAIN_PREFIX)-

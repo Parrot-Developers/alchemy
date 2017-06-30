@@ -6,7 +6,10 @@
 ## Setup toolchain variables.
 ###############################################################################
 
-ifneq ("$(USE_CLANG)","1")
+HOST_USE_CLANG ?= $(USE_CLANG)
+TARGET_USE_CLANG ?= $(USE_CLANG)
+
+ifneq ("$(HOST_USE_CLANG)","1")
   HOST_CC ?= cc
   HOST_CXX ?= c++
   HOST_AS ?= as
@@ -56,7 +59,7 @@ ifeq ("$(TARGET_OS)-$(TARGET_OS_FLAVOUR)","$(HOST_OS)-native")
   TARGET_OBJDUMP ?= $(HOST_OBJDUMP)
   TARGET_WINDRES ?= $(HOST_WINDRES)
 else
-  ifneq ("$(USE_CLANG)","1")
+  ifneq ("$(TARGET_USE_CLANG)","1")
     TARGET_CC ?= $(TARGET_CROSS)gcc
     TARGET_CXX ?= $(TARGET_CROSS)g++
   else
@@ -85,10 +88,6 @@ ifeq ("$(TARGET_CC_PATH)","")
   $(error Unable to find compiler: $(TARGET_CC))
 endif
 
-# Determine compilers version
-TARGET_CC_VERSION := $(shell $(TARGET_CC) -dumpversion)
-HOST_CC_VERSION := $(shell $(HOST_CC) -dumpversion)
-
 # TODO: remove when not used anymore
 TARGET_COMPILER_PATH := $(shell PARAM="$(TARGET_CC)";echo $${PARAM%/bin*})
 
@@ -104,4 +103,19 @@ ifeq ("$(shell $(TARGET_CC) --version | grep -q clang; echo $$?)","0")
   TARGET_CC_FLAVOUR := clang
 else
   TARGET_CC_FLAVOUR := gcc
+endif
+
+# Determine compilers version
+ifeq ("$(HOST_CC_FLAVOUR)","clang")
+  HOST_CC_VERSION := $(shell $(HOST_CC) --version | head -1 | \
+		grep -o -E '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+else
+  HOST_CC_VERSION := $(shell $(HOST_CC) -dumpversion)
+endif
+
+ifeq ("$(TARGET_CC_FLAVOUR)","clang")
+  TARGET_CC_VERSION := $(shell $(TARGET_CC) --version | head -1 | \
+		grep -o -E '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+else
+  TARGET_CC_VERSION := $(shell $(TARGET_CC) -dumpversion)
 endif

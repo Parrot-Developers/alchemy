@@ -181,6 +181,7 @@ def copyStaging(ctx, srcDir, dstDir):
         os.path.join("usr", "src", "linux-sdk"),
         os.path.join("usr", "local", "cuda-6.5"),
         os.path.join("usr", "local", "cuda-7.0"),
+        os.path.join("system", "lib"),
         "host",
         "android",
         "toolchain",
@@ -571,8 +572,8 @@ def main():
     # in the correct environment
     target_elements = [
         "OS", "OS_FLAVOUR",
-        "ARCH", "CPU", "CROSS",
-        "LIBC", "DEFAULT_ARM_MODE"
+        "ARCH", "CPU", "CC_VERSION", "CC_FLAVOUR", "TOOLCHAIN_TRIPLET",
+        "LIBC", "DEFAULT_ARM_MODE", "FLOAT_ABI"
     ]
     for element_to_check in target_elements:
         checkTargetVar(ctx, element_to_check)

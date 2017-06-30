@@ -373,6 +373,7 @@ Mainly used by the android wrapper.
   </br>Default is `tar.gz`.
 * `TARGET_IMAGE_OPTIONS` : additional options to give during image generation:
   * `--size <val> [<unit>]` : size of image (for `ext` format), unit is `K`, `M`, `G`
+  * `--filter <path>` : path (relative to root fs) to skip during image generation
   </br>Default is empty.
 * `TARGET_FINAL_MODE`: how to create the final directory. Supported value:
   * `full`: nothing is filtered.
@@ -383,7 +384,7 @@ Mainly used by the android wrapper.
   This variable can be used only if building for `native` target.
   </br>Default is `$(shell uname -r)`.
 
-* `USE_CLANG` : Use clang instead of gcc for compilation.
+* `USE_CLANG` `TARGET_USE_CLANG`: Use clang instead of gcc for compilation.
   </br>Default is `0`.
 * `USE_CCACHE` : Use ccache to speed up compilation.
   </br>Default is `0`.
@@ -1471,6 +1472,8 @@ You can also ignore a warning for a whole file by using:
 <pre>
 	codecheck_ignore_file[TYPE1(,TYPE2...)]
 </pre>
+
+If `TYPE` is `ALL`, *all* codecheck warnings will be disabled for the file
 
 ## Codecheck for C++ false positives or intentional deviations
 

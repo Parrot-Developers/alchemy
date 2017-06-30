@@ -13,7 +13,7 @@
 # Alchemy version
 ALCHEMY_VERSION_MAJOR := 1
 ALCHEMY_VERSION_MINOR := 3
-ALCHEMY_VERSION_REV   := 2
+ALCHEMY_VERSION_REV   := 3
 ALCHEMY_VERSION := $(ALCHEMY_VERSION_MAJOR).$(ALCHEMY_VERSION_MINOR).$(ALCHEMY_VERSION_REV)
 
 # Make sure SHELL is correctly set
@@ -238,11 +238,12 @@ create-user-makefiles-cache = \
 	( \
 		echo "\$$(info Found `echo $$files | wc -w` makefiles)"; \
 		for f in $$files; do \
-			echo "USER_MAKEFILES += $$f"; \
-			echo "\$$(call user-makefile-before-include,$$f)"; \
-			$(if $(call strneq,$(V),0),echo "\$$(info $$f)";) \
-			echo "include $$f"; \
-			echo "\$$(call user-makefile-after-include,$$f)"; \
+			echo "USER_MAKEFILE := $$f"; \
+			echo "USER_MAKEFILES += \$$(USER_MAKEFILE)"; \
+			echo "\$$(call user-makefile-before-include,\$$(USER_MAKEFILE))"; \
+			$(if $(call strneq,$(V),0),echo "\$$(info \$$(USER_MAKEFILE))";) \
+			echo "include \$$(USER_MAKEFILE)"; \
+			echo "\$$(call user-makefile-after-include,\$$(USER_MAKEFILE))"; \
 		done \
 	) >> $(USER_MAKEFILES_CACHE);
 
@@ -327,7 +328,7 @@ ALL_BUILD_MODULES := $(strip \
 # If no config file available, remove modules with unknown dependencies
 ifeq ("$(GLOBAL_CONFIG_FILE_AVAILABLE)","0")
 $(foreach __mod,$(ALL_BUILD_MODULES), \
-	$(foreach __lib,$(call module-get-all-depends,$(__mod)) $(call module-get-headers-depends,$(__mod)), \
+	$(foreach __lib,$(call module-get-build-depends,$(__mod)), \
 		$(if $(call is-module-registered,$(__lib)),$(empty), \
 			$(info Disabling $(__mod): has unknown dependency $(__lib)) \
 			$(eval ALL_BUILD_MODULES := $(filter-out $(__mod),$(ALL_BUILD_MODULES))) \
@@ -390,7 +391,7 @@ $(foreach __mod,$(ALL_MODULES), \
 			$(if $(call is-not-item-in-list,$(__mod),$(ALL_BUILD_MODULES)), \
 				$(info $(__mod) is not enabled in the config) \
 				$(eval ALL_BUILD_MODULES += $(__mod) \
-					$(call module-get-all-depends,$(__mod)) \
+					$(call module-get-build-depends,$(__mod)) \
 				) \
 			) \
 		) \
@@ -407,13 +408,11 @@ ifeq ("$(call is-targets-in-make-goals,all check all-clean all-dirclean all-doc 
 $(foreach __mod,$(ALL_BUILD_MODULES) $(ALL_BUILD_MODULES_HOST), \
 	$(if $(call is-module-in-make-goals,$(__mod)), \
 		$(eval __modlist += $(__mod)) \
-		$(eval __modlist += $(call module-get-all-depends,$(__mod))) \
-		$(eval __modlist += $(call module-get-headers-depends,$(__mod))) \
+		$(eval __modlist += $(call module-get-build-depends,$(__mod))) \
 		$(if $(call is-module-meta-package,$(__mod)), \
 			$(foreach __mod2,$(call module-get-config-depends,$(__mod)), \
 				$(eval __modlist += $(__mod2)) \
-				$(eval __modlist += $(call module-get-all-depends,$(__mod2))) \
-				$(eval __modlist += $(call module-get-headers-depends,$(__mod2))) \
+				$(eval __modlist += $(call module-get-build-depends,$(__mod2))) \
 			) \
 			$(foreach __mod2,$(sort $(__modlist)), \
 				$(if $(call is-module-registered,$(__mod2)),$(empty), \

@@ -84,6 +84,10 @@ TARGET_GLOBAL_CFLAGS += -DALCHEMY_BUILD
 HOST_GLOBAL_CFLAGS_clang += -Qunused-arguments
 TARGET_GLOBAL_CFLAGS_clang += -Qunused-arguments
 
+# Enable ARC for all ObjC builds
+HOST_GLOBAL_OBJCFLAGS += -fobjc-arc
+TARGET_GLOBAL_OBJCFLAGS += -fobjc-arc
+
 # TODO : get this based on real version of valac and glib used.
 TARGET_GLOBAL_VALAFLAGS += \
 	--vapidir=$(HOST_OUT_STAGING)/$(HOST_ROOT_DESTDIR)/share/vala-0.20/vapi \
