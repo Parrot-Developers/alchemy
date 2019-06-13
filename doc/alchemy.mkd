@@ -61,8 +61,8 @@ At a minimum, `TARGET_PRODUCT`, `TARGET_PRODUCT_VARIANT` and `TARGET_CONFIG_DIR`
 are required. Other variables can be set in the `product.mk` file located in
 `TARGET_CONFIG_DIR`. This way environment is not cluttered with variables.
 
-Optionally, some `TARGET_XXX` variables can be prefixed with `ALCHEMY_` to avoid
-conflict with other build systems (android for example).
+Optionally, some `TARGET_XXX` or `HOST_XXX` variables can be prefixed with
+`ALCHEMY_` to avoid conflict with other build systems (android for example).
 
 * `ALCHEMY_TARGET_PRODUCT`
 * `ALCHEMY_TARGET_PRODUCT_VARIANT`
@@ -73,6 +73,8 @@ conflict with other build systems (android for example).
 * `ALCHEMY_TARGET_SCAN_PRUNE_DIRS`
 * `ALCHEMY_TARGET_SDK_DIRS`
 * `ALCHEMY_USE_COLORS`
+* `ALCHEMY_HOST_OUT_BUILD`
+* `ALCHEMY_HOST_OUT_STAGING`
 
 ### Target
 

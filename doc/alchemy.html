@@ -65,8 +65,8 @@ information.</p>
 are required. Other variables can be set in the <code>product.mk</code> file located in
 <code>TARGET_CONFIG_DIR</code>. This way environment is not cluttered with variables.</p>
 
-<p>Optionally, some <code>TARGET_XXX</code> variables can be prefixed with <code>ALCHEMY_</code> to avoid
-conflict with other build systems (android for example).</p>
+<p>Optionally, some <code>TARGET_XXX</code> or <code>HOST_XXX</code> variables can be prefixed
+with <code>ALCHEMY_</code> to avoid conflict with other build systems (android for example).</p>
 
 <ul>
 <li><code>ALCHEMY_TARGET_PRODUCT</code></li>
@@ -78,6 +78,8 @@ conflict with other build systems (android for example).</p>
 <li><code>ALCHEMY_TARGET_SCAN_PRUNE_DIRS</code></li>
 <li><code>ALCHEMY_TARGET_SDK_DIRS</code></li>
 <li><code>ALCHEMY_USE_COLORS</code></li>
+<li><code>ALCHEMY_HOST_OUT_BUILD</code></li>
+<li><code>ALCHEMY_HOST_OUT_STAGING</code></li>
 </ul>
 
 <h3>Target</h3>

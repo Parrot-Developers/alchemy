@@ -40,9 +40,6 @@ TARGET_ANDROID_SDK := \
 		done \
 	)
 endif
-ifeq ("$(wildcard $(TARGET_ANDROID_SDK))","")
-  $(error No Android SDK found, use Alchemy-raptor package or set your Android SDK path in the TARGET_ANDROID_SDK variable)
-endif
 
 # Choose NDK
 ifndef TARGET_ANDROID_NDK

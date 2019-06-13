@@ -192,6 +192,7 @@ def copyStaging(ctx, srcDir, dstDir):
         os.path.join("usr", "lib"),
         os.path.join("usr", "include"),
         os.path.join("usr", "share", "vala"),
+        os.path.join("usr", "share", "protobuf"),
         os.path.join("usr", "src", "linux-sdk"),
         os.path.join("usr", "local", "cuda-6.5"),
         os.path.join("usr", "local", "cuda-7.0"),
@@ -202,6 +203,12 @@ def copyStaging(ctx, srcDir, dstDir):
         "opt",
     ]
     exclude = ["*.la"]
+
+    if ctx.moduledb.targetVars.get("OS", "windows"):
+        dirs_to_keep.append("bin")
+        dirs_to_keep.append(os.path.join("usr", "bin"),)
+        exclude.append("*.exe")
+
     for dirName in dirs_to_keep:
         srcDirPath = os.path.normpath(os.path.join(srcDir, dirName))
         if os.path.exists(srcDirPath):

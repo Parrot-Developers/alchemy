@@ -32,7 +32,7 @@ fi
 
 for FILE in ${FILES}; do
 	NAME=$(basename ${FILE})
-	TMP=".alchemy-clang-format.tmp"
+	TMP=$(mktemp /tmp/.alchemy-clang-format.tmp.XXXXXX)
 	${CLANG_FORMAT} -style=file --assume-filename=${NAME} <${FILE} >${TMP} \
 		&& mv ${TMP} ${FILE}
 done

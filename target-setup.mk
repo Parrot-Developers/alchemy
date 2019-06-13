@@ -65,6 +65,16 @@ ifdef ALCHEMY_TARGET_SDK_DIRS
   TARGET_SDK_DIRS := $(ALCHEMY_TARGET_SDK_DIRS)
 endif
 
+# Import host build dir from env
+ifdef ALCHEMY_HOST_OUT_BUILD
+  HOST_OUT_BUILD := $(ALCHEMY_HOST_OUT_BUILD)
+endif
+
+# Import host staging dir from env
+ifdef ALCHEMY_HOST_OUT_STAGING
+  HOST_OUT_STAGING := $(ALCHEMY_HOST_OUT_STAGING)
+endif
+
 ###############################################################################
 ## Make sure TOP_DIR is ALCHEMY_WORKSPACE_DIR
 ###############################################################################
@@ -102,6 +112,12 @@ endif
 
 ###############################################################################
 ###############################################################################
+
+# Global prerequisites (shall be used only by os makefile or product specific config)
+# Make sure it is a simply expanded variable
+ifndef TARGET_GLOBAL_PREREQUISITES
+  TARGET_GLOBAL_PREREQUISITES :=
+endif
 
 # Include product env file
 ifdef TARGET_CONFIG_DIR
@@ -225,11 +241,6 @@ TARGET_SDK_DIRS ?=
 TARGET_FORCE_EXTERNAL_CHECKS ?= 0
 ifneq ("$(F)","0")
   TARGET_FORCE_EXTERNAL_CHECKS := 1
-endif
-
-# Global prerequisites (shall be used only by os makefile)
-ifndef TARGET_GLOBAL_PREREQUISITES
-  TARGET_GLOBAL_PREREQUISITES :=
 endif
 
 # Add a section in executable/shared library with dependencies used

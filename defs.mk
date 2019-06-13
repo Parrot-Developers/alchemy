@@ -239,8 +239,6 @@ modules-fields-depends := \
 	depends.STATIC_LIBRARIES \
 	depends.WHOLE_STATIC_LIBRARIES \
 	depends.SHARED_LIBRARIES \
-	depends.link \
-	depends.build \
 	depends.runtime \
 	depends.headers \
 	depends.all
@@ -522,10 +520,10 @@ __module-check-depends = \
 	$(call __module-check-libs-class,$1,STATIC_LIBRARIES,STATIC_LIBRARY) \
 	$(call __module-check-libs-class,$1,SHARED_LIBRARIES,SHARED_LIBRARY)
 
-# Check direct (and build order) dependencies
+# Check direct dependencies
 # $1 : module name.
 __module-check-depends-direct = \
-	$(foreach __lib,$(__modules.$1.depends) $(__modules.$1.build), \
+	$(foreach __lib,$(__modules.$1.depends), \
 		$(if $(call is-module-registered,$(__lib)), \
 			$(if $(call is-module-in-build-config,$(__lib)),$(empty), \
 				$(if $(call is-var-defined,TARGET_TEST),$(empty), \
@@ -720,7 +718,6 @@ modules-compute-depends = \
 		$(if $(call streq,$(__modules.$(__mod).FORCE_STATIC),1), \
 			$(call __module-force-static,$(__mod)) \
 		) \
-		$(call __module-compute-depends-link,$(__mod)) \
 	)
 
 # Update direct dependencies of a single module.
@@ -768,8 +765,8 @@ __module-compute-depends-direct = \
 	$(call __module-add-depends-direct,$1,$(__modules.$1.META_PACKAGES)) \
 	$(call __module-add-depends-direct,$1,$(__modules.$1.PREBUILT_LIBRARIES)) \
 	$(call __module-add-depends-direct,$1,$(__modules.$1.EXTERNAL_LIBRARIES)) \
+	$(call __module-add-depends-direct,$1,$(__modules.$1.DEPENDS_MODULES)) \
 	$(eval __modules.$1.depends.headers := $(__modules.$1.DEPENDS_HEADERS)) \
-	$(eval __modules.$1.depends.build += $(__modules.$1.DEPENDS_MODULES)) \
 	$(eval __modules.$1.depends.runtime += $(__modules.$1.REQUIRED_MODULES))
 
 # Add direct dependencies to a module
@@ -837,18 +834,6 @@ __module-compute-depends-static-internal += \
 			) \
 		) \
 	)
-
-# Compute dependencies for link. It simply aggregate (and sort) dependencies
-# $1 : module name.
-__module-compute-depends-link = \
-	$(eval __modules.$1.depends.link := $(strip $(sort \
-		$(__modules.$1.depends.META_PACKAGES) \
-		$(__modules.$1.depends.PREBUILT_LIBRARIES) \
-		$(__modules.$1.depends.EXTERNAL_LIBRARIES) \
-		$(__modules.$1.depends.STATIC_LIBRARIES) \
-		$(__modules.$1.depends.WHOLE_STATIC_LIBRARIES) \
-		$(__modules.$1.depends.SHARED_LIBRARIES) \
-	)))
 
 # Compute all dependencies of a module.
 # $1 : module name.
@@ -942,20 +927,15 @@ module-get-listed-autoconf = $(strip \
 module-get-static-depends = \
 	$(__modules.$1.depends.$2)
 
-# Get link dependencies for the build (aggregation of all static depends)
-# list is sorted and is mainly used for generation of elf section with dependencies.
-module-get-link-depends = \
-	$(__modules.$1.depends.link)
-
-# Get all dependencies (except the ones required only for build order)
+# Get all dependencies (all stuff required to be present AND built before)
 module-get-all-depends = \
 	$(__modules.$1.depends.all)
 
-# Get all build dependencies (including the ones required only for build order)
+# Get all build dependencies (stuff required to be present but not necessarily
+# built first)
 module-get-build-depends = \
 	$(__modules.$1.depends.all) \
 	$(__modules.$1.depends.headers) \
-	$(__modules.$1.depends.build) \
 	$(filter $(TARGET_GLOBAL_PREREQUISITES),$(__modules))
 
 # Get headers dependencies
@@ -969,7 +949,6 @@ module-get-depends = \
 # Get dependencies for configuration
 module-get-config-depends = \
 	$(__modules.$1.depends) \
-	$(__modules.$1.depends.build) \
 	$(__modules.$1.depends.runtime)
 
 ###############################################################################
