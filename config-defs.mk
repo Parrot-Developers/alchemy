@@ -104,13 +104,13 @@ __generate-config-module-args = $(strip \
 	$(eval __sdk := $(__modules.$(__mod).SDK)) \
 	$(eval __configInFiles := $(call __get-module-config-in-files,$(__mod))) \
 	$(if $(__configInFiles), \
-		$(eval __configPath := $(call __get-orig-module-config,$(__mod))), \
+		$(eval __configPath := $(call path-from-top,$(call __get-orig-module-config,$(__mod)))), \
 		$(eval __configPath := $(empty)) \
 	) \
 	$(eval __arg := $(__mod)|$(__desc)$(space)|$(__depends)|$(__dependsCond)|$(__modPath)) \
 	$(eval __arg := $(__arg)|$(__categoryPath)|$(__sdk)|$(__configPath)) \
 	$(foreach __f,$(__configInFiles), \
-		$(eval __arg := $(__arg)|$(abspath $(__f))) \
+		$(eval __arg := $(__arg)|$(call path-from-top,$(__f))) \
 	) \
 	"$(__arg)")
 
@@ -150,6 +150,35 @@ __generate-config-args = $(strip \
 			$(call __generate-config-module-args,$(__mod)) \
 		) \
 	))
+
+###############################################################################
+# Call confwrapper either by generating a single command line or by putting extra
+# arguments in a file to bypass size limits
+# $1: options to give to confwrapper
+###############################################################################
+
+# Normal command line
+__call-confwrapper-args = \
+	@$(CONFWRAPPER) --main=$(TARGET_GLOBAL_CONFIG_FILE) $1 $(call __generate-config-args)
+
+# With a temp file holding the (potentially) long arguments
+__call-confwrapper-file = \
+	$(eval __tmpfile := $(shell mktemp alchemy.tmp.XXXXXXXXXX)) \
+	$(file >$(__tmpfile),$(call __generate-config-args)) \
+	@( \
+		function cleanup { rm -f $(__tmpfile); }; \
+		trap cleanup SIGINT SIGTERM; \
+		$(CONFWRAPPER) --main=$(TARGET_GLOBAL_CONFIG_FILE) $1 @$(__tmpfile); \
+		retcode=$$?; \
+		cleanup; \
+		exit $${retcode}; \
+	)
+
+ifeq ("$(MAKE_HAS_FILE_FUNC)","1")
+  __call-confwrapper = $(call __call-confwrapper-file,$1)
+else
+  __call-confwrapper = $(call __call-confwrapper-args,$1)
+endif
 
 ###############################################################################
 ## Load configuration of a module.

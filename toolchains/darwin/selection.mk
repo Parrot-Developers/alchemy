@@ -30,7 +30,7 @@ ifndef TARGET_AS
   TARGET_AS := $(shell xcrun --find --sdk $(APPLE_SDK) as)
 endif
 ifndef TARGET_AR
-  TARGET_AR := $(BUILD_SYSTEM)/scripts/darwin-ar $(shell xcrun --find --sdk $(APPLE_SDK) ar)
+  TARGET_AR := $(shell xcrun --find --sdk $(APPLE_SDK) ar)
 endif
 ifndef TARGET_LD
   TARGET_LD := $(shell xcrun --find --sdk $(APPLE_SDK) ld)

@@ -114,6 +114,9 @@ vars-LOCAL += CXXFLAGS
 # Additional flags to pass into the Objective-C compiler
 vars-LOCAL += OBJCFLAGS
 
+# Additional flags to pass into the Fortran compiler
+vars-LOCAL += FFLAGS
+
 # Additional flags to pass into the vala compiler
 vars-LOCAL += VALAFLAGS
 
@@ -204,6 +207,9 @@ vars-LOCAL += AUTOTOOLS_MAKE_INSTALL_ARGS
 vars-LOCAL += CMAKE_CONFIGURE_ARGS
 vars-LOCAL += CMAKE_MAKE_BUILD_ARGS
 vars-LOCAL += CMAKE_MAKE_INSTALL_ARGS
+
+# Linux customization
+vars-LOCAL += LINUX_MAKE_BUILD_ARGS
 
 # QMake customization
 vars-LOCAL += QMAKE_PRO_FILE
@@ -307,6 +313,7 @@ vars-LOCAL += CODECHECK_C
 vars-LOCAL += CODECHECK_CXX
 vars-LOCAL += CODECHECK_OBJC
 vars-LOCAL += CODECHECK_VALA
+vars-LOCAL += CODECHECK_PYTHON
 
 # Arguments to give to code checker
 vars-LOCAL += CODECHECK_AS_ARGS
@@ -314,6 +321,7 @@ vars-LOCAL += CODECHECK_C_ARGS
 vars-LOCAL += CODECHECK_CXX_ARGS
 vars-LOCAL += CODECHECK_OBJC_ARGS
 vars-LOCAL += CODECHECK_VALA_ARGS
+vars-LOCAL += CODECHECK_PYTHON_ARGS
 
 # Other variables used internally
 vars-LOCAL += BUILD_MODULE
@@ -465,6 +473,7 @@ vars-TARGET += GLOBAL_ARFLAGS
 vars-TARGET += GLOBAL_PCHFLAGS
 vars-TARGET += GLOBAL_VALAFLAGS
 vars-TARGET += GLOBAL_OBJCFLAGS
+vars-TARGET += GLOBAL_FFLAGS
 
 # Cuda
 vars-TARGET += NVCC
@@ -572,6 +581,11 @@ vars-TARGET_SETUP += GLOBAL_ARFLAGS
 vars-TARGET_SETUP += GLOBAL_PCHFLAGS
 vars-TARGET_SETUP += GLOBAL_VALAFLAGS
 vars-TARGET_SETUP += GLOBAL_OBJCFLAGS
+vars-TARGET_SETUP += GLOBAL_FFLAGS
+
+# Qt
+vars-TARGET_SETUP += QT_VERSION
+vars-TARGET_SETUP += QT_PLATFORM
 
 # Cuda
 vars-TARGET_SETUP += NVCC

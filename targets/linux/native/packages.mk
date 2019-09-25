@@ -31,7 +31,7 @@ $(call register-prebuilt-pkg-config-module,glu,glu)
 $(call register-prebuilt-pkg-config-module,sdl,sdl)
 $(call register-prebuilt-pkg-config-module,sdl-image,SDL_image)
 $(call register-prebuilt-pkg-config-module,freetype,freetype2)
-$(call register-prebuilt-pkg-config-module,libcrypto,libcrypto)
+$(call register-prebuilt-pkg-config-module,libcrypto,libcrypto libssl)
 $(call register-prebuilt-pkg-config-module,egl,egl)
 $(call register-prebuilt-pkg-config-module,opencv,opencv)
 

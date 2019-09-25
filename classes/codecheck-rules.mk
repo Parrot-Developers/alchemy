@@ -47,12 +47,16 @@ _codecheck_objc_files := $(filter %.m,$(_module_src_files))
 # Codecheck for vala files
 _codecheck_vala_files := $(filter %.vala,$(_module_src_files))
 
+# Codecheck for python files
+_codecheck_python_files := $(filter %.py,$(_module_src_files))
+
 # Sort to have unique names
 _codecheck_as_files := $(sort $(_codecheck_as_files))
 _codecheck_c_files := $(sort $(_codecheck_c_files))
 _codecheck_cxx_files := $(sort $(_codecheck_cxx_files))
 _codecheck_objc_files := $(sort $(_codecheck_objc_files))
 _codecheck_vala_files := $(sort $(_codecheck_vala_files))
+_codecheck_python_files := $(sort $(_codecheck_python_files))
 
 # Ignore some defect when using linux checker but for code outside the kernel
 ifneq ($(filter linux,$(call _codecheck-get-checker,c,C)),)
@@ -70,3 +74,4 @@ $(eval $(call _codecheck-gen-rules,c,C))
 $(eval $(call _codecheck-gen-rules,cxx,CXX))
 $(eval $(call _codecheck-gen-rules,objc,OBJC))
 $(eval $(call _codecheck-gen-rules,vala,VALA))
+$(eval $(call _codecheck-gen-rules,python,PYTHON))

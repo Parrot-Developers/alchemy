@@ -13,6 +13,7 @@
 _default_codeformat_c := clang-format
 _default_codeformat_cxx := clang-format
 _default_codeformat_objc := clang-format
+_default_codeformat_python := pep8
 
 ###############################################################################
 ## Get the available format targets for a given module.
@@ -20,7 +21,7 @@ _default_codeformat_objc := clang-format
 ###############################################################################
 codeformat-get-targets = $(strip \
 	$1-codeformat \
-	$(addprefix $1-codeformat-,c cxx objc) \
+	$(addprefix $1-codeformat-,c cxx objc python) \
 )
 
 ###############################################################################

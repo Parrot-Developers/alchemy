@@ -62,6 +62,7 @@ endif
 QT_SDK_DEFAULT_PATHS := \
 	/opt/Qt* \
 	/opt/QT* \
+	/opt/qt* \
 	/Applications/Qt* \
 	~/Qt*
 

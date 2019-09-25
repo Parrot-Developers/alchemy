@@ -191,8 +191,7 @@ def copyStaging(ctx, srcDir, dstDir):
         os.path.join("etc", "alternatives"),
         os.path.join("usr", "lib"),
         os.path.join("usr", "include"),
-        os.path.join("usr", "share", "vala"),
-        os.path.join("usr", "share", "protobuf"),
+        os.path.join("usr", "share"),
         os.path.join("usr", "src", "linux-sdk"),
         os.path.join("usr", "local", "cuda-6.5"),
         os.path.join("usr", "local", "cuda-7.0"),
@@ -280,6 +279,9 @@ def getExportedIncludes(ctx, module):
                     # if not in a valid include directory
                     if shortName not in entry and not isStandard:
                         simplify = False
+
+    if module.name.endswith("legacy"):
+        simplify = False
 
     for includeDir in includeDirs:
         if includeDir.startswith(modulePath):

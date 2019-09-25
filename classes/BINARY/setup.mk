@@ -10,7 +10,7 @@
 ###############################################################################
 
 # Supported source file extensions
-_binary_extensions := cpp cxx cc c cu m s S
+_binary_extensions := cpp cxx cc c cu m s S f
 
 # Compilation banner
 _binary-print-banner1 = \
@@ -24,6 +24,7 @@ _binary-objects-flags = \
 	$(PRIVATE_MODE)_GLOBAL_C_INCLUDES \
 	$(PRIVATE_MODE)_GLOBAL_ASFLAGS \
 	$(PRIVATE_MODE)_GLOBAL_OBJCFLAGS \
+	$(PRIVATE_MODE)_GLOBAL_FFLAGS \
 	$(PRIVATE_MODE)_GLOBAL_VALAFLAGS \
 	$(PRIVATE_MODE)_GLOBAL_PCHFLAGS \
 	$(PRIVATE_MODE)_GLOBAL_LDLIBS \
@@ -35,6 +36,7 @@ _binary-objects-flags = \
 	PRIVATE_CFLAGS \
 	PRIVATE_CXXFLAGS \
 	PRIVATE_OBJCFLAGS \
+	PRIVATE_FFLAGS \
 	PRIVATE_VALAFLAGS \
 	PRIVATE_PCH_INCLUDE \
 	PRIVATE_LDFLAGS \
@@ -101,6 +103,9 @@ transform-h-to-gch = $(call _internal-transform-h-to-gch,$(PRIVATE_MODE),$@,$<)
 ## Command to compile a C++ file.
 ###############################################################################
 
+# Command line options to filter out for C++
+_c++_filter_out_options = -std=% -Wno-missing-prototypes -Wno-jump-misses-init
+
 # $1 : mode (HOST / TARGET)
 # $2 : destination
 # $3 : source
@@ -110,11 +115,11 @@ $(call _binary-print-banner1,C++,$3)
 $(Q) $(CCACHE) $(PRIVATE_CXX) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
 	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
-	$(filter-out -std=%,$(PRIVATE_GLOBAL_CFLAGS)) \
+	$(filter-out $(_c++_filter_out_options),$(PRIVATE_GLOBAL_CFLAGS)) \
 	$(PRIVATE_GLOBAL_CXXFLAGS) \
 	$(PRIVATE_WARNINGS_CXXFLAGS) \
 	$(PRIVATE_PCH_INCLUDE) \
-	$(filter-out -std=%,$(PRIVATE_CFLAGS)) \
+	$(filter-out $(_c++_filter_out_options),$(PRIVATE_CFLAGS)) \
 	$(PRIVATE_CXXFLAGS) \
 	-MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
@@ -203,6 +208,27 @@ endef
 
 transform-s-to-o = $(call _binary-cmd-s-to-o-internal,$(PRIVATE_MODE),$@,$<)
 transform-S-to-o = $(call _binary-cmd-s-to-o-internal,$(PRIVATE_MODE),$@,$<)
+
+###############################################################################
+## Command to compile a Fortran file.
+###############################################################################
+
+# $1 : mode (HOST / TARGET)
+# $2 : destination
+# $3 : source
+define _binary-cmd-f-to-o-internal
+@mkdir -p $(dir $2)
+$(call _binary-print-banner1,Fortran,$3)
+$(Q) $(CCACHE) $(PRIVATE_FC) \
+	$($1_GLOBAL_FFLAGS) \
+	$(PRIVATE_FFLAGS) \
+	-cpp -MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
+	-o $(call path-from-top,$2) \
+	-c $(call path-from-top,$3)
+$(call fix-deps-file,$(2:.o=.d))
+endef
+
+transform-f-to-o = $(call _binary-cmd-f-to-o-internal,$(PRIVATE_MODE),$@,$<)
 
 ###############################################################################
 ## Command to compile a cu file (cuda).

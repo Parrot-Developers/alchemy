@@ -59,7 +59,7 @@ LINUX_MAKE_ARGS := \
 	INSTALL_MOD_PATH="$(TARGET_OUT_STAGING)" \
 	INSTALL_HDR_PATH="$(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)/src/linux-headers" \
 	O="$(LINUX_BUILD_DIR)" \
-	$(TARGET_LINUX_MAKE_BUILD_ARGS) \
+	$(TARGET_LINUX_MAKE_BUILD_ARGS) $(LOCAL_LINUX_MAKE_BUILD_ARGS) \
 	DEPMOD="$(LINUX_DEPMOD)"
 
 # As a special exception, this variable is modified to make sure linux headers

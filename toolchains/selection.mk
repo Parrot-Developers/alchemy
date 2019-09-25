@@ -9,6 +9,42 @@
 HOST_USE_CLANG ?= $(USE_CLANG)
 TARGET_USE_CLANG ?= $(USE_CLANG)
 
+# If the host is darwin, use the toolchain from the macosx SDK
+ifeq ("$(HOST_OS)","darwin")
+  HOST_GLOBAL_CFLAGS += -isysroot $(shell xcrun --sdk macosx --show-sdk-path)
+  HOST_GLOBAL_LDFLAGS += -isysroot $(shell xcrun --sdk macosx --show-sdk-path)
+  ifndef HOST_CC
+    HOST_CC := $(shell xcrun --find --sdk macosx clang)
+  endif
+  ifndef HOST_CXX
+    HOST_CXX := $(shell xcrun --find --sdk macosx clang++)
+  endif
+  ifndef HOST_AS
+    HOST_AS := $(shell xcrun --find --sdk macosx as)
+  endif
+  ifndef HOST_AR
+    HOST_AR := $(shell xcrun --find --sdk macosx ar)
+  endif
+  ifndef HOST_LD
+    HOST_LD := $(shell xcrun --find --sdk macosx ld)
+  endif
+  ifndef HOST_CPP
+    HOST_CPP := $(shell xcrun --find --sdk macosx cpp)
+  endif
+  ifndef HOST_NM
+    HOST_NM := $(shell xcrun --find --sdk macosx nm)
+  endif
+  ifndef HOST_STRIP
+    HOST_STRIP := $(shell xcrun --find --sdk macosx strip)
+  endif
+  ifndef HOST_RANLIB
+    HOST_RANLIB := $(shell xcrun --find --sdk macosx ranlib)
+  endif
+  ifndef HOST_OBJDUMP
+    HOST_OBJDUMP := $(shell xcrun --find --sdk macosx objdump)
+  endif
+endif
+
 ifneq ("$(HOST_USE_CLANG)","1")
   HOST_CC ?= cc
   HOST_CXX ?= c++

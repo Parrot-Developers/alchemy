@@ -110,6 +110,7 @@ linux-copy-image = \
 define linux-copy-images
 	$(Q) $(call linux-copy-image,uImage)
 	$(Q) $(call linux-copy-image,Image)
+	$(Q) $(call linux-copy-image,Image.gz)
 	$(Q) $(call linux-copy-image,zImage)
 	$(Q) $(call linux-copy-image,bzImage)
 endef
@@ -141,6 +142,8 @@ endif
 
 # Setup config in build dir
 ifneq ("$(LINUX_CONFIG_FILE_IS_TARGET)","")
+
+$(LOCAL_TARGETS): PRIVATE_LINUX_MAKE_ARGS := $(LINUX_MAKE_ARGS) $(LOCAL_LINUX_MAKE_BUILD_ARGS)
 
 # Use linux target
 define linux-setup-config

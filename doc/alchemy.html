@@ -65,8 +65,8 @@ information.</p>
 are required. Other variables can be set in the <code>product.mk</code> file located in
 <code>TARGET_CONFIG_DIR</code>. This way environment is not cluttered with variables.</p>
 
-<p>Optionally, some <code>TARGET_XXX</code> or <code>HOST_XXX</code> variables can be prefixed
-with <code>ALCHEMY_</code> to avoid conflict with other build systems (android for example).</p>
+<p>Optionally, some <code>TARGET_XXX</code> or <code>HOST_XXX</code> variables can be prefixed with
+<code>ALCHEMY_</code> to avoid conflict with other build systems (android for example).</p>
 
 <ul>
 <li><code>ALCHEMY_TARGET_PRODUCT</code></li>
@@ -317,6 +317,7 @@ file compiled. The -I prefix will be appended so do not put it.</li>
 <li><code>TARGET_GLOBAL_LDLIBS</code> : Additional libraries to use when linking.</li>
 <li><code>TARGET_GLOBAL_PCHFLAGS</code> : Flags to pass when precompiling headers.</li>
 <li><code>TARGET_GLOBAL_OBJCFLAGS</code> : Flags to pass to the Objective-C compiler.</li>
+<li><code>TARGET_GLOBAL_FFLAGS</code> : Flags to pass to the Fortran compiler.</li>
 </ul>
 
 <h3>Specific flags for arm targets.</h3>
@@ -1043,7 +1044,8 @@ argument and the list of files to check as its second argument.</p>
 * <code>C</code>: default checkers are <code>linux</code> and <code>clang-format</code>.
 * <code>CXX</code>: default checker is <code>clang-format</code>.
 * <code>OBJC</code>: default checker is <code>none</code>.
-* <code>VALA</code>: default checker is <code>valastyle</code>.</p>
+* <code>VALA</code>: default checker is <code>valastyle</code>.
+* <code>FORTRAN</code>: default checker is <code>none</code>.</p>
 
 <h3>Internal modules</h3>
 
@@ -1080,8 +1082,8 @@ compilation</p>
 
 <p>Flags to be passed during the compilation of source files. <code>LOCAL_ASFLAGS</code> is
 given only to <code>asm</code> files. <code>LOCAL_CFLAGS</code> is given to <strong>all</strong> files, whereas
-<code>LOCAL_CXXFLAGS</code> is given only to <code>c++</code> files and <code>LOCAL_OBJCFLAGS</code> to
-objective-C files.</p>
+<code>LOCAL_CXXFLAGS</code> is given only to <code>c++</code> files, <code>LOCAL_OBJCFLAGS</code> to
+objective-C files and <code>LOCAL_FFLAGS</code> to Fortran files.</p>
 
 <p><strong>Note</strong> : some warning flags are automatically added by the build system,
 please do not add/remove any to let the build system decides which flags are
@@ -1439,6 +1441,13 @@ one or several source files. Only <code>LOCAL_MODULE_FILENAME</code> (which is o
 and should be a <code>.ko</code> filename), <code>LOCAL_SRC_FILES</code>, <code>LOCAL_C_INCLUDES</code> and
 <code>LOCAL_CFLAGS</code> are supported in addition to generic module description and
 dependency variables.</p>
+
+<h4>Customization variables</h4>
+
+<ul>
+<li><code>LOCAL_LINUX_MAKE_BUILD_ARGS</code> : Additional variables to be given as parameters
+to the kernel build commands (using make).</li>
+</ul>
 
 <h3>GObject introspection type library modules</h3>
 

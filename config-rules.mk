@@ -19,14 +19,8 @@ endif
 # Check everything at once
 .PHONY: config-check
 config-check:
-	$(eval __args := $(call __generate-config-args))
-	@( \
-		if $(CONFWRAPPER) --main=$(TARGET_GLOBAL_CONFIG_FILE) --diff check $(__args); then \
-			echo "All configs are up to date"; \
-		else \
-			exit 1; \
-		fi; \
-	)
+	$(call __call-confwrapper,--diff check)
+	@echo "All configs are up to date"
 
 # Check everything at once, in silence, stopping in case not up to date
 .PHONY: __config-check
@@ -34,8 +28,7 @@ __config-check:
 ifdef TARGET_TEST
 	@echo "Config check disabled under test : TARGET_TEST=$(TARGET_TEST)"
 else ifneq ("$(USE_CONFIG_CHECK)","0")
-	$(eval __args := $(call __generate-config-args))
-	@$(CONFWRAPPER) --main=$(TARGET_GLOBAL_CONFIG_FILE) check $(__args)
+	$(call __call-confwrapper,check)
 else
 	@echo "Config check disabled : USE_CONFIG_CHECK=$(USE_CONFIG_CHECK)"
 endif
@@ -57,37 +50,30 @@ else
 		@echo "CONFIG_ALCHEMY_BUILD_$(call module-get-define,$(__mod))=y" \
 			>> $(TARGET_GLOBAL_CONFIG_FILE)$(endl) \
 	)
-	$(eval __args := $(call __generate-config-args))
-	@$(CONFWRAPPER) --main=$(TARGET_GLOBAL_CONFIG_FILE) update $(__args)
+	$(call __call-confwrapper,update)
 endif
 
 # Update everything at once
 .PHONY: config-update
 config-update:
-	$(eval __args := $(call __generate-config-args))
-	@$(CONFWRAPPER) --main=$(TARGET_GLOBAL_CONFIG_FILE) update $(__args)
+	$(call __call-confwrapper,update)
 
 # Configure everything at once using default user interface (qconf)
 .PHONY: config
 config:
-	$(eval __args := $(call __generate-config-args))
-	@$(CONFWRAPPER) --main=$(TARGET_GLOBAL_CONFIG_FILE) config $(__args)
+	$(call __call-confwrapper,config)
 
 # Configure everything at once using qconf
 .PHONY: xconfig
 xconfig:
-	$(eval __args := $(call __generate-config-args))
-	@$(CONFWRAPPER) --main=$(TARGET_GLOBAL_CONFIG_FILE) --ui=qconf config $(__args)
+	$(call __call-confwrapper,--ui=qconf config)
 
 # Configure everything at once using mconf
 .PHONY: menuconfig
 menuconfig:
-	$(eval __args := $(call __generate-config-args))
-	@$(CONFWRAPPER) --main=$(TARGET_GLOBAL_CONFIG_FILE) --ui=mconf config $(__args)
+	$(call __call-confwrapper,--ui=mconf config)
 
 # Configure everything at once using nconf
 .PHONY: nconfig
 nconfig:
-	$(eval __args := $(call __generate-config-args))
-	@$(CONFWRAPPER) --main=$(TARGET_GLOBAL_CONFIG_FILE) --ui=nconf config $(__args)
-
+	$(call __call-confwrapper,--ui=nconf config)

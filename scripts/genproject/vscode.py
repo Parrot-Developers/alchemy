@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import argparse
+import multiprocessing
 
 
 def setup_argparse(parser):
@@ -47,12 +48,15 @@ def _update_props(project, includes, defines):
                          'c_cpp_properties.json')
     if not os.path.exists(props):
         logging.error(
-            'file {} must exist. Launch vscode once and launch "C/Cpp: Edit Configurations..." task'.format(props))
+            'file {} must exist. '.format(props) +
+            'Launch VSCode, install C/C++ extension, and run the '
+            '"C/C++: Edit Configurations (JSON)" task')
         sys.exit(1)
 
     compiler = project.get_target_var('CC')
     if not os.path.isabs(compiler):
-        compiler = subprocess.check_output(['which', compiler]).decode('utf-8').strip()
+        compiler = subprocess.check_output(
+            ['which', compiler]).decode('utf-8').strip()
     cflags = project.get_target_var('GLOBAL_CFLAGS').split()
     known_flags = [
         _cflag('arch', has_arg=True),
@@ -98,21 +102,31 @@ def _single_task(label, command, *, default=False, reevaluate=True):
 
 def _gen_tasks(project, build_args, modules):
     args = ' '.join(build_args.split(' ')[:-1])  # remove trailing -A
+    ncores = multiprocessing.cpu_count()
+    ncores = max(ncores - 2, 1)
     tasks_path = os.path.join(project.workspace_dir, '.vscode', 'tasks.json')
     with open(tasks_path, 'w') as f:
         data = {}
         data['version'] = '2.0.0'
         tasks = list()
         data['tasks'] = tasks
+        build_task = '${{workspaceFolder}}/build.sh {}'.format(args)
+        if os.environ.get('TARGET_TEST', '0') == '1':
+            build_task = 'env TARGET_TEST=1 ' + build_task
         tasks.append(_single_task(
-            'full_build', '${{workspaceFolder}}/build.sh {} -t build -j/1'.format(args), default=True))
+            'full_build',
+            '{} -t build -j{}'.format(build_task, ncores),
+            default=True))
         tasks.append(_single_task(
-            'clean', '${{workspaceFolder}}/build.sh {} -t clean -j/1'.format(args)))
+            'clean',
+            '{} -t clean -j{}'.format(build_task, ncores)))
         tasks.append(_single_task(
-            'alchemy', '${{workspaceFolder}}/build.sh {} -A ${{input:module}}${{input:mode}}'.format(args),
+            'alchemy',
+            '{} -A ${{input:module}}${{input:mode}}'.format(build_task),
             reevaluate=False))
         tasks.append(_single_task(
-            'custom', '${{workspaceFolder}}/build.sh {} ${{input:any}}'.format(args),
+            'custom',
+            '{} ${{input:any}}'.format(build_task),
             reevaluate=False))
         inputs = list()
         data['inputs'] = inputs
@@ -125,7 +139,11 @@ def _gen_tasks(project, build_args, modules):
                        'description': 'What to do on module (empty = build)',
                        'default': ' ',
                        'type': 'pickString',
-                       'options': [' ', '-clean', '-dirclean', '-codecheck', '-codeformat']})
+                       'options': [' ',
+                                   '-clean',
+                                   '-dirclean',
+                                   '-codecheck',
+                                   '-codeformat']})
         inputs.append({'id': 'any',
                        'description': 'Will be passed to build.sh as options',
                        'default': '',

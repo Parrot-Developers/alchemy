@@ -274,7 +274,7 @@ def safeRename(old, new):
     if platform.system() == "Windows" and os.path.exists(new):
         safeUnlink(new)
     dirPath = os.path.dirname(new)
-    if not os.path.exists(dirPath):
+    if dirPath and not os.path.exists(dirPath):
         os.makedirs(dirPath)
     shutil.copy(old, new)
     safeUnlink(old)
@@ -284,7 +284,7 @@ def safeRename(old, new):
 #===============================================================================
 def safeCreateFile(path):
     dirPath = os.path.dirname(path)
-    if not os.path.isdir(dirPath):
+    if dirPath and not os.path.isdir(dirPath):
         os.makedirs(dirPath)
     return open(path, "w")
 
@@ -1001,8 +1001,17 @@ def main():
 # Setup option parser and parse command line.
 #===============================================================================
 def parseArgs():
-    # Setup parser
-    parser = argparse.ArgumentParser()
+    # By default, ArgumentParser assumes an argument begining with '@' contains
+    # actual arguments, one per line. Override default behavior to handle single
+    # line with shell escaped argument list
+    class MyArgumentParser(argparse.ArgumentParser):
+        def convert_arg_line_to_args(self, arg_line):
+            import shlex
+            return shlex.split(arg_line)
+
+    # Setup parser, handle arguments begining with '@' as a file containing
+    # actual argument (to bypass command line size limits)
+    parser = MyArgumentParser(fromfile_prefix_chars="@")
 
     # Positional arguments
     parser.add_argument("action",

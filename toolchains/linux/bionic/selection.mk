@@ -30,111 +30,95 @@ ANDROID_NDK_VERSION := $(shell test -f $(ANDROID_NDK_SOURCE_PROP) \
 ANDROID_NDK_MAJOR_VERSION := $(firstword $(subst ., ,$(ANDROID_NDK_VERSION)))
 ANDROID_NDK_MINOR_VERSION := $(word 2,$(subst ., ,$(ANDROID_NDK_VERSION)))
 
-ifeq ("$(TARGET_USE_CLANG)","1")
-  # Requires NDK r14b or newer, use new scripts, new args, and new toolchain
+# Alchemy only supports r17 to r20 NDKs
+ifneq ("$(firstword $(sort $(ANDROID_NDK_MAJOR_VERSION) 17))", "17")
+  $(error NDK $(ANDROID_NDK_VERSION) is too old for this version of Alchemy)
+endif
+ifeq ("$(firstword $(sort $(ANDROID_NDK_MAJOR_VERSION) 22))", "22")
+  $(error NDK $(ANDROID_NDK_VERSION) is too recent for this version of Alchemy)
+endif
 
-  # TARGET_ANDROID_TOOLCHAIN_VERSION & TARGET_ANDROID_TOOLCHAIN are ignored as
-  # newer NDKs only have one toolchain anyway.
+# r18 or newer requires TARGET_ANDROID_STL to be libc++
+ifeq ("$(firstword $(sort $(ANDROID_NDK_MAJOR_VERSION) 18))", "18")
+  ifneq ("$(TARGET_ANDROID_STL)","libc++")
+    $(error NDK $(ANDROID_NDK_VERSION) requires TARGET_ANDROID_STL to be 'libc++')
+  endif
+endif
+
+# For r18 and older, use "make standalone toolchains" script
+ifneq ("$(firstword $(sort $(ANDROID_NDK_MAJOR_VERSION) 19))", "19")
   ANDROID_TOOLCHAIN_SCRIPT := $(TARGET_ANDROID_NDK)/build/tools/make_standalone_toolchain.py
   ANDROID_TOOLCHAIN_OPTIONS := \
 	--api=$(TARGET_ANDROID_MINAPILEVEL) \
 	--arch=$(ANDROID_ARCH) \
 	--install-dir=$(ANDROID_TOOLCHAIN_PATH) \
 	--stl=$(TARGET_ANDROID_STL)
-  # For ndk r15 or older, we need to add the "--unified-headers" flag
-  ifneq ("$(firstword $(sort $(ANDROID_NDK_MAJOR_VERSION) 16))", "16")
-    ANDROID_TOOLCHAIN_OPTIONS += --unified-headers
+
+  ANDROID_TOOLCHAIN_TOKEN_SUFFIX := $(ANDROID_TOOLCHAIN_SCRIPT) $(ANDROID_TOOLCHAIN_OPTIONS)
+  ANDROID_TOOLCHAIN_TOKEN_SUFFIX := $(shell echo $(ANDROID_TOOLCHAIN_TOKEN_SUFFIX) | md5sum | cut -d' ' -f1)
+  ANDROID_TOOLCHAIN_TOKEN := $(ANDROID_TOOLCHAIN_PATH)/$(ANDROID_NDK_VERSION)-$(ANDROID_TOOLCHAIN_TOKEN_SUFFIX)
+
+  ifeq ("$(wildcard $(ANDROID_TOOLCHAIN_TOKEN))","")
+    $(info Installing Android-$(TARGET_ANDROID_MINAPILEVEL) toolchain $(TARGET_ANDROID_TOOLCHAIN) from NDK)
+    dummy := $(shell (if [ -e $(ANDROID_TOOLCHAIN_PATH) ] ; then rm -rf $(ANDROID_TOOLCHAIN_PATH); fi ; \
+	  $(ANDROID_TOOLCHAIN_SCRIPT) $(ANDROID_TOOLCHAIN_OPTIONS) && \
+		  echo $(ANDROID_TOOLCHAIN_SCRIPT) $(ANDROID_TOOLCHAIN_OPTIONS) > $(ANDROID_TOOLCHAIN_TOKEN)))
   endif
 
+  # Find the prefix by listing the toolchain bin directory
+  ANDROID_TOOLCHAIN_PREFIX := $(shell ls $(ANDROID_TOOLCHAIN_PATH)/bin/*-objdump | sed 's:.*/\(.*\)-objdump.*:\1:')
+  ifeq ("$(ANDROID_TOOLCHAIN_PREFIX)", "")
+    $(error Failed to detect android toolchain prefix)
+  endif
+
+  ANDROID_CROSS_CC := $(ANDROID_TOOLCHAIN_PATH)/bin/$(ANDROID_TOOLCHAIN_PREFIX)-
+  ANDROID_CROSS_TOOLS := $(ANDROID_CROSS_CC)
 else
-  # Legacy mode
-
-  # On ndk before r15 use the legacy code below
-  ifneq ("$(firstword $(sort $(ANDROID_NDK_MAJOR_VERSION) 15))", "15")
-
-    # Choose Toolchain
-    ifndef TARGET_ANDROID_TOOLCHAIN_VERSION
-      TARGET_ANDROID_TOOLCHAIN_VERSION := \
-	$(shell ANDROID_NDK_ROOT=$(TARGET_ANDROID_NDK) . $(TARGET_ANDROID_NDK)/build/tools/dev-defaults.sh && \
-		echo $$(get_default_gcc_version_for_arch $(ANDROID_ARCH)))
-    endif
-    ifndef TARGET_ANDROID_TOOLCHAIN
-      TARGET_ANDROID_TOOLCHAIN := \
-	$(shell ANDROID_NDK_ROOT=$(TARGET_ANDROID_NDK) . $(TARGET_ANDROID_NDK)/build/tools/dev-defaults.sh && \
-		echo $$(get_toolchain_name_for_arch $(ANDROID_ARCH) $(TARGET_ANDROID_TOOLCHAIN_VERSION)))
-    endif
-    ifeq ("$(TARGET_ANDROID_TOOLCHAIN)","")
-      $(error Failed to detect Android toolchain, set the name of the toolchain in the TARGET_ANDROID_TOOLCHAIN variable)
-    endif
-
-    ANDROID_TOOLCHAIN_SCRIPT := $(TARGET_ANDROID_NDK)/build/tools/make-standalone-toolchain.sh
-    ANDROID_TOOLCHAIN_OPTIONS := \
-	--platform=android-$(TARGET_ANDROID_MINAPILEVEL) \
-	--arch=$(ANDROID_ARCH) \
-	--install-dir=$(ANDROID_TOOLCHAIN_PATH) \
-	--toolchain=$(TARGET_ANDROID_TOOLCHAIN) \
-	--stl=$(TARGET_ANDROID_STL)
-
-  # For ndk r15 or newer, use the new script, but request deprecated (non unified) headers if possible
+  # Map host arch to android cross host arch
+  ifeq ("$(HOST_ARCH)","x64")
+    ANDROID_HOST_ARCH := x86_64
   else
-    ANDROID_TOOLCHAIN_SCRIPT := $(TARGET_ANDROID_NDK)/build/tools/make_standalone_toolchain.py
-    ANDROID_TOOLCHAIN_OPTIONS := \
-	--api=$(TARGET_ANDROID_MINAPILEVEL) \
-	--arch=$(ANDROID_ARCH) \
-	--install-dir=$(ANDROID_TOOLCHAIN_PATH) \
-	--stl=$(TARGET_ANDROID_STL)
-     # For ndk r15, we add the "--deprecated-headers" flag
-    ifneq ("$(firstword $(sort $(ANDROID_NDK_MAJOR_VERSION) 16))", "16")
-      ANDROID_TOOLCHAIN_OPTIONS += --deprecated-headers
-    endif
+    ANDROID_HOST_ARCH := $(HOST_ARCH)
   endif
-endif
-
-ANDROID_TOOLCHAIN_TOKEN_SUFFIX := $(ANDROID_TOOLCHAIN_SCRIPT) $(ANDROID_TOOLCHAIN_OPTIONS)
-ANDROID_TOOLCHAIN_TOKEN_SUFFIX := $(shell echo $(ANDROID_TOOLCHAIN_TOKEN_SUFFIX) | md5sum | cut -d' ' -f1)
-ANDROID_TOOLCHAIN_TOKEN := $(ANDROID_TOOLCHAIN_PATH)/$(ANDROID_NDK_VERSION)-$(ANDROID_TOOLCHAIN_TOKEN_SUFFIX)
-
-ifeq ("$(wildcard $(ANDROID_TOOLCHAIN_TOKEN))","")
-  $(info Installing Android-$(TARGET_ANDROID_MINAPILEVEL) toolchain $(TARGET_ANDROID_TOOLCHAIN) from NDK)
-  dummy := $(shell (if [ -e $(ANDROID_TOOLCHAIN_PATH) ] ; then rm -rf $(ANDROID_TOOLCHAIN_PATH); fi ; \
-	$(ANDROID_TOOLCHAIN_SCRIPT) $(ANDROID_TOOLCHAIN_OPTIONS) && \
-		echo $(ANDROID_TOOLCHAIN_SCRIPT) $(ANDROID_TOOLCHAIN_OPTIONS) > $(ANDROID_TOOLCHAIN_TOKEN)))
-endif
-
-# Find the prefix by listing the toolchain bin directory
-ANDROID_TOOLCHAIN_PREFIX := $(shell ls $(ANDROID_TOOLCHAIN_PATH)/bin/*-objdump | sed 's:.*/\(.*\)-objdump.*:\1:')
-ifeq ("$(ANDROID_TOOLCHAIN_PREFIX)", "")
-  $(error Failed to detect android toolchain prefix)
-endif
-
-ifeq ("$(TARGET_USE_CLANG)", "1")
-  # Clang mode, do not define TARGET_CROSS but define our own TARGET_tools
-  ANDROID_CROSS := $(ANDROID_TOOLCHAIN_PATH)/bin/$(ANDROID_TOOLCHAIN_PREFIX)-
-  TARGET_CC ?= $(ANDROID_CROSS)clang
-  TARGET_CXX ?= $(ANDROID_CROSS)clang++
-  TARGET_AS ?= $(ANDROID_CROSS)as
-  TARGET_AR ?= $(ANDROID_CROSS)ar
-  TARGET_LD ?= $(ANDROID_CROSS)ld
-  TARGET_NM ?= $(ANDROID_CROSS)nm
-  TARGET_STRIP ?= $(ANDROID_CROSS)strip
-  TARGET_CPP ?= $(ANDROID_CROSS)cpp
-  TARGET_RANLIB ?= $(ANDROID_CROSS)ranlib
-  TARGET_OBJCOPY ?= $(ANDROID_CROSS)objcopy
-  TARGET_OBJDUMP ?= $(ANDROID_CROSS)objdump
-
-  # For Android NDK 15 + clang, we need to add "-fintegrated-as" to the clang CFLAGS
-  # (see https://android.googlesource.com/platform/ndk/+/ndk-r15-release/CHANGELOG.md)
-  ifeq ("$(ANDROID_NDK_MAJOR_VERSION)", "15")
-    ifeq ("$(ANDROID_ARCH)", "mips64")
-      TARGET_GLOBAL_CFLAGS += -fintegrated-as
+  # Map target arch to android toolchain base
+  ifeq ("$(TARGET_ARCH)","arm")
+    ifeq ("$(TARGET_CPU)","armv7a")
+      ANDROID_CC_BASE := armv7a-linux-androideabi
+    else
+      ANDROID_CC_BASE := arm-linux-androideabi
     endif
+    ANDROID_TOOLCHAIN_BASE := arm-linux-androideabi
+  else ifeq ("$(TARGET_ARCH)","aarch64")
+    ANDROID_TOOLCHAIN_BASE := aarch64-linux-android
+    ANDROID_CC_BASE := $(ANDROID_TOOLCHAIN_BASE)
+  else ifeq ("$(TARGET_ARCH)","x86")
+    ANDROID_TOOLCHAIN_BASE := i686-linux-android
+    ANDROID_CC_BASE := $(ANDROID_TOOLCHAIN_BASE)
+  else ifeq ("$(TARGET_ARCH)","x64")
+    ANDROID_TOOLCHAIN_BASE := x86_64-linux-android
+    ANDROID_CC_BASE := $(ANDROID_TOOLCHAIN_BASE)
+  else
+    $(error Unsupported target arch $(TARGET_ARCH))
   endif
+  ANDROID_CROSS_BASE := $(TARGET_ANDROID_NDK)/toolchains/llvm/prebuilt/$(HOST_OS)-$(ANDROID_HOST_ARCH)/bin/
+  ANDROID_CROSS_TOOLS := $(ANDROID_CROSS_BASE)$(ANDROID_TOOLCHAIN_BASE)-
+  ANDROID_CROSS_CC := $(ANDROID_CROSS_BASE)$(ANDROID_CC_BASE)$(TARGET_ANDROID_MINAPILEVEL)-
+endif
+
+TARGET_CC ?= $(ANDROID_CROSS_CC)clang
+TARGET_CXX ?= $(ANDROID_CROSS_CC)clang++
+TARGET_AS ?= $(ANDROID_CROSS_TOOLS)as
+TARGET_AR ?= $(ANDROID_CROSS_TOOLS)ar
+TARGET_LD ?= $(ANDROID_CROSS_TOOLS)ld
+TARGET_NM ?= $(ANDROID_CROSS_TOOLS)nm
+TARGET_STRIP ?= $(ANDROID_CROSS_TOOLS)strip
+ifeq ("$(wildcard $(ANDROID_CROSS_TOOLS)cpp)","")
+  TARGET_CPP ?= $(TARGET_CC) -E
 else
-  # Legacy mode, use TARGET_CROSS
-  TARGET_CROSS := $(ANDROID_TOOLCHAIN_PATH)/bin/$(ANDROID_TOOLCHAIN_PREFIX)-
-
-  # For unified headers & gcc, we must add the __ANDROID_API__ define manually
-  TARGET_GLOBAL_CFLAGS += -D__ANDROID_API__=$(TARGET_ANDROID_MINAPILEVEL)
+  TARGET_CPP ?= $(ANDROID_CROSS_TOOLS)cpp
 endif
+TARGET_RANLIB ?= $(ANDROID_CROSS_TOOLS)ranlib
+TARGET_OBJCOPY ?= $(ANDROID_CROSS_TOOLS)objcopy
+TARGET_OBJDUMP ?= $(ANDROID_CROSS_TOOLS)objdump
 
 endif

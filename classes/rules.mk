@@ -8,8 +8,8 @@
 
 # Make sure module is registered otherwise restoring variables will fail
 ifeq ("$(call is-module-registered,$(LOCAL_MODULE))","")
-$(error Unknown module $(LOCAL_MODULE))
-endif
+$(warning Unknown module $(LOCAL_MODULE))
+else
 
 # Bring back all LOCAL_XXX variables defined by LOCAL_MODULE
 $(call module-restore-locals,$(LOCAL_MODULE))
@@ -72,6 +72,7 @@ endif
 _module_cc_flavour := $($(_mode_prefix)_CC_FLAVOUR)
 _module_cc         := $($(_mode_prefix)_CC)
 _module_cxx        := $($(_mode_prefix)_CXX)
+_module_fc         := $($(_mode_prefix)_FC)
 _module_as         := $($(_mode_prefix)_AS)
 _module_ar         := $($(_mode_prefix)_AR)
 _module_ld         := $($(_mode_prefix)_LD)
@@ -779,6 +780,7 @@ $(LOCAL_TARGETS): PRIVATE_ARCH := $(_module_arch)
 $(LOCAL_TARGETS): PRIVATE_CC_FLAVOUR := $(_module_cc_flavour)
 $(LOCAL_TARGETS): PRIVATE_CC := $(_module_cc)
 $(LOCAL_TARGETS): PRIVATE_CXX := $(_module_cxx)
+$(LOCAL_TARGETS): PRIVATE_FC := $(_module_fc)
 $(LOCAL_TARGETS): PRIVATE_AS := $(_module_as)
 $(LOCAL_TARGETS): PRIVATE_AR := $(_module_ar)
 $(LOCAL_TARGETS): PRIVATE_LD := $(_module_ld)
@@ -858,3 +860,5 @@ ifeq ("$(LOCAL_MODULE_CLASS)","")
 $(error $(LOCAL_MODULE): LOCAL_MODULE_CLASS is empty)
 endif
 include $(BUILD_SYSTEM)/classes/$(LOCAL_MODULE_CLASS)/rules.mk
+
+endif

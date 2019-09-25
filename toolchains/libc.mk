@@ -31,7 +31,6 @@ _libc_arch_subdir := $(TARGET_TOOLCHAIN_TRIPLET)
 # List of files to be put in /lib or /lib/<arch>
 _libc_lib_names := \
 	ld \
-	libasan \
 	libc \
 	libcrypt \
 	libdl \
@@ -54,6 +53,7 @@ _libc_lib_names := \
 
 # List of files to be put in /usr/lib or /usr/lib/<arch> (if not found in /lib)
 _libc_usrlib_names := \
+	libasan \
 	libgcc_s \
 	libstdc++
 

@@ -298,6 +298,9 @@ module-add = \
 		) \
 	) \
 	$(if $(call streq,$(__add),1), \
+		$(if $(LOCAL_EXPORT_CUSTOM_VARIABLES), \
+			$(eval LOCAL_EXPORT_CUSTOM_VARIABLES := $(LOCAL_EXPORT_CUSTOM_VARIABLES);)\
+		) \
 		$(compat-check) \
 		$(eval __modules += $(__mod)) \
 		$(foreach __local,$(vars-LOCAL), \
