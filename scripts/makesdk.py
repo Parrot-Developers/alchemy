@@ -196,6 +196,7 @@ def copyStaging(ctx, srcDir, dstDir):
         os.path.join("usr", "local", "cuda-6.5"),
         os.path.join("usr", "local", "cuda-7.0"),
         os.path.join("system", "lib"),
+        "missions",
         "host",
         "android",
         "toolchain",

@@ -35,7 +35,7 @@ EXCLUDE_DIRS_ALWAYS = [".git", ".repo", "linux-headers", "linux-sdk"]
 EXCLUDE_DIRS = {
     MODE_FIRWMARE: EXCLUDE_DIRS_ALWAYS + [
         "include", "vapi",
-        "man", "doc", "html", "info",
+        "man", "doc", "info",
         "pkgconfig", "cmake",
         "aclocal", "locale"
     ],

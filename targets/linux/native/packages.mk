@@ -33,7 +33,13 @@ $(call register-prebuilt-pkg-config-module,sdl-image,SDL_image)
 $(call register-prebuilt-pkg-config-module,freetype,freetype2)
 $(call register-prebuilt-pkg-config-module,libcrypto,libcrypto libssl)
 $(call register-prebuilt-pkg-config-module,egl,egl)
+ifeq ("$(shell pkg-config --exists opencv4; echo $$?)","1")
 $(call register-prebuilt-pkg-config-module,opencv,opencv)
+else
+$(call register-prebuilt-pkg-config-module,opencv,opencv4)
+endif
+$(call register-prebuilt-pkg-config-module,libav-ffmpeg,libavcodec \
+	libavresample libavutil libavformat)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libjpeg-turbo

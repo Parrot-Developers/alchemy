@@ -10,6 +10,14 @@ _module_msg := $(if $(_mode_host),Host )Perf
 
 include $(BUILD_SYSTEM)/classes/GENERIC/rules.mk
 
+ifeq ("$(TARGET_ARCH)","x64")
+PERF_ARCH := x86_64
+else ifeq ("$(TARGET_ARCH)","aarch64")
+PERF_ARCH := arm64
+else
+PERF_ARCH := $(TARGET_ARCH)
+endif
+
 # General setup
 PERF_MAKE_ENV := \
 	LDFLAGS="$(TARGET_GLOBAL_LDFLAGS)" \
@@ -24,7 +32,7 @@ PERF_MAKE_ARGS := \
 $(LOCAL_BUILD_MODULE):
 	@mkdir -p $(dir $@)
 	$(Q) $(PERF_MAKE_ENV) $(MAKE) $(PERF_MAKE_ARGS) \
-		ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(TARGET_CROSS) DESTDIR=$(TARGET_OUT_STAGING) prefix=/$(TARGET_ROOT_DESTDIR) \
+		ARCH=$(PERF_ARCH) CROSS_COMPILE=$(TARGET_CROSS) DESTDIR=$(TARGET_OUT_STAGING) prefix=/$(TARGET_ROOT_DESTDIR) \
 		O=$(PRIVATE_BUILD_DIR) -C $(PRIVATE_PATH)/tools/perf
 	$(Q) mkdir -p $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_BIN_DESTDIR)
 	$(Q) cp -af $(PRIVATE_BUILD_DIR)/perf $(TARGET_OUT_STAGING)/$(TARGET_DEFAULT_BIN_DESTDIR)
@@ -35,7 +43,7 @@ $(LOCAL_BUILD_MODULE):
 perf-clean:
 	$(Q) if [ -d $(LINUX_BUILD_DIR) ]; then \
 		$(PERF_MAKE_ENV) $(MAKE) $(PERF_MAKE_ARGS) \
-			ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(TARGET_CROSS) \
+			ARCH=$(PERF_ARCH) CROSS_COMPILE=$(TARGET_CROSS) \
 			O=$(PRIVATE_BUILD_DIR) -C $(PRIVATE_PATH)/tools/perf --ignore-errors \
 			clean || echo "Ignoring clean errors"; \
 	fi

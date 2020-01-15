@@ -14,6 +14,7 @@ _default_codecheck_as := none
 _default_codecheck_c := linux clang-format
 _default_codecheck_cxx := clang-format
 _default_codecheck_objc := none
+_default_codecheck_objcpp := none
 _default_codecheck_vala := valastyle
 _default_codecheck_python := pep8
 
@@ -23,7 +24,7 @@ _default_codecheck_python := pep8
 ###############################################################################
 codecheck-get-targets = $(strip \
 	$1-codecheck \
-	$(addprefix $1-codecheck-,as c cxx objc vala python) \
+	$(addprefix $1-codecheck-,as c cxx objc objcpp vala python) \
 )
 
 ###############################################################################

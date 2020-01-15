@@ -13,7 +13,11 @@ else ifeq ("$(TARGET_ARCH)","x86")
   APPLE_ARCH := -arch i386
   TARGET_TOOLCHAIN_TRIPLET := i386-apple-darwin
 else ifeq ("$(TARGET_ARCH)","arm")
-  APPLE_ARCH := -arch armv7 -arch arm64
+  ifeq ("$(call check-version,$(TARGET_IPHONE_VERSION),11.0)","")
+    APPLE_ARCH := -arch armv7 -arch arm64
+  else
+    APPLE_ARCH := -arch arm64
+  endif
   TARGET_TOOLCHAIN_TRIPLET := arm-apple-darwin
 endif
 

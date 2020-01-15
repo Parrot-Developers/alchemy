@@ -8,6 +8,9 @@
 
 LOCAL_PATH := $(call my-dir)
 
+# Register native opengl
+$(call register-prebuilt-pkg-config-module,opengl,gl)
+
 # Declare linux module if we have headers
 ifneq ("$(wildcard /lib/modules/$(TARGET_LINUX_RELEASE)/build)","")
   include $(CLEAR_VARS)

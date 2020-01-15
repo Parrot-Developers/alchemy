@@ -16,9 +16,6 @@ _qmake_target_path := $(_qmake_host_path)
 ## Variables used for qmake.
 ###############################################################################
 
-# Default Qt version
-TARGET_QT_VERSION ?= 5.4
-
 # Map TARGET_OS/FLAVOUR to Qt platforms
 ifeq ("$(TARGET_OS)-$(TARGET_OS_FLAVOUR)","$(HOST_OS)-native")
   ifeq ("$(TARGET_OS)","darwin")
@@ -56,47 +53,6 @@ else ifeq ("$(TARGET_OS)","darwin")
   endif
 else
   TARGET_QT_PLATFORM ?= unknown
-endif
-
-# Try to auto-detect Qt SDK path
-QT_SDK_DEFAULT_PATHS := \
-	/opt/Qt* \
-	/opt/QT* \
-	/opt/qt* \
-	/Applications/Qt* \
-	~/Qt*
-
-ifndef TARGET_QT_SDKROOT
-TARGET_QT_SDKROOT := $(shell shopt -s nullglob ; \
-	for path in $(QT_SDK_DEFAULT_PATHS) ; do \
-		if [ -e $$path/$(TARGET_QT_VERSION)/$(TARGET_QT_PLATFORM)/bin/qmake ]; then \
-			cd $$path && pwd && break; \
-		fi; \
-	done)
-endif
-
-# Define QMake path accordingly
-ifndef TARGET_QT_SDK
-  ifneq ("$(TARGET_QT_SDKROOT)","")
-    TARGET_QT_SDK := $(TARGET_QT_SDKROOT)/$(TARGET_QT_VERSION)/$(TARGET_QT_PLATFORM)
-  else
-    TARGET_QT_SDK :=
-  endif
-endif
-
-# Use qmake from PATH in last resort, on host build
-ifndef TARGET_QMAKE
-  ifdef QTSDK_QMAKE
-    # Compatibility
-    $(warning Please use TARGET_QMAKE instead of QTSDK_QMAKE)
-    TARGET_QMAKE := $(QTSDK_QMAKE)
-  else ifneq ("$(TARGET_QT_SDK)","")
-    TARGET_QMAKE := $(TARGET_QT_SDK)/bin/qmake
-  else ifeq ("$(TARGET_OS)-$(TARGET_OS_FLAVOUR)","$(HOST_OS)-native")
-    TARGET_QMAKE := $(shell which qmake 2>/dev/null)
-  else
-    TARGET_QMAKE :=
-  endif
 endif
 
 TARGET_QMAKE_ENV := PATH="$(_qmake_target_path)"

@@ -18,6 +18,7 @@ $(call register-prebuilt-pkg-config-module,libffi,libffi)
 $(call register-prebuilt-pkg-config-module,liblz4,liblz4)
 $(call register-prebuilt-pkg-config-module,libusb,libusb)
 $(call register-prebuilt-pkg-config-module,libusb_1_0,libusb-1.0)
+$(call register-prebuilt-pkg-config-module,libxml2,libxml-2.0)
 $(call register-prebuilt-pkg-config-module,ncurses,ncurses)
 $(call register-prebuilt-pkg-config-module,sdl2,sdl2)
 $(call register-prebuilt-pkg-config-module,zlib,zlib)
@@ -25,6 +26,10 @@ $(call register-prebuilt-pkg-config-module,zlib,zlib)
 $(call register-prebuilt-pkg-config-module,glib-2.0,glib-2.0)
 $(call register-prebuilt-pkg-config-module,gobject-2.0,gobject-2.0)
 $(call register-prebuilt-pkg-config-module,gio-2.0,gio-2.0)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qt5-base
+$(call local-register-prebuilt-overridable)
 
 _glib_deps := glib-2.0 gobject-2.0 gio-2.0
 _glib_deps_available := $(call is-module-list-registered,$(_glib_deps))

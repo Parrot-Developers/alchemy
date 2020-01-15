@@ -15,6 +15,9 @@ _python-pkg-get-python-version = \
 # Dynamically construct the PYTHONPATH variable
 # $1: python version
 _python-pkg-get-python-path = \
+$(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)/lib/python$1:$(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)/lib/python$1/site-packages
+
+_python-pkg-get-python-lib-path = \
 	$(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)/lib/python$1
 
 # Dynamically get the name of the sysconfigdata file of python
@@ -29,8 +32,10 @@ _python-pkg-get-extra-env = \
 			$(call _python-pkg-get-python-version,$(PRIVATE_PYTHON))) \
 		$(eval _python-pkg-path := \
 			$(call _python-pkg-get-python-path,$(_python-pkg-version))) \
+		$(eval _python-pkg-lib-path := \
+			$(call _python-pkg-get-python-lib-path,$(_python-pkg-version))) \
 		$(eval _python-pkg-sysconfigdata-name := \
-			$(call _python-pkg-get-sysconfigdata-name,$(_python-pkg-path))) \
+			$(call _python-pkg-get-sysconfigdata-name,$(_python-pkg-lib-path))) \
 		$(if $(PRIVATE_NEED_PYTHONPATH),PYTHONPATH="$(_python-pkg-path)") \
 		$(if $(PRIVATE_NEED_SYSCONFIGDATA),_PYTHON_SYSCONFIGDATA_NAME="$(_python-pkg-sysconfigdata-name)") \
 	)

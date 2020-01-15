@@ -8,6 +8,7 @@
 
 MKFS_SCRIPT := $(BUILD_SYSTEM)/scripts/mkfs.py
 SPARSE_SCRIPT := $(BUILD_SYSTEM)/scripts/sparse.py
+VERITY_SCRIPT := $(BUILD_SYSTEM)/scripts/prepare-dm-verity-uboot-script.sh
 
 # Script that will modify mode/uid/gid of files while generating the image
 FIXSTAT := $(BUILD_SYSTEM)/scripts/fixstat.py
@@ -29,6 +30,7 @@ endif
 
 MKUBIFS ?= $(wildcard /usr/sbin/mkfs.ubifs)
 UBINIZE ?= $(wildcard /usr/sbin/ubinize)
+VERITYSETUP ?= $(wildcard /sbin/veritysetup)
 
 ###############################################################################
 ## Generic image generation macro.
@@ -47,6 +49,19 @@ endef
 
 define gen-image-sparse
 	$(call gen-image,$1,$2.tmp,$3,$4)
+	$(Q) $(SPARSE_SCRIPT) --sparse $2.tmp $2
+	$(Q) rm -f $2.tmp
+endef
+
+define gen-image-verity
+	$(call gen-image,$1,$2.tmp,$3,$4)
+	$(Q) test -e "$(VERITYSETUP)" || (echo "Missing veritysetup" && false)
+	$(Q) $(VERITYSETUP) format --data-block-size=1024 --hash-offset=`stat -c "%s" $2.tmp` $2.tmp $2.tmp | $(VERITY_SCRIPT) > $(TARGET_OUT_FINAL)/boot/dm-verity-uboot-script.txt
+	$(Q) mv $2.tmp $2
+endef
+
+define gen-image-sparse-verity
+	$(call gen-image-verity,$1,$2.tmp,$3,$4)
 	$(Q) $(SPARSE_SCRIPT) --sparse $2.tmp $2
 	$(Q) rm -f $2.tmp
 endef
@@ -93,6 +108,8 @@ gen-image-ext4 = $(call gen-image,ext4,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
 gen-image-sext2 = $(call gen-image-sparse,ext2,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
 gen-image-sext3 = $(call gen-image-sparse,ext3,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
 gen-image-sext4 = $(call gen-image-sparse,ext4,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
+gen-image-vext4 = $(call gen-image-verity,ext4,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
+gen-image-svext4 = $(call gen-image-sparse-verity,ext4,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
 gen-image-ubi = $(call gen-image,ubi,$1, \
 	$(TARGET_IMAGE_OPTIONS) --ubinize-root=$(TARGET_OUT), \
 	MKUBIFS=$(MKUBIFS) UBINIZE=$(UBINIZE) fakeroot)
@@ -146,6 +163,8 @@ $(eval $(call image-rules,ext4))
 $(eval $(call image-rules,sext2))
 $(eval $(call image-rules,sext3))
 $(eval $(call image-rules,sext4))
+$(eval $(call image-rules,vext4))
+$(eval $(call image-rules,svext4))
 $(eval $(call image-rules,ubi))
 
 # Clean all images (used in image-rules macro)

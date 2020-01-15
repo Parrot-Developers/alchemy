@@ -19,6 +19,9 @@ CONFWRAPPER_ENV := \
 # Tools
 CONFWRAPPER := $(CONFWRAPPER_ENV) $(BUILD_SYSTEM)/scripts/confwrapper.py
 
+# Can be enabled in some auto-update modes to disable runtime deps
+__CONFIG_DISABLE_RUNTIME_DEPS := 0
+
 # Remember if the global config file is present or not
 ifeq ("$(wildcard $(TARGET_GLOBAL_CONFIG_FILE))","")
   GLOBAL_CONFIG_FILE_AVAILABLE := 0
@@ -97,7 +100,11 @@ __config-desc-escape = $(subst ",\",$(subst |,$(empty),$1))
 __generate-config-module-args = $(strip \
 	$(eval __mod := $1) \
 	$(eval __desc := $(call __config-desc-escape,$(__modules.$(__mod).DESCRIPTION))) \
-	$(eval __depends := $(call module-get-config-depends,$(__mod))) \
+	$(if $(__CONFIG_DISABLE_RUNTIME_DEPS), \
+		$(eval __depends := $(call module-get-depends,$(__mod))) \
+		, \
+		$(eval __depends := $(call module-get-config-depends,$(__mod))) \
+	) \
 	$(eval __dependsCond := $(__modules.$(__mod).CONDITIONAL_LIBRARIES)) \
 	$(eval __modPath := $(call path-from-top,$(__modules.$(__mod).PATH))) \
 	$(eval __categoryPath := $(__modules.$(__mod).CATEGORY_PATH)) \

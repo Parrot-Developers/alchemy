@@ -43,6 +43,7 @@ _codecheck_cxx_files += $(foreach __inc,$(_module_exported_includes),$(call rwil
 
 # Codecheck for objc files
 _codecheck_objc_files := $(filter %.m,$(_module_src_files))
+_codecheck_objcpp_files := $(filter %.mm,$(_module_src_files))
 
 # Codecheck for vala files
 _codecheck_vala_files := $(filter %.vala,$(_module_src_files))
@@ -55,6 +56,7 @@ _codecheck_as_files := $(sort $(_codecheck_as_files))
 _codecheck_c_files := $(sort $(_codecheck_c_files))
 _codecheck_cxx_files := $(sort $(_codecheck_cxx_files))
 _codecheck_objc_files := $(sort $(_codecheck_objc_files))
+_codecheck_objcpp_files := $(sort $(_codecheck_objcpp_files))
 _codecheck_vala_files := $(sort $(_codecheck_vala_files))
 _codecheck_python_files := $(sort $(_codecheck_python_files))
 

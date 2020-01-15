@@ -10,7 +10,7 @@
 ###############################################################################
 
 # Supported source file extensions
-_binary_extensions := cpp cxx cc c cu m s S f
+_binary_extensions := cpp cxx cc c cu m mm s S f
 
 # Compilation banner
 _binary-print-banner1 = \
@@ -36,6 +36,7 @@ _binary-objects-flags = \
 	PRIVATE_CFLAGS \
 	PRIVATE_CXXFLAGS \
 	PRIVATE_OBJCFLAGS \
+	PRIVATE_OBJCXXFLAGS \
 	PRIVATE_FFLAGS \
 	PRIVATE_VALAFLAGS \
 	PRIVATE_PCH_INCLUDE \
@@ -180,6 +181,34 @@ $(call fix-deps-file,$(2:.o=.d))
 endef
 
 transform-m-to-o = $(call _binary-cmd-m-to-o-internal,$(PRIVATE_MODE),$@,$<)
+
+###############################################################################
+## Command to compile a Objective-C++ file.
+###############################################################################
+
+_objc++_filter_out_options = -std=% -Wno-missing-prototypes -Wno-jump-misses-init
+
+# $1 : mode (HOST / TARGET)
+# $2 : destination
+# $3 : source
+define _binary-cmd-mm-to-o-internal
+@mkdir -p $(dir $2)
+$(call _binary-print-banner1,ObjC++,$3)
+$(Q) $(CCACHE) $(PRIVATE_CXX) \
+	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
+	$(filter-out $(_objc++_filter_out_options),$(PRIVATE_GLOBAL_CFLAGS)) \
+	$($1_GLOBAL_OBJCXXFLAGS) \
+	$(PRIVATE_WARNINGS_CXXFLAGS) \
+	$(filter-out $(_objc++_filter_out_options),$(PRIVATE_CFLAGS)) \
+	$(PRIVATE_OBJCXXFLAGS) \
+	-MD -MP -MF $(call path-from-top,$(2:.o=.d)) -MT $(call path-from-top,$2) \
+	-o $(call path-from-top,$2) \
+	-c $(call path-from-top,$3)
+$(call fix-deps-file,$(2:.o=.d))
+endef
+
+transform-mm-to-o = $(call _binary-cmd-mm-to-o-internal,$(PRIVATE_MODE),$@,$<)
 
 ###############################################################################
 ## Command to compile a s/S file.

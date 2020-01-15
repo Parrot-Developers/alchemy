@@ -10,6 +10,7 @@
 _codeformat_c_files := $(_codecheck_c_files)
 _codeformat_cxx_files := $(_codecheck_cxx_files)
 _codeformat_objc_files := $(_codecheck_objc_files)
+_codeformat_objcpp_files := $(_codecheck_objcpp_files)
 _codeformat_python_files := $(_codecheck_python_files)
 
 # Generate rules

@@ -304,10 +304,14 @@ module-add = \
 		$(compat-check) \
 		$(eval __modules += $(__mod)) \
 		$(foreach __local,$(vars-LOCAL), \
-			$(eval __modules.$(__mod).$(__local) := $(LOCAL_$(__local))) \
+			$(if $(LOCAL_$(__local)), \
+				$(eval __modules.$(__mod).$(__local) := $(LOCAL_$(__local))) \
+			) \
 		) \
 		$(foreach __local,$(macros-LOCAL), \
-			$(call macro-copy,__modules.$(__mod).$(__local),LOCAL_$(__local)) \
+			$(if $(LOCAL_$(__local)), \
+				$(call macro-copy,__modules.$(__mod).$(__local),LOCAL_$(__local)) \
+			) \
 		) \
 		$(if $(or $(call streq,$(LOCAL_MODULE_CLASS),CUSTOM), \
 				$(call streq,$(LOCAL_MODULE_CLASS),META_PACKAGE)), \

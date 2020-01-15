@@ -114,6 +114,9 @@ vars-LOCAL += CXXFLAGS
 # Additional flags to pass into the Objective-C compiler
 vars-LOCAL += OBJCFLAGS
 
+# Additional flags to pass into the Objective-C++ compiler
+vars-LOCAL += OBJCXXFLAGS
+
 # Additional flags to pass into the Fortran compiler
 vars-LOCAL += FFLAGS
 
@@ -473,6 +476,7 @@ vars-TARGET += GLOBAL_ARFLAGS
 vars-TARGET += GLOBAL_PCHFLAGS
 vars-TARGET += GLOBAL_VALAFLAGS
 vars-TARGET += GLOBAL_OBJCFLAGS
+vars-TARGET += GLOBAL_OBJCXXFLAGS
 vars-TARGET += GLOBAL_FFLAGS
 
 # Cuda
@@ -581,6 +585,7 @@ vars-TARGET_SETUP += GLOBAL_ARFLAGS
 vars-TARGET_SETUP += GLOBAL_PCHFLAGS
 vars-TARGET_SETUP += GLOBAL_VALAFLAGS
 vars-TARGET_SETUP += GLOBAL_OBJCFLAGS
+vars-TARGET_SETUP += GLOBAL_OBJCXXFLAGS
 vars-TARGET_SETUP += GLOBAL_FFLAGS
 
 # Qt

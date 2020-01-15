@@ -50,7 +50,9 @@ else
 		@echo "CONFIG_ALCHEMY_BUILD_$(call module-get-define,$(__mod))=y" \
 			>> $(TARGET_GLOBAL_CONFIG_FILE)$(endl) \
 	)
+	$(eval __CONFIG_DISABLE_RUNTIME_DEPS := 1)
 	$(call __call-confwrapper,update)
+	$(eval __CONFIG_DISABLE_RUNTIME_DEPS := 0)
 endif
 
 # Update everything at once

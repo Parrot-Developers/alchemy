@@ -10,12 +10,19 @@
 ifeq ("$(TARGET_OS)-$(TARGET_OS_FLAVOUR)","$(HOST_OS)-native")
   # For native build, assume that a package has installed some links
   _python-pkg-python-bin = $(HOST_OUT_STAGING)/$(HOST_DEFAULT_BIN_DESTDIR)/python
+  _python-pkg-python-final-bin = $(HOST_OUT_STAGING)/$(HOST_DEFAULT_BIN_DESTDIR)/python
   _python-pkg-use-native-python := $(true)
 else ifneq ("$(call is-module-in-build-config,python3)","")
   _python-pkg-python-bin := $(HOST_OUT_STAGING)/$(HOST_DEFAULT_BIN_DESTDIR)/python3
+ifeq ("$(TARGET_OS_FLAVOUR)","native-chroot")
+  _python-pkg-python-final-bin = /usr/bin/python3
+else
+  _python-pkg-python-final-bin = $(HOST_OUT_STAGING)/$(HOST_DEFAULT_BIN_DESTDIR)/python3
+endif
   _python-pkg-use-native-python := $(false)
 else
   _python-pkg-python-bin :=
+  _python-pkg-python-final-bin =
   _python-pkg-use-native-python :=
 endif
 
@@ -64,7 +71,7 @@ _python-pkg-env := \
 	_python_exec_prefix="/$(TARGET_ROOT_DESTDIR)"
 
 _python-pkg-build-args := \
-	--executable="$(_python-pkg-python-bin)"
+	--executable="$(_python-pkg-python-final-bin)"
 
 _python-pkg-install-args := \
 	--prefix="$(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)" \

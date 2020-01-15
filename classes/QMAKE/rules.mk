@@ -6,6 +6,32 @@
 ## Rules for QMAKE modules.
 ###############################################################################
 
+# Find qmake binary
+ifndef TARGET_QMAKE
+  ifdef QTSDK_QMAKE
+    # Compatibility
+    $(warning Please use TARGET_QMAKE instead of QTSDK_QMAKE)
+    TARGET_QMAKE := $(QTSDK_QMAKE)
+  else ifeq ("$(TARGET_OS)-$(TARGET_OS_FLAVOUR)","$(HOST_OS)-native")
+    TARGET_QMAKE := $(shell $(BUILD_SYSTEM)/scripts/findqmake.py \
+      $(if $(TARGET_QT_VERSION),--version $(TARGET_QT_VERSION)) \
+      $(if $(TARGET_QT_PLATFORM),--platform $(TARGET_QT_PLATFORM)) \
+      $(if $(TARGET_QT_SDKROOT),--sdkroot $(TARGET_QT_SDKROOT)) \
+      $(if $(TARGET_QT_SDK),--sdkr $(TARGET_QT_SDK)) \
+    )
+  else
+    TARGET_QMAKE := $(shell $(BUILD_SYSTEM)/scripts/findqmake.py --no-path \
+      $(if $(TARGET_QT_VERSION),--version $(TARGET_QT_VERSION)) \
+      $(if $(TARGET_QT_PLATFORM),--platform $(TARGET_QT_PLATFORM)) \
+      $(if $(TARGET_QT_SDKROOT),--sdkroot $(TARGET_QT_SDKROOT)) \
+      $(if $(TARGET_QT_SDK),--sdkr $(TARGET_QT_SDK)) \
+    )
+  endif
+  ifneq ("$(TARGET_QMAKE)","")
+    $(info Using qmake: $(TARGET_QMAKE))
+   endif
+endif
+
 ifdef QT5_QMAKE
   QMAKE := $(QT5_QMAKE)
   _qmake_has_qt_sysroot := $(true)
@@ -20,7 +46,12 @@ else
 endif
 
 ifeq ("$(QMAKE)","")
-  $(error $(LOCAL_MODULE): qmake not found, add Qt4/Qt5 alchemy package or specify Qt SDK path via TARGET_QT_SDKROOT or TARGET_QT_SDK.)
+  $(info $(LOCAL_MODULE): qmake not found)
+  $(info TARGET_QT_VERSION=$(TARGET_QT_VERSION))
+  $(info TARGET_QT_PLATFORM=$(TARGET_QT_PLATFORM))
+  $(info TARGET_QT_SDKROOT=$(TARGET_QT_SDKROOT))
+  $(info TARGET_QT_SDK=$(TARGET_QT_SDK))
+  $(error $(LOCAL_MODULE): qmake not found)
 endif
 
 _module_msg := $(if $(_mode_host),Host )QMake

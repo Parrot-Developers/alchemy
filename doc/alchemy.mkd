@@ -274,6 +274,7 @@ Mainly used by the android wrapper.
 * `TARGET_GLOBAL_LDLIBS` : Additional libraries to use when linking.
 * `TARGET_GLOBAL_PCHFLAGS` : Flags to pass when precompiling headers.
 * `TARGET_GLOBAL_OBJCFLAGS` : Flags to pass to the Objective-C compiler.
+* `TARGET_GLOBAL_OBJCXXFLAGS` : Flags to pass to the Objective-C++ compiler.
 * `TARGET_GLOBAL_FFLAGS` : Flags to pass to the Fortran compiler.
 
 ### Specific flags for arm targets.
@@ -949,6 +950,7 @@ Available languages:
 * `C`: default formatter is `clang-format`.
 * `CXX`: default formatter is `clang-format`.
 * `OBJC`: default formatter is `clang-format`.
+* `OBJCXX`: default formatter is `clang-format`.
 
 #### `LOCAL_CODECHECK_xxx` `LOCAL_CODECHECK_xxx_ARGS`
 
@@ -969,6 +971,7 @@ Available languages:
 * `C`: default checkers are `linux` and `clang-format`.
 * `CXX`: default checker is `clang-format`.
 * `OBJC`: default checker is `none`.
+* `OBJCXX`: default checker is `none`.
 * `VALA`: default checker is `valastyle`.
 * `FORTRAN`: default checker is `none`.
 
@@ -1003,12 +1006,13 @@ specifying path under the `atom.mk`.
 **Note** : The build directory and `LOCAL_PATH` are automatically added during
 compilation
 
-#### `LOCAL_ASFLAGS`, `LOCAL_CFLAGS`, `LOCAL_CXXFLAGS`, `LOCAL_OBJCFLAGS`
+#### `LOCAL_ASFLAGS`, `LOCAL_CFLAGS`, `LOCAL_CXXFLAGS`, `LOCAL_OBJCFLAGS`, `LOCAL_OBJCXXFLAGS`
 
 Flags to be passed during the compilation of source files. `LOCAL_ASFLAGS` is
 given only to `asm` files. `LOCAL_CFLAGS` is given to **all** files, whereas
 `LOCAL_CXXFLAGS` is given only to `c++` files, `LOCAL_OBJCFLAGS` to
-objective-C files and `LOCAL_FFLAGS` to Fortran files.
+objective-C files, `LOCAL_OBJCXXFLAGS` is given only to `objc++` files and
+`LOCAL_FFLAGS` to Fortran files.
 
 **Note** : some warning flags are automatically added by the build system,
 please do not add/remove any to let the build system decides which flags are

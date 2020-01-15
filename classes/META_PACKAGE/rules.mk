@@ -25,6 +25,6 @@ $1-cloc: $2-cloc
 endef
 
 # Add deps for build, clean, dirclean
-$(foreach __mod,$(call module-get-config-depends,$(LOCAL_MODULE)), \
+$(foreach __mod,$(call module-get-depends,$(LOCAL_MODULE)), \
 	$(eval $(call _meta-package-dep,$(LOCAL_MODULE),$(__mod))) \
 )
