@@ -54,28 +54,40 @@ vars-LOCAL += GENERATED_SRC_FILES
 # Static libraries that you want to include in your module
 # Names of modules in the build system, without path/prefix/suffix
 vars-LOCAL += STATIC_LIBRARIES
+vars-LOCAL += STATIC_PUBLIC_LIBRARIES
+vars-LOCAL += STATIC_PRIVATE_LIBRARIES
 
 # Static libraries that you want to include as a whole in your module
 # To generate a '.so' from a '.a' for ex
 # Names of modules in the build system, without path/prefix/suffix
 vars-LOCAL += WHOLE_STATIC_LIBRARIES
+vars-LOCAL += WHOLE_STATIC_PUBLIC_LIBRARIES
+vars-LOCAL += WHOLE_STATIC_PRIVATE_LIBRARIES
 
 # Libraries you directly link against
 # Names of modules in the build system, without path/prefix/suffix
 vars-LOCAL += SHARED_LIBRARIES
+vars-LOCAL += SHARED_PUBLIC_LIBRARIES
+vars-LOCAL += SHARED_PRIVATE_LIBRARIES
 
 # External libraries (not built directly by the build system rules)
 # Used as dependencies to trigger indirect build.
 vars-LOCAL += EXTERNAL_LIBRARIES
+vars-LOCAL += EXTERNAL_PUBLIC_LIBRARIES
+vars-LOCAL += EXTERNAL_PRIVATE_LIBRARIES
 
 # Prebuilt libraries
 vars-LOCAL += PREBUILT_LIBRARIES
+vars-LOCAL += PREBUILT_PUBLIC_LIBRARIES
+vars-LOCAL += PREBUILT_PRIVATE_LIBRARIES
 
 # Meta packages
 vars-LOCAL += META_PACKAGES
 
 # General libraries to add in dependency based on their actual class (STATIC/SHARED/EXTERNAL).
 vars-LOCAL += LIBRARIES
+vars-LOCAL += PUBLIC_LIBRARIES
+vars-LOCAL += PRIVATE_LIBRARIES
 
 # Force using static libraries as dependencies instead of shared libraries
 vars-LOCAL += FORCE_STATIC
@@ -85,6 +97,8 @@ vars-LOCAL += FORCE_STATIC
 # <var> : variable to test (can be special value OPTIONAL to check if in build config)
 # <lib> : library to add in LOCAL_LIBRARIES if <var> is defined
 vars-LOCAL += CONDITIONAL_LIBRARIES
+vars-LOCAL += CONDITIONAL_PUBLIC_LIBRARIES
+vars-LOCAL += CONDITIONAL_PRIVATE_LIBRARIES
 
 # Modules whose headers are required to build
 vars-LOCAL += DEPENDS_HEADERS
@@ -259,10 +273,16 @@ vars-LOCAL += MODULE_CLASS
 
 # List of files to copy
 # Format <src>:<dst>
-# src : source, relative to module path or abosulte path
-# dst : destination, relative to staging dir or abosulte path, ends with '/'
+# src : source, relative to module path or absolute path
+# dst : destination, relative to staging dir or absolute path, ends with '/'
 #       to use same basename as <src>
 vars-LOCAL += COPY_FILES
+
+# List of directories to copy
+# Format <src>:<dst>
+# src : source, relative to module path or absolute path
+# dst : destination, relative to staging dir or absolute path
+vars-LOCAL += COPY_DIRS
 
 # List of links to create
 # Format <name>:<target>
@@ -272,8 +292,8 @@ vars-LOCAL += CREATE_LINKS
 
 # List of headers to install
 # Format <src>[:<dst]>
-# src : source, relative to module path or abosulte path
-# dst : destination, relative to staging dir or abosulte path, ends with '/'
+# src : source, relative to module path or absolute path
+# dst : destination, relative to staging dir or absolute path, ends with '/'
 #       to use same basename as <src>. If not specified, will be put in
 #       usr/include directory of staging directory
 vars-LOCAL += INSTALL_HEADERS
@@ -440,6 +460,7 @@ vars-TARGET += STRIP_FILTER
 vars-TARGET += LDCONFIG_DIRS
 vars-TARGET += DEPLOY_ROOT
 vars-TARGET += USE_CLANG
+vars-TARGET += SDK_PUBLIC_MODULES
 
 # Tools
 vars-TARGET += CROSS
@@ -456,6 +477,7 @@ vars-TARGET += OBJCOPY
 vars-TARGET += OBJDUMP
 vars-TARGET += RANLIB
 vars-TARGET += WINDRES
+vars-TARGET += LLVM
 
 # Flags for tools
 vars-TARGET += GLOBAL_C_INCLUDES
@@ -549,6 +571,7 @@ vars-TARGET_SETUP += LDCONFIG_DIRS
 vars-TARGET_SETUP += DEFAULT_LIB_DESTDIR
 vars-TARGET_SETUP += USE_CLANG
 vars-TARGET_SETUP += FORCE_STATIC
+vars-TARGET_SETUP += NO_UNDEFINED
 
 # Tools
 vars-TARGET_SETUP += CROSS
@@ -565,6 +588,7 @@ vars-TARGET_SETUP += OBJCOPY
 vars-TARGET_SETUP += OBJDUMP
 vars-TARGET_SETUP += RANLIB
 vars-TARGET_SETUP += WINDRES
+vars-TARGET_SETUP += LLVM
 
 # Flags for tools
 vars-TARGET_SETUP += GLOBAL_C_INCLUDES

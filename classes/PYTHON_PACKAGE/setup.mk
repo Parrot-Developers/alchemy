@@ -15,10 +15,21 @@ _python-pkg-get-python-version = \
 # Dynamically construct the PYTHONPATH variable
 # $1: python version
 _python-pkg-get-python-path = \
-$(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)/lib/python$1:$(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)/lib/python$1/site-packages
+	$(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)/lib/python$1:$(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)/lib/python$1/site-packages
 
 _python-pkg-get-python-lib-path = \
 	$(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)/lib/python$1
+
+# Dynamically copy sysconfigdata from sdk to staging if needed
+# $1: python version
+_python-pkg-copy-sysconfigdata = \
+	$(foreach __sdk,$(TARGET_SDK_DIRS), \
+		$(eval __src := $(wildcard $(__sdk)/$(TARGET_ROOT_DESTDIR)/lib/python$1/_sysconfigdata_*.py)) \
+		$(if $(__src), \
+			$(eval __dst := $(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)/lib/python$1/$(notdir $(__src))) \
+			$(shell mkdir -p $(dir $(__dst)); cp -af $(__src) $(__dst)) \
+		) \
+	)
 
 # Dynamically get the name of the sysconfigdata file of python
 # $1: python library path
@@ -34,6 +45,7 @@ _python-pkg-get-extra-env = \
 			$(call _python-pkg-get-python-path,$(_python-pkg-version))) \
 		$(eval _python-pkg-lib-path := \
 			$(call _python-pkg-get-python-lib-path,$(_python-pkg-version))) \
+		$(call _python-pkg-copy-sysconfigdata,$(_python-pkg-version)) \
 		$(eval _python-pkg-sysconfigdata-name := \
 			$(call _python-pkg-get-sysconfigdata-name,$(_python-pkg-lib-path))) \
 		$(if $(PRIVATE_NEED_PYTHONPATH),PYTHONPATH="$(_python-pkg-path)") \

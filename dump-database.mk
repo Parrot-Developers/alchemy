@@ -130,7 +130,7 @@ __dump-database-field-xml = \
 		$(call __write-xml,$(space4)$(space4)<field name='$1'>) \
 		$(call __write-xml,$(space4)$(space4)$(space4)<value>$(call escape-xml,$2)</value>) \
 		$(call __write-xml,$(space4)$(space4)</field>) \
-	) \
+	)
 
 # Dump a variable in xml format (even if empty)
 # $1 : variable name
@@ -207,6 +207,10 @@ else
 	$(call __dump-database-setup)
 	$(call __dump-database-xml)
 endif
+	@[ "$$(which xmllint)" = "" ] || \
+		xmllint \
+			--format $(DUMP_DATABASE_XML_FILE) \
+			--output $(DUMP_DATABASE_XML_FILE)
 	@echo "Database dump: done -> $(DUMP_DATABASE_XML_FILE)"
 endif
 

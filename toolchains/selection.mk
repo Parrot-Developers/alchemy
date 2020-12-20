@@ -94,13 +94,14 @@ ifeq ("$(TARGET_OS)-$(TARGET_OS_FLAVOUR)","$(HOST_OS)-native")
   TARGET_OBJCOPY ?= $(HOST_OBJCOPY)
   TARGET_OBJDUMP ?= $(HOST_OBJDUMP)
   TARGET_WINDRES ?= $(HOST_WINDRES)
+  TARGET_LLVM ?= $(HOST_LLVM)
 else
   ifneq ("$(TARGET_USE_CLANG)","1")
     TARGET_CC ?= $(TARGET_CROSS)gcc
     TARGET_CXX ?= $(TARGET_CROSS)g++
   else
-    TARGET_CC ?= clang
-    TARGET_CXX ?= clang++
+    TARGET_CC ?= $(TARGET_CROSS)clang
+    TARGET_CXX ?= $(TARGET_CROSS)clang++
   endif
   TARGET_AS ?= $(TARGET_CROSS)as
   TARGET_FC ?= $(TARGET_CROSS)gfortran
@@ -113,6 +114,7 @@ else
   TARGET_OBJCOPY ?= $(TARGET_CROSS)objcopy
   TARGET_OBJDUMP ?= $(TARGET_CROSS)objdump
   TARGET_WINDRES ?= $(TARGET_CROSS)windres
+  TARGET_LLVM ?= $(TARGET_CROSS)llvm-
 endif
 
 ifeq ("$(TARGET_NOSTRIP_FINAL)","2")
@@ -134,14 +136,14 @@ endif
 TARGET_COMPILER_PATH := $(shell PARAM="$(TARGET_CC)";echo $${PARAM%/bin*})
 
 # HOST_CC flavour
-ifeq ("$(shell $(HOST_CC) --version | grep -q clang; echo $$?)","0")
+ifeq ("$(shell $(HOST_CC) --version | grep -qi clang; echo $$?)","0")
   HOST_CC_FLAVOUR := clang
 else
   HOST_CC_FLAVOUR := gcc
 endif
 
 # TARGET_CC flavour
-ifeq ("$(shell $(TARGET_CC) --version | grep -q clang; echo $$?)","0")
+ifeq ("$(shell $(TARGET_CC) --version | grep -qi clang; echo $$?)","0")
   TARGET_CC_FLAVOUR := clang
 else
   TARGET_CC_FLAVOUR := gcc
@@ -156,8 +158,12 @@ else
 endif
 
 ifeq ("$(TARGET_CC_FLAVOUR)","clang")
-  TARGET_CC_VERSION := $(shell $(TARGET_CC) --version | head -1 | \
-		grep -o -E '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  ifneq ("$(TARGET_LLVM)","")
+    TARGET_CC_VERSION := $(shell $(TARGET_LLVM)config --version)
+  else
+    TARGET_CC_VERSION := $(shell $(TARGET_CC) --version | head -1 | \
+                 grep -o -E '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  endif
 else
   TARGET_CC_VERSION := $(shell $(TARGET_CC) -dumpversion)
 endif

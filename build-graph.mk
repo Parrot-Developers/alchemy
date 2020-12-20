@@ -10,22 +10,30 @@ BUILD_GRAPH_DOT := $(TARGET_OUT)/build-graph.dot
 BUILD_GRAPH_SVG := $(TARGET_OUT)/build-graph.svg
 BUILD_GRAPH_PDF := $(TARGET_OUT)/build-graph.pdf
 
-# Force regeneration of this file everytime
-$(BUILD_GRAPH_DOT): .FORCE
-	@echo "Generating $(call path-from-top,$@)"
+# Build the graph header
+build-graph-header: .FORCE
+	@echo "Generating $(call path-from-top,${BUILD_GRAPH_DOT})"
 	@mkdir -p $(dir $@)
 	$(Q)( \
-		echo 'digraph {'; \
-		echo 'graph [ ratio=.5 ];'; \
-		$(foreach __mod1,$(__modules), \
-			$(if $(call is-module-in-build-config,$(__mod1)), \
-				$(foreach __mod2,$(call module-get-depends,$(__mod1)), \
-					echo \"$(__mod1)\" -\> \"$(__mod2)\"; \
-				) \
+		echo 'digraph G {'; \
+		echo '  rankdir=LR;'; \
+	) > ${BUILD_GRAPH_DOT}
+
+# Build the graph for a single module
+build-graph-%: build-graph-header
+	$(if $(call is-module-in-build-config,$*), \
+		$(Q)( \
+			true; \
+			$(foreach __mod2,$(call module-get-depends,$*), \
+				echo '  "$*" -> "$(__mod2)";'; \
 			) \
-		) \
-		echo '}'; \
-	) > $@
+		)  >> ${BUILD_GRAPH_DOT} \
+	)
+
+$(BUILD_GRAPH_DOT): $(addprefix build-graph-,$(__modules))
+	$(Q)( \
+		echo '}' \
+	) >> ${BUILD_GRAPH_DOT}
 
 $(BUILD_GRAPH_SVG): $(BUILD_GRAPH_DOT)
 	@echo "Generating $(call path-from-top,$@)"

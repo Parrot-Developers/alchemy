@@ -5,7 +5,9 @@ import argparse
 import fnmatch
 import re
 import stat
-import mktar, mkextfs, mkcpio, mkubi
+import tempfile
+
+import mktar, mkextfs, mkextfs_fast, mkcpio, mkubi
 
 # List of supported file systems
 FS_LIST = [
@@ -143,6 +145,49 @@ def addDevNodes(root, devNodes):
         entry = FsEntry(filePath, 0, st)
         addFsEntry(root, entry)
 
+# =============================================================================
+# Apply 755 permission to root filesystem "/"
+# =============================================================================
+def processRoot(root):
+        # Update mode/owner, requires to be run under fakeroot to work properly
+        try:
+            st = stat.S_IRWXU | \
+                 stat.S_IRGRP | stat.S_IXGRP | \
+                 stat.S_IROTH | stat.S_IXOTH
+            os.chmod(root, st)
+        except OSError:
+            logging.error("Script must be run under fakeroot to work properly")
+            raise
+
+#===============================================================================
+# Copy recursively the tree to new root, applying attributes
+# It requires to be run under fakeroot to work properly.
+#===============================================================================
+def copyTree(root, tree):
+    for child in tree.children.values():
+        fullPath = os.path.join(root, child.filePath)
+        if stat.S_IFMT(child.st.st_mode) == stat.S_IFDIR:
+            os.mkdir(fullPath)
+            copyTree(root, child)
+        elif stat.S_IFMT(child.st.st_mode) == stat.S_IFREG:
+            with open(fullPath, "wb") as fout:
+                fout.write(child.getData())
+        elif stat.S_IFMT(child.st.st_mode) == stat.S_IFLNK:
+            os.symlink(child.getData(), fullPath)
+        elif stat.S_IFMT(child.st.st_mode) == stat.S_IFBLK:
+            os.mknod(fullPath, child.st.st_mode)
+        elif stat.S_IFMT(child.st.st_mode) == stat.S_IFCHR:
+            os.mknod(fullPath, child.st.st_mode)
+
+        # Update mode/owner, requires to be run under fakeroot to work properly
+        try:
+            if stat.S_IFMT(child.st.st_mode) != stat.S_IFLNK:
+                os.chmod(fullPath, stat.S_IMODE(child.st.st_mode))
+            os.chown(fullPath, child.st.st_uid, child.st.st_gid, follow_symlinks=False)
+        except OSError:
+            logging.error("Script must be run under fakeroot to work properly")
+            raise
+
 #===============================================================================
 # Main function.
 #===============================================================================
@@ -178,20 +223,29 @@ def main():
     addFsEntries(root, options.filters)
     addDevNodes(root, options.devNodes)
 
-    # Generate the ouput file
+    # Generate the output file
     try:
         if options.fstype == "tar":
             mktar.genImage(image, root)
         elif options.fstype == "cpio":
             mkcpio.genImage(image, root)
-        elif options.fstype == "ext2":
-            mkextfs.genImage(image, root, 2)
-        elif options.fstype == "ext3":
-            mkextfs.genImage(image, root, 3, int(options.blockSize))
-        elif options.fstype == "ext4":
-            mkextfs.genImage(image, root, 4, int(options.blockSize))
+        elif options.fstype in ["ext2", "ext3", "ext4"]:
+            version = int(options.fstype[3])
+            if options.fast:
+                # Re-create a root fs with contents and mode/owner set (requires fakeroot)
+                with tempfile.TemporaryDirectory() as tmpRoot:
+                    processRoot(tmpRoot)
+                    copyTree(tmpRoot, root)
+                    mkextfs_fast.genImage(image, tmpRoot, options,
+                            version, int(options.blockSize))
+            else:
+                mkextfs.genImage(image, root, version, int(options.blockSize))
         elif options.fstype == "ubi":
-            mkubi.genImage(image, root, options)
+            # Re-create a root fs with contents and mode/owner set (requires fakeroot)
+            with tempfile.TemporaryDirectory() as tmpRoot:
+                processRoot(tmpRoot)
+                copyTree(tmpRoot, root)
+                mkubi.genImage(image, tmpRoot, options)
     except Exception as ex:
         logging.error(str(ex))
         sys.exit(1)
@@ -236,6 +290,18 @@ def parseArgs():
         default=[],
         metavar="FILTER",
         help="filter out some files from generated image")
+
+    parser.add_argument("--fast",
+        dest="fast",
+        action="store_true",
+        default=False,
+        help="use mke2fs to create an ext2/ext3/ext4 filesystem")
+
+    # mke2fs specific options
+    parser.add_argument("--mke2fs",
+        dest="mke2fs",
+        default="",
+        help="arguments to give to mke2fs")
 
     # ubi image specific options
     parser.add_argument("--mkubifs",

@@ -78,6 +78,7 @@ LINUX_EXPORTED_HEADERS_OVER := \
 	include/linux/hid.h \
 	include/linux/hidraw.h \
 	include/linux/hiddev.h \
+	include/linux/const.h \
 	include/linux/ethtool.h \
 	include/linux/net.h \
 	include/linux/uinput.h \

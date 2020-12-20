@@ -17,14 +17,14 @@ ifndef TARGET_QMAKE
       $(if $(TARGET_QT_VERSION),--version $(TARGET_QT_VERSION)) \
       $(if $(TARGET_QT_PLATFORM),--platform $(TARGET_QT_PLATFORM)) \
       $(if $(TARGET_QT_SDKROOT),--sdkroot $(TARGET_QT_SDKROOT)) \
-      $(if $(TARGET_QT_SDK),--sdkr $(TARGET_QT_SDK)) \
+      $(if $(TARGET_QT_SDK),--sdk $(TARGET_QT_SDK)) \
     )
   else
     TARGET_QMAKE := $(shell $(BUILD_SYSTEM)/scripts/findqmake.py --no-path \
       $(if $(TARGET_QT_VERSION),--version $(TARGET_QT_VERSION)) \
       $(if $(TARGET_QT_PLATFORM),--platform $(TARGET_QT_PLATFORM)) \
       $(if $(TARGET_QT_SDKROOT),--sdkroot $(TARGET_QT_SDKROOT)) \
-      $(if $(TARGET_QT_SDK),--sdkr $(TARGET_QT_SDK)) \
+      $(if $(TARGET_QT_SDK),--sdk $(TARGET_QT_SDK)) \
     )
   endif
   ifneq ("$(TARGET_QMAKE)","")

@@ -405,7 +405,8 @@ $(Q) $(PRIVATE_CXX) \
 	) \
 	-shared \
 	-Wl,-soname -Wl,$(notdir $2) \
-	$(if $(call streq,$(USE_ADDRESS_SANITIZER),0), \
+	$(if $(and $(call streq,$(USE_ADDRESS_SANITIZER),0), \
+		$(call strneq,$(PRIVATE_NO_UNDEFINED),0)), \
 		-Wl$(comma)--no-undefined\
 	) \
 	-Wl,--gc-sections \

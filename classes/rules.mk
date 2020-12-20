@@ -622,6 +622,24 @@ $(foreach __pair,$(LOCAL_COPY_FILES), \
 	$(eval $(call copy-one-file,$(__src),$(__dst))) \
 )
 
+$(foreach __pair,$(LOCAL_COPY_DIRS), \
+	$(eval __w1 := $(firstword $(subst :,$(space),$(__pair)))) \
+	$(eval __w2 := $(patsubst $(__w1):%,%,$(__pair))) \
+	$(eval __src := $(call copy-get-src-path,$(__w1))) \
+	$(eval __dst := $(call copy-get-dst-path$(_mode_suffix),$(__w2))) \
+	$(eval __files := $(patsubst ./%,%, \
+		$(shell cd $(__src); find -type f -o -type l) \
+	)) \
+	$(foreach __f,$(__files), \
+		$(eval __src2 := $(__src)/$(__f)) \
+		$(eval __dst2 := $(__dst)/$(__f)) \
+		$(eval _module_all_copy_files_src += $(__src2)) \
+		$(eval _module_all_copy_files_dst += $(__dst2)) \
+		$(eval $(call copy-one-file,$(__src2),$(__dst2))) \
+	) \
+)
+
+
 # Add an order-only dependency between sources and prerequisites
 # Also make sure bootstrap si done
 _module_all_copy_files_prerequisites := \
@@ -813,6 +831,7 @@ $(LOCAL_TARGETS): PRIVATE_REV_FILE := $(_module_revision_file)
 $(LOCAL_TARGETS): PRIVATE_REV_FILE_H := $(_module_revision_h_file)
 $(LOCAL_TARGETS): PRIVATE_SRC_FILES := $(LOCAL_SRC_FILES)
 $(LOCAL_TARGETS): PRIVATE_GENERATED_SRC_FILES := $(LOCAL_GENERATED_SRC_FILES)
+$(LOCAL_TARGETS): PRIVATE_NO_UNDEFINED := $(if $(_mode_host),1,$(TARGET_NO_UNDEFINED))
 
 $(LOCAL_TARGETS): PRIVATE_ARCHIVE := $(_module_archive_file)
 $(LOCAL_TARGETS): PRIVATE_ARCHIVE_UNPACK_DIR := $(_module_build_dir)

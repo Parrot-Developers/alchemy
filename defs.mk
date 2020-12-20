@@ -313,6 +313,7 @@ module-add = \
 				$(call macro-copy,__modules.$(__mod).$(__local),LOCAL_$(__local)) \
 			) \
 		) \
+		$(call public-private-libraries-setup,$(__mod)) \
 		$(if $(or $(call streq,$(LOCAL_MODULE_CLASS),CUSTOM), \
 				$(call streq,$(LOCAL_MODULE_CLASS),META_PACKAGE)), \
 			$(if $(LOCAL_MODULE_FILENAME), \
@@ -1405,7 +1406,8 @@ install-headers-setup = \
 ## Setup conditional libraries. It looks for pairs <var>:<lib> in
 ## LOCAL_CONDITIONAL_LIBRARIES and add <lib> in LOCAL_LIBRARIES if <var> is
 ## defined.
-## If <var> equals 'OPTIONAL', <lib> is added if it is in the build config.
+## If <var> equals 'OPTIONAL', <lib> is added if it is in the build config or if
+## <lib> is a host module (<lib> matches "host.<host_module_name>")
 ## $1 : module name.
 ###############################################################################
 conditional-libraries-setup = \
@@ -1416,6 +1418,10 @@ conditional-libraries-setup = \
 		$(if $(call streq,$(__w1),OPTIONAL), \
 			$(if $(call is-module-in-build-config,$(__w2)), \
 				$(eval __modules.$1.LIBRARIES += $(__w2)) \
+				, \
+				$(if $(and $(call is-module-host,$(__w2)),$(call is-module-registered,$(__w2))), \
+					$(eval __modules.$1.LIBRARIES += $(__w2)) \
+				) \
 			) \
 			, \
 			$(if $(call is-var-defined,$(__w1)), \
@@ -1423,6 +1429,28 @@ conditional-libraries-setup = \
 			) \
 		) \
 	)
+
+###############################################################################
+## Setup public/private libraries dependencies.
+## If LOCAL_xxx_PUBLIC_LIBRARIES or LOCAL_xxx_PRIVATE_LIBRARIES is used,
+## define corresponding LOCAL_xxx_LIBRARIES as the union of both, giving
+## a warning if it was also set
+## $1 : module name.
+###############################################################################
+public-private-libraries-setup = \
+	$(call public-private-libraries-setup-internal,$1,LIBRARIES,PUBLIC_LIBRARIES,PRIVATE_LIBRARIES) \
+	$(foreach kind,STATIC WHOLE_STATIC SHARED EXTERNAL PREBUILT CONDITIONAL, \
+		$(call public-private-libraries-setup-internal,$1,$(kind)_LIBRARIES,$(kind)_PUBLIC_LIBRARIES,$(kind)_PRIVATE_LIBRARIES) \
+	)
+
+# $1: module name
+# $2: 'normal' variable name
+# $3: 'public' variable name
+# $4: 'private' variable name
+public-private-libraries-setup-internal = \
+	$(if $(or $(__modules.$1.$3),$(__modules.$1.$4)), \
+		$(eval __modules.$1.$2 += $(__modules.$1.$3) $(__modules.$1.$4)) \
+	) \
 
 ###############################################################################
 ## Check compatibility variables
@@ -1569,6 +1597,7 @@ exec-custom-macro = \
 	$(foreach __var,$(vars-LOCAL), \
 		$(eval __modules.$(__mod).$(__var) := $(LOCAL_$(__var))) \
 	) \
+	$(call public-private-libraries-setup,$1) \
 
 ###############################################################################
 ## Check that custom macros of a module are well defined.

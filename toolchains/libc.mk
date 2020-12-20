@@ -54,6 +54,7 @@ _libc_lib_names := \
 # List of files to be put in /usr/lib or /usr/lib/<arch> (if not found in /lib)
 _libc_usrlib_names := \
 	libasan \
+	libatomic \
 	libgcc_s \
 	libstdc++
 

@@ -190,6 +190,8 @@ Optionally, some `TARGET_XXX` or `HOST_XXX` variables can be prefixed with
   </br>Default is `$(TARGET_CROSS)nm`.
 * `TARGET_STRIP` : full path to symbol stripper.
   </br>Default is `$(TARGET_CROSS)strip`.
+* `TARGET_LLVM` : full path to LLVM prefix (meaningful only when LLVM is used).
+  </br>Default is `$(TARGET_CROSS)llvm-`.
 
 ### Linux specific
 * `TARGET_LINUX_CROSS` : similar to `TARGET_CROSS` but to use a separate
@@ -377,7 +379,7 @@ Mainly used by the android wrapper.
 * `TARGET_LDCONFIG_DIRS` : list of directories to add in ldconfig cache. Path
   should be absolute and for the target. Standard path are already included
   by `Alchemy` (/lib/<arch>, /lib, /usr/lib/<arch>, /usr/lib).
-* `TARGET_IMAGE_FORMAT` : format of the image file to generate wilth `image` command.
+* `TARGET_IMAGE_FORMAT` : format of the image file to generate with `image` command.
   Supported value: `tar`, `cpio`, `ext2`, `ext3`, `ext4`, `plf` and the compressed
   forms `tar.gz`, `cpio.gz`, `ext2.gz`, `ext3.gz`, `ext4.gz`,
   `tar.bz2`, `cpio.bz2`, `ext2.bz2`, `ext3.bz2`, `ext4.bz2`,
@@ -395,6 +397,9 @@ Mainly used by the android wrapper.
 * `TARGET_LINUX_RELEASE` : linux kernel release to build kernel modules against it.
   This variable can be used only if building for `native` target.
   </br>Default is `$(shell uname -r)`.
+* `TARGET_NO_UNDEFINED` : Enable check of undefined symbols for dynamic libraries,
+  which triggers error at dynamic libraries build.
+  </br>Default is `1`.
 
 * `USE_CLANG` `TARGET_USE_CLANG`: Use clang instead of gcc for compilation.
   </br>Default is `0`.
@@ -693,6 +698,13 @@ prerequisites to be sure they are generated at the correct time. An example will
 be headers installed in staging directories. If they are not explicitly
 specified in prerequisites export, it will not work in a parallel build.
 
+When generating a public sdk, the set of dependencies should be split in 2.
+
+* `LOCAL_PUBLIC_LIBRARIES`: list of public module whose headers may be used in
+  public headers of the current module.
+* `LOCAL_PRIVATE_LIBRARIES`: list of private modules only used when compiling
+  the current module.
+
 #### `LOCAL_CONDITIONAL_LIBRARIES`
 
 This is a list of pair `variable:module` to indicate that a module is needed
@@ -709,10 +721,10 @@ several pairs `variable:module`.
 Internally modules will be added to `LOCAL_LIBRARIES` if the variable is defined
 in the configuration.
 
-If `variable` is `OPTIONAL`, the module is put as a dependency only if it is in
-the build configuration. This allow to depends on a module only if it is
-enabled. The `kconfig` tools will not display this dependency, only the build
-system will use it.
+If `variable` is `OPTIONAL`, the module is put as a dependency if it is in
+the build configuration or if it is a host module. This allow to depends on a
+module only if it is enabled. The `kconfig` tools will not display this
+dependency, only the build system will use it.
 
 #### `LOCAL_DEPENDS_HEADERS`
 
@@ -791,6 +803,21 @@ prepended for `dst`.
 on the one copying the file. If you want to make sure that copied files are
 available for other module, either put copied files in `LOCAL_EXPORT_PREREQUISITES`
 or use `LOCAL_INSTALL_HEADERS`.
+
+#### `LOCAL_COPY_DIRS`
+
+List of directories to be copied in the staging directory. Directories are specified like
+this: `src:dst`
+
+* `src` is the source directory, relative to `LOCAL_PATH`.
+* `dst` is the destination directory, relative to `TARGET_OUT_STAGING`.
+
+If `src` or `dst` start with a `'/'` it is assumed to be a full path, in this
+case `LOCAL_PATH` is not prepended for `src` and `TARGET_OUT_STAGING` is not
+prepended for `dst`.
+
+Internally it simply lists the content of the source directory and copy each file
+as if it was given in `LOCAL_COPY_FILES`
 
 #### `LOCAL_CREATE_LINKS`
 
@@ -1506,6 +1533,10 @@ To use a `SDK`, specify the directory where the `atom.mk` is in the variable
 transparent for users, dependencies shall be specified in the same way. The only
 difference is that modules from `SDK` won't appear in global config and will not
 be built.
+
+The variable `TARGET_SDK_PUBLIC_MODULES` can be used to specify a subset of
+module to include in the generated sdk. It will also include recursively
+dependencies markes as `PUBLIC`.
 
 ## Codecheck for C false positives or intentional deviations
 

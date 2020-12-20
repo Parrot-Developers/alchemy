@@ -47,9 +47,7 @@ define _linux-module-def-cmd-install
 		modules_install
 	$(Q) if [ -n "$(PRIVATE_DESTDIR)" ]; then \
 		mkdir -p $(TARGET_OUT_STAGING)/$(PRIVATE_DESTDIR); \
-		if [ -e $(TARGET_OUT_STAGING)/$(PRIVATE_DESTDIR)/$(PRIVATE_MODULE_FILENAME) ]; then \
-			rm -f $(TARGET_OUT_STAGING)/$(PRIVATE_DESTDIR)/$(PRIVATE_MODULE_FILENAME); \
-		fi; \
+		rm -f $(TARGET_OUT_STAGING)/$(PRIVATE_DESTDIR)/$(PRIVATE_MODULE_FILENAME); \
 		ln -r -s $(TARGET_OUT_STAGING)/lib/modules/*/extra/$(PRIVATE_MODULE_FILENAME) \
 			$(TARGET_OUT_STAGING)/$(PRIVATE_DESTDIR)/$(PRIVATE_MODULE_FILENAME); \
 	fi

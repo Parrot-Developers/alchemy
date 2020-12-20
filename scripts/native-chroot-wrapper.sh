@@ -5,7 +5,7 @@
 
 # Get full path to this script
 SCRIPT_PATH=$(cd $(dirname $0) && pwd -P)
-SYSROOT=${SCRIPT_PATH}
+export SYSROOT=${SCRIPT_PATH}
 
 # sanity check
 if [ "${SYSROOT}" = "" -o ${SYSROOT} = "/" ]; then

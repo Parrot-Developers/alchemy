@@ -103,7 +103,7 @@ include $(BUILD_EXECUTABLE)
 ###############################################################################
 # qconf
 ###############################################################################
-QCONF_PKG := QtCore QtGui
+QCONF_PKG := Qt5Core Qt5Gui Qt5Widgets
 
 ifeq ("$(shell pkg-config --exists $(QCONF_PKG); echo $$?)","0")
 
@@ -116,7 +116,11 @@ LOCAL_LDLIBS := $(shell pkg-config $(QCONF_PKG) --libs)
 LOCAL_SRC_FILES := qconf.cc
 LOCAL_LIBRARIES := parser
 
-QCONF_MOC := $(shell pkg-config QtCore --variable=moc_location)
+ifeq ("$(TARGET_ARCH)","x86")
+  LOCAL_CFLAGS += -fPIC
+endif
+
+QCONF_MOC := $(shell pkg-config Qt5Core --variable=host_bins)/moc
 LOCAL_PREREQUISITES := $(QCONF_BUILD_DIR)/qconf.moc
 
 # Too many warnings due to compat stuff

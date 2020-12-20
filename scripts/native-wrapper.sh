@@ -52,7 +52,7 @@ else
 	SCRIPT_PATH=$(cd $(dirname -- $0) >/dev/null && pwd -P)
 fi
 
-SYSROOT=${SCRIPT_PATH}
+export SYSROOT=${SCRIPT_PATH}
 
 # Determine if we are under Darwin (to use DYLD_LIBRARY_PATH instead of LD_LIBRARY_PATH
 is_darwin=0
@@ -82,11 +82,17 @@ PATH=${SYSROOT}/bin:${SYSROOT}/usr/bin:${OLD_PATH}
 # Update library path
 LIBRARY_PATH=${SYSROOT}/lib:${SYSROOT}/usr/lib:${OLD_LIBRARY_PATH}
 
+# Update python path
+PYTHONPATH=${SYSROOT}/usr/lib/python/site-packages
+
 export PATH=${PATH}
 if [ "${is_darwin}" = "0" ]; then
 	export LD_LIBRARY_PATH=${LIBRARY_PATH}
 else
 	export DYLD_LIBRARY_PATH=${LIBRARY_PATH}
+fi
+if [ -d $PYTHONPATH ]; then
+	export PYTHONPATH=${PYTHONPATH}
 fi
 
 # Execute given command line (only if not sourced)

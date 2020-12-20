@@ -215,6 +215,8 @@ For example : <code>/opt/arm-eglibc/bin/arm-none-linux-gnueabi-</code>.
 </br>Default is <code>$(TARGET_CROSS)nm</code>.</li>
 <li><code>TARGET_STRIP</code> : full path to symbol stripper.
 </br>Default is <code>$(TARGET_CROSS)strip</code>.</li>
+<li><code>TARGET_LLVM</code> : full path to LLVM prefix (meaningful only when LLVM is used).
+</br>Default is <code>$(TARGET_CROSS)llvm-</code>.</li>
 </ul>
 
 <h3>Linux specific</h3>
@@ -317,6 +319,7 @@ file compiled. The -I prefix will be appended so do not put it.</li>
 <li><code>TARGET_GLOBAL_LDLIBS</code> : Additional libraries to use when linking.</li>
 <li><code>TARGET_GLOBAL_PCHFLAGS</code> : Flags to pass when precompiling headers.</li>
 <li><code>TARGET_GLOBAL_OBJCFLAGS</code> : Flags to pass to the Objective-C compiler.</li>
+<li><code>TARGET_GLOBAL_OBJCXXFLAGS</code> : Flags to pass to the Objective-C++ compiler.</li>
 <li><code>TARGET_GLOBAL_FFLAGS</code> : Flags to pass to the Fortran compiler.</li>
 </ul>
 
@@ -426,7 +429,7 @@ final release packages.
 <li><code>TARGET_LDCONFIG_DIRS</code> : list of directories to add in ldconfig cache. Path
 should be absolute and for the target. Standard path are already included
 by <code>Alchemy</code> (/lib/<arch>, /lib, /usr/lib/<arch>, /usr/lib).</li>
-<li><code>TARGET_IMAGE_FORMAT</code> : format of the image file to generate wilth <code>image</code> command.
+<li><code>TARGET_IMAGE_FORMAT</code> : format of the image file to generate with <code>image</code> command.
 Supported value: <code>tar</code>, <code>cpio</code>, <code>ext2</code>, <code>ext3</code>, <code>ext4</code>, <code>plf</code> and the compressed
 forms <code>tar.gz</code>, <code>cpio.gz</code>, <code>ext2.gz</code>, <code>ext3.gz</code>, <code>ext4.gz</code>,
 <code>tar.bz2</code>, <code>cpio.bz2</code>, <code>ext2.bz2</code>, <code>ext3.bz2</code>, <code>ext4.bz2</code>,
@@ -445,9 +448,12 @@ forms <code>tar.gz</code>, <code>cpio.gz</code>, <code>ext2.gz</code>, <code>ext
 execution.
 </br>Default is <code>firmware</code>.</li>
 </ul></li>
-<li><p><code>TARGET_LINUX_RELEASE</code> : linux kernel release to build kernel modules against it.
+<li><code>TARGET_LINUX_RELEASE</code> : linux kernel release to build kernel modules against it.
 This variable can be used only if building for <code>native</code> target.
-</br>Default is <code>$(shell uname -r)</code>.</p></li>
+</br>Default is <code>$(shell uname -r)</code>.</li>
+<li><p><code>TARGET_NO_UNDEFINED</code> : Enable check of undefined symbols for dynamic libraries,
+which triggers error at dynamic libraries build.
+</br>Default is <code>1</code>.</p></li>
 <li><p><code>USE_CLANG</code> <code>TARGET_USE_CLANG</code>: Use clang instead of gcc for compilation.
 </br>Default is <code>0</code>.</p></li>
 <li><code>USE_CCACHE</code> : Use ccache to speed up compilation.
@@ -757,6 +763,15 @@ prerequisites to be sure they are generated at the correct time. An example will
 be headers installed in staging directories. If they are not explicitly
 specified in prerequisites export, it will not work in a parallel build.</p>
 
+<p>When generating a public sdk, the set of dependencies should be split in 2.</p>
+
+<ul>
+<li><code>LOCAL_PUBLIC_LIBRARIES</code>: list of public module whose headers may be used in
+public headers of the current module.</li>
+<li><code>LOCAL_PRIVATE_LIBRARIES</code>: list of private modules only used when compiling
+the current module.</li>
+</ul>
+
 <h4><code>LOCAL_CONDITIONAL_LIBRARIES</code></h4>
 
 <p>This is a list of pair <code>variable:module</code> to indicate that a module is needed
@@ -773,10 +788,10 @@ several pairs <code>variable:module</code>.</p>
 <p>Internally modules will be added to <code>LOCAL_LIBRARIES</code> if the variable is defined
 in the configuration.</p>
 
-<p>If <code>variable</code> is <code>OPTIONAL</code>, the module is put as a dependency only if it is in
-the build configuration. This allow to depends on a module only if it is
-enabled. The <code>kconfig</code> tools will not display this dependency, only the build
-system will use it.</p>
+<p>If <code>variable</code> is <code>OPTIONAL</code>, the module is put as a dependency if it is in
+the build configuration or if it is a host module. This allow to depends on a
+module only if it is enabled. The <code>kconfig</code> tools will not display this
+dependency, only the build system will use it.</p>
 
 <h4><code>LOCAL_DEPENDS_HEADERS</code></h4>
 
@@ -860,6 +875,23 @@ prepended for <code>dst</code>.</p>
 on the one copying the file. If you want to make sure that copied files are
 available for other module, either put copied files in <code>LOCAL_EXPORT_PREREQUISITES</code>
 or use <code>LOCAL_INSTALL_HEADERS</code>.</p>
+
+<h4><code>LOCAL_COPY_DIRS</code></h4>
+
+<p>List of directories to be copied in the staging directory. Directories are specified like
+this: <code>src:dst</code></p>
+
+<ul>
+<li><code>src</code> is the source directory, relative to <code>LOCAL_PATH</code>.</li>
+<li><code>dst</code> is the destination directory, relative to <code>TARGET_OUT_STAGING</code>.</li>
+</ul>
+
+<p>If <code>src</code> or <code>dst</code> start with a <code>'/'</code> it is assumed to be a full path, in this
+case <code>LOCAL_PATH</code> is not prepended for <code>src</code> and <code>TARGET_OUT_STAGING</code> is not
+prepended for <code>dst</code>.</p>
+
+<p>Internally it simply lists the content of the source directory and copy each file
+as if it was given in <code>LOCAL_COPY_FILES</code></p>
 
 <h4><code>LOCAL_CREATE_LINKS</code></h4>
 
@@ -1023,7 +1055,8 @@ argument and the list of files to format as its second argument.</p>
 <p>Available languages:
 * <code>C</code>: default formatter is <code>clang-format</code>.
 * <code>CXX</code>: default formatter is <code>clang-format</code>.
-* <code>OBJC</code>: default formatter is <code>clang-format</code>.</p>
+* <code>OBJC</code>: default formatter is <code>clang-format</code>.
+* <code>OBJCXX</code>: default formatter is <code>clang-format</code>.</p>
 
 <h4><code>LOCAL_CODECHECK_xxx</code> <code>LOCAL_CODECHECK_xxx_ARGS</code></h4>
 
@@ -1044,6 +1077,7 @@ argument and the list of files to check as its second argument.</p>
 * <code>C</code>: default checkers are <code>linux</code> and <code>clang-format</code>.
 * <code>CXX</code>: default checker is <code>clang-format</code>.
 * <code>OBJC</code>: default checker is <code>none</code>.
+* <code>OBJCXX</code>: default checker is <code>none</code>.
 * <code>VALA</code>: default checker is <code>valastyle</code>.
 * <code>FORTRAN</code>: default checker is <code>none</code>.</p>
 
@@ -1078,12 +1112,13 @@ specifying path under the <code>atom.mk</code>.</p>
 <p><strong>Note</strong> : The build directory and <code>LOCAL_PATH</code> are automatically added during
 compilation</p>
 
-<h4><code>LOCAL_ASFLAGS</code>, <code>LOCAL_CFLAGS</code>, <code>LOCAL_CXXFLAGS</code>, <code>LOCAL_OBJCFLAGS</code></h4>
+<h4><code>LOCAL_ASFLAGS</code>, <code>LOCAL_CFLAGS</code>, <code>LOCAL_CXXFLAGS</code>, <code>LOCAL_OBJCFLAGS</code>, <code>LOCAL_OBJCXXFLAGS</code></h4>
 
 <p>Flags to be passed during the compilation of source files. <code>LOCAL_ASFLAGS</code> is
 given only to <code>asm</code> files. <code>LOCAL_CFLAGS</code> is given to <strong>all</strong> files, whereas
 <code>LOCAL_CXXFLAGS</code> is given only to <code>c++</code> files, <code>LOCAL_OBJCFLAGS</code> to
-objective-C files and <code>LOCAL_FFLAGS</code> to Fortran files.</p>
+objective-C files, <code>LOCAL_OBJCXXFLAGS</code> is given only to <code>objc++</code> files and
+<code>LOCAL_FFLAGS</code> to Fortran files.</p>
 
 <p><strong>Note</strong> : some warning flags are automatically added by the build system,
 please do not add/remove any to let the build system decides which flags are
@@ -1618,6 +1653,10 @@ this folder in <code>$(TARGET_OUT)/$(TARGET_PRODUCT_FULL_NAME)</code>.</p>
 transparent for users, dependencies shall be specified in the same way. The only
 difference is that modules from <code>SDK</code> won't appear in global config and will not
 be built.</p>
+
+<p>The variable <code>TARGET_SDK_PUBLIC_MODULES</code> can be used to specify a subset of
+module to include in the generated sdk. It will also include recursively
+dependencies markes as <code>PUBLIC</code>.</p>
 
 <h2>Codecheck for C false positives or intentional deviations</h2>
 

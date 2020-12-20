@@ -31,6 +31,7 @@ endif
 MKUBIFS ?= $(wildcard /usr/sbin/mkfs.ubifs)
 UBINIZE ?= $(wildcard /usr/sbin/ubinize)
 VERITYSETUP ?= $(wildcard /sbin/veritysetup)
+MKE2FS ?= $(wildcard /sbin/mke2fs)
 
 ###############################################################################
 ## Generic image generation macro.
@@ -102,9 +103,15 @@ endef
 ###############################################################################
 gen-image-tar = $(call gen-image,tar,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
 gen-image-cpio = $(call gen-image,cpio,$1,$(TARGET_IMAGE_OPTIONS) --devnode "dev/console:622:0:0:c:5:1",$(empty))
+ifeq ("$(TARGET_IMAGE_FAST)","1")
+gen-image-ext2 = $(call gen-image,ext2,$1,$(TARGET_IMAGE_OPTIONS) --fast, MKE2FS=$(MKE2FS) fakeroot)
+gen-image-ext3 = $(call gen-image,ext3,$1,$(TARGET_IMAGE_OPTIONS) --fast, MKE2FS=$(MKE2FS) fakeroot)
+gen-image-ext4 = $(call gen-image,ext4,$1,$(TARGET_IMAGE_OPTIONS) --fast, MKE2FS=$(MKE2FS) fakeroot)
+else
 gen-image-ext2 = $(call gen-image,ext2,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
 gen-image-ext3 = $(call gen-image,ext3,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
 gen-image-ext4 = $(call gen-image,ext4,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
+endif
 gen-image-sext2 = $(call gen-image-sparse,ext2,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
 gen-image-sext3 = $(call gen-image-sparse,ext3,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
 gen-image-sext4 = $(call gen-image-sparse,ext4,$1,$(TARGET_IMAGE_OPTIONS),$(empty))
@@ -132,17 +139,29 @@ image-$1: __image-$1-internal
 	@echo "Image $1: done -> $(__image-$1-file)"
 image-$1-gz: __image-$1-internal
 	@echo "Image $1: compressing"
-	$(Q) gzip $(__image-$1-file)
+	$(Q) if [ "$(shell which pigz 2>/dev/null)" = "" ]; then \
+		gzip $(__image-$1-file); \
+	else \
+		pigz $(__image-$1-file); \
+	fi
 	@echo "Image $1: done -> $(__image-$1-file).gz"
 image-$1-bz2: __image-$1-internal
 	@echo "Image $1: compressing"
-	$(Q) bzip2 $(__image-$1-file)
+	$(Q) if [ "$(shell which pbzip2 2>/dev/null)" = "" ]; then \
+		bzip2 $(__image-$1-file); \
+	else \
+		pbzip2 $(__image-$1-file); \
+	fi
 	@echo "Image $1: done -> $(__image-$1-file).bz2"
 image-$1-zip: __image-$1-internal
 	@echo "Image $1: compressing"
+	$(Q) if [ "$(shell which pigz 2>/dev/null)" = "" ]; then \
+		zip --junk-paths $(__image-$1-file).zip $(__image-$1-file); \
+	else \
+		pigz --zip $(__image-$1-file) --stdout > $(__image-$1-file).zip; \
+	fi
 	$(Q) /sbin/blkid -c /dev/null -o value -s UUID $(__image-$1-file) | \
-		zip --archive-comment --junk-paths $(__image-$1-file).zip \
-			$(__image-$1-file)
+		zip --archive-comment $(__image-$1-file).zip
 	@echo "Image $1: done -> $(__image-$1-file).zip"
 image-$1-clean:
 	$(Q) rm -f $(__image-$1-file)

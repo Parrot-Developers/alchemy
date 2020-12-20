@@ -187,7 +187,7 @@ endif
 TARGET_CONFIG_PREFIX ?= Alchemy-config/
 TARGET_CONFIG_DIR ?= $(TOP_DIR)/$(TARGET_CONFIG_PREFIX)$(TARGET_PRODUCT_FULL_NAME)
 
-# Comptaiblity : use CONFIG_GLOBAL_FILE if defined
+# Comptatiblity : use CONFIG_GLOBAL_FILE if defined
 ifndef TARGET_GLOBAL_CONFIG_FILE
 ifdef CONFIG_GLOBAL_FILE
   TARGET_GLOBAL_CONFIG_FILE := $(CONFIG_GLOBAL_FILE)
@@ -331,6 +331,9 @@ TARGET_IMAGE_FORMAT ?= tar.gz
 # --size : size ((in bytes, suffixes K,M,G allowed)) of the image file
 # --sparse : generate a sparse image
 TARGET_IMAGE_OPTIONS ?=
+
+# Generate the image with mke2fs
+TARGET_IMAGE_FAST ?=
 
 # Customize how final tree is done (what will be filtered)
 # full: nothing filtered
