@@ -26,11 +26,9 @@ $(call register-prebuilt-pkg-config-module,opengles,glesv2)
 $(call register-prebuilt-pkg-config-module,opengl,gl)
 $(call register-prebuilt-pkg-config-module,libpng,libpng)
 $(call register-prebuilt-pkg-config-module,flann,flann)
-$(call register-prebuilt-pkg-config-module,glew,glew)
 $(call register-prebuilt-pkg-config-module,glu,glu)
 $(call register-prebuilt-pkg-config-module,sdl,sdl)
 $(call register-prebuilt-pkg-config-module,sdl-image,SDL_image)
-$(call register-prebuilt-pkg-config-module,freetype,freetype2)
 $(call register-prebuilt-pkg-config-module,libcrypto,libcrypto libssl)
 $(call register-prebuilt-pkg-config-module,egl,egl)
 ifeq ("$(shell pkg-config --exists opencv4; echo $$?)","1")
@@ -41,10 +39,8 @@ endif
 $(call register-prebuilt-pkg-config-module,libav-ffmpeg,libavcodec \
 	libavresample libavutil libavformat)
 
-include $(CLEAR_VARS)
-LOCAL_MODULE := libjpeg-turbo
-LOCAL_EXPORT_LDLIBS := -ljpeg
-$(call local-register-prebuilt-overridable)
+# merge libjpeg and libturbo-jpeg into the libjpeg-turbo name
+$(call register-prebuilt-pkg-config-module,libjpeg-turbo,libjpeg libturbojpeg)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libtiff

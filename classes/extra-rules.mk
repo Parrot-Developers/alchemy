@@ -44,7 +44,7 @@ $(LOCAL_MODULE)-doc:
 		echo "PROJECT_BRIEF=\"$(PRIVATE_DESCRIPTION)\""; \
 		echo "GENERATE_XML=YES"; \
 		echo "INPUT=$(PRIVATE_INPUT)"; \
-		echo "EXCLUDE_PATTERNS+=.git out sdk *.py"; \
+		echo "EXCLUDE_PATTERNS+=.git out sdk"; \
 		echo "OUTPUT_DIRECTORY=$(PRIVATE_DOC_DIR)"; \
 	) | doxygen - &> $(PRIVATE_DOC_DIR)/doxygen.log
 else

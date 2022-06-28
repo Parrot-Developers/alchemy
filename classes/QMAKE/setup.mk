@@ -7,7 +7,7 @@
 ###############################################################################
 
 # Update host compilation path
-_qmake_host_path := $(HOST_OUT_STAGING)/bin:$(HOST_OUT_STAGING)/$(HOST_DEFAULT_BIN_DESTDIR):$(PATH)
+_qmake_host_path := $(_autotools_host_path)
 
 # Update target compilation path (use host binaries)
 _qmake_target_path := $(_qmake_host_path)
@@ -144,6 +144,11 @@ define _internal-qmake-gen-deps
 		echo "INSTALLS += target"; \
 		echo "INCLUDEPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
 		echo "DEPENDPATH += $(PRIVATE_C_INCLUDES) $(TARGET_GLOBAL_C_INCLUDES)"; \
+		echo "QMAKE_CC = $(TARGET_CC)"; \
+		echo "QMAKE_CXX = $(TARGET_CXX)"; \
+		echo "QMAKE_LINK = $(TARGET_CXX)"; \
+		echo "QMAKE_LINK_C = $(TARGET_CC)"; \
+		echo "QMAKE_RC = $(TARGET_WINDRES)"; \
 		echo "QMAKE_CFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(TARGET_QMAKE_CFLAGS) $(PRIVATE_CFLAGS))"; \
 		echo "QMAKE_CXXFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(filter-out -std=%,$(TARGET_QMAKE_CFLAGS)))"; \
 		echo "QMAKE_CXXFLAGS += $(filter-out -O0 -O1 -O2 -O3,$(TARGET_GLOBAL_CXXFLAGS))"; \
@@ -189,6 +194,7 @@ define _qmake-def-cmd-configure
 	$(Q) cd $(PRIVATE_BUILD_DIR) \
 		&& $(TARGET_QMAKE_ENV) $(QMAKE) $(TARGET_QMAKE_ARG) \
 			$(PRIVATE_QMAKE_CONFIGURE_ARGS) \
+			$(if $(PRIVATE_HAS_QT_SYSROOT),$(empty),-early QMAKE_CC=$(TARGET_CC) QMAKE_CXX=$(TARGET_CXX)) \
 			$(if $(call is-path-absolute,$(PRIVATE_QMAKE_PRO_FILE)), \
 				$(PRIVATE_QMAKE_PRO_FILE) \
 				, \

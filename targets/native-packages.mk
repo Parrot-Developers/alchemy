@@ -11,6 +11,8 @@ LOCAL_PATH := $(call my-dir)
 ifeq ("$(TARGET_ARCH)","$(HOST_ARCH)")
 
 $(call register-prebuilt-pkg-config-module,expat,expat)
+$(call register-prebuilt-pkg-config-module,freetype,freetype2)
+$(call register-prebuilt-pkg-config-module,glew,glew)
 $(call register-prebuilt-pkg-config-module,glfw3,glfw3)
 $(call register-prebuilt-pkg-config-module,json,json-c)
 $(call register-prebuilt-pkg-config-module,libcunit,libcunit)

@@ -7,7 +7,7 @@
 ###############################################################################
 
 # Only if code coverage is in use
-ifeq ("$(USE_COVERAGE)","1")
+ifneq ("$(USE_COVERAGE)","0")
 
 ###############################################################################
 ## Create boxinit rc file to setup gcov output files.
@@ -55,5 +55,5 @@ coverage-copy-gcno: post-build
 pre-final: coverage-copy-gcno
 clobber: coverage-copy-gcno-clean
 
-endif # ifeq ("$(USE_COVERAGE)","1")
+endif # ifneq ("$(USE_COVERAGE)","0")
 

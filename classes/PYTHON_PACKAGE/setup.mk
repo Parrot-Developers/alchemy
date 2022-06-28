@@ -27,7 +27,13 @@ _python-pkg-copy-sysconfigdata = \
 		$(eval __src := $(wildcard $(__sdk)/$(TARGET_ROOT_DESTDIR)/lib/python$1/_sysconfigdata_*.py)) \
 		$(if $(__src), \
 			$(eval __dst := $(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)/lib/python$1/$(notdir $(__src))) \
-			$(shell mkdir -p $(dir $(__dst)); cp -af $(__src) $(__dst)) \
+			$(shell mkdir -p $(dir $(__dst)); \
+				cp -af $(__src) $(__dst).$$$$ &> /dev/null; \
+				if [ ! -f $(__dst) ]; then mv $(__dst).$$$$ $(__dst); \
+				elif ! cmp -s $(__dst).$$$$ $(__dst) &>/dev/null; then mv $(__dst).$$$$ $(__dst); \
+				else rm -f $(__dst).$$$$ &> /dev/null; \
+				fi; \
+			) \
 		) \
 	)
 

@@ -360,6 +360,7 @@ is-targets-in-make-goals = $(strip \
 ###############################################################################
 is-module-in-make-goals = $(strip \
 	$(call is-targets-in-make-goals,$1 $1-clean $1-dirclean $1-path $1-cloc $1-doc \
+		$1-config $1-menuconfig $1-xconfig \
 		$(call codecheck-get-targets,$1) \
 		$(call codeformat-get-targets,$1) \
 		$(call genproject-get-targets,$1)))
@@ -1280,6 +1281,42 @@ all-cxx-files-in = $(call all-files-in,$1,.cxx)
 all-cc-files-in = $(call all-files-in,$1,.cc)
 
 ###############################################################################
+## Search links matching an extension under LOCAL_PATH, recursively.
+###############################################################################
+
+# $1 : directory relative to LOCAL_PATH to search
+# $2 : extension to search (.c, .cpp ...)
+all-links-under = $(strip \
+	$(patsubst ./%,%, \
+		$(shell cd $(LOCAL_PATH); \
+			find $1 -type l -name "*$2" -and -not -name ".*") \
+	))
+
+# $1 : directory relative to LOCAL_PATH to search
+all-c-links-under = $(call all-links-under,$1,.c)
+all-cpp-links-under = $(call all-links-under,$1,.cpp)
+all-cxx-links-under = $(call all-links-under,$1,.cxx)
+all-cc-links-under = $(call all-links-under,$1,.cc)
+
+###############################################################################
+## Search links matching an extension under LOCAL_PATH, non-recursively.
+###############################################################################
+
+# $1 : directory relative to LOCAL_PATH to search
+# $2 : extension to search (.c, .cpp ...)
+all-links-in = $(strip \
+	$(patsubst ./%,%, \
+		$(shell cd $(LOCAL_PATH); \
+			find $1 -maxdepth 1 -type l -name "*$2" -and -not -name ".*") \
+	))
+
+# $1 : directory relative to LOCAL_PATH to search
+all-c-links-in = $(call all-links-in,$1,.c)
+all-cpp-links-in = $(call all-links-in,$1,.cpp)
+all-cxx-links-in = $(call all-links-in,$1,.cxx)
+all-cc-links-in = $(call all-links-in,$1,.cc)
+
+###############################################################################
 ## Check compilation flags for some forbidden stuff.
 ## $1 : variable to check (its name, not its value).
 ## $2 : list of flags to check for their presence in $1 (can be a pattern).
@@ -1326,10 +1363,13 @@ normalize-c-includes-rel = $(strip \
 
 # Same as normalize-c-includes but uses the -isystem instead of -I flag
 # Note gcc 4.4.3 of android seems to mess things up when this flag is uses in C++
+# Note yocto already includes a --sysroot which conflicts with the -isystem and
+# the #include_next macro
 # FIXME : adding a space between -isystem an the patch causes troubles when invoking
 # clangs' cpp (preprocessor) under darwin at least.
 normalize-system-c-includes = $(strip \
-	$(if $(call streq,$(TARGET_CC_VERSION),4.4.3), \
+	$(if $(or $(call streq,$(TARGET_CC_VERSION),4.4.3), \
+			$(call streq,$(TARGET_OS_FLAVOUR),yocto)), \
 		$(call normalize-c-includes,$1), \
 		\
 		$(foreach __inc,$1, \
@@ -1339,10 +1379,13 @@ normalize-system-c-includes = $(strip \
 
 # Same as normalize-c-includes-rel but uses the -isystem instead of -I flag
 # Note gcc 4.4.3 of android seems to mess things up when this flag is uses in C++
+# Note yocto already includes a --sysroot which conflicts with the -isystem and
+# the #include_next macro
 # FIXME : the extra space does not cause too much troubles for relative path it is
 # not used with the preprocessor (autotools only)
 normalize-system-c-includes-rel = $(strip \
-	$(if $(call streq,$(TARGET_CC_VERSION),4.4.3), \
+	$(if $(or $(call streq,$(TARGET_CC_VERSION),4.4.3), \
+			$(call streq,$(TARGET_OS_FLAVOUR),yocto)), \
 		$(call normalize-c-includes-rel,$1), \
 		\
 		$(foreach __inc,$1, \

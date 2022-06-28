@@ -212,8 +212,12 @@ endif
 # Skeleton directories
 TARGET_SKEL_DIRS ?=
 
-# Stip final directory
+# Strip final directory
 TARGET_NOSTRIP_FINAL ?= 0
+
+# Python specific: generate 'pyc' files
+TARGET_FINAL_PYTHON_GENERATE_PYC ?= 0
+TARGET_FINAL_PYTHON_REMOVE_PY ?= 0
 
 # Force compilation of all modules as static (disable shared libraries)
 TARGET_FORCE_STATIC ?= 0

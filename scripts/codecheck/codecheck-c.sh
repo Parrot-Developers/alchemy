@@ -15,6 +15,8 @@ for CHECKER in ${CHECKERS}; do
 			${FILES}
 	elif [ "${CHECKER}" = "clang-format" ]; then
 		${SCRIPT_PATH}/clang-format-check.sh "${FILES}" ${MODULE_DIR}
+	elif [ "${CHECKER}" = "gst" ]; then
+		${SCRIPT_PATH}/gst-indent-check.sh "${FILES}" ${MODULE_DIR}
 	else
 		echo "Unknown 'c' checker '${CHECKER}'"
 	fi

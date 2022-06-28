@@ -12,10 +12,12 @@
 
 MAKEFINAL_SCRIPT := $(BUILD_SYSTEM)/scripts/makefinal.py
 LDCONFIG := $(BUILD_SYSTEM)/scripts/ldconfig.py
+GENPYC_SCRIPT := $(BUILD_SYSTEM)/scripts/genpyc.py
 
 ifneq ("$(V)","0")
   MAKEFINAL_SCRIPT += -v
   LDCONFIG += -v
+  GENPYC_SCRIPT += -v
 endif
 
 MAKEFINAL_ARGS :=
@@ -104,6 +106,25 @@ endif
 		$(TARGET_OUT_STAGING) $(TARGET_OUT_FINAL) $(TARGET_OUT)/final.mk
 	$(Q) $(MAKE) -f $(TARGET_OUT)/final.mk
 	@mkdir -p $(TARGET_OUT_FINAL)/$(TARGET_DEFAULT_ETC_DESTDIR)
+ifeq ("$(TARGET_FINAL_PYTHON_GENERATE_PYC)","1")
+# Use compiled host version of python to generate pyc to make sure that at runtime
+# It works properly
+	$(Q) if [ -e $(HOST_OUT_STAGING)/usr/bin/python ]; then \
+		echo "Generating pyc files from python files"; \
+		$(HOST_OUT_STAGING)/usr/bin/python $(GENPYC_SCRIPT) \
+			--sysroot $(TARGET_OUT_FINAL) \
+			$(TARGET_OUT_FINAL); \
+	fi
+ifneq ("$(TARGET_FINAL_PYTHON_REMOVE_PY)","")
+# The '/' at the end of the directory is important in case it's a symlink
+	$(foreach __dir,$(TARGET_FINAL_PYTHON_REMOVE_PY), \
+		$(Q) if [ -d $(TARGET_OUT_FINAL)/$(__dir)/ ]; then \
+			echo "Removing '*.py' files from '$(__dir)' directory"; \
+			find $(TARGET_OUT_FINAL)/$(__dir)/ -name '*.py' -delete; \
+		fi$(endl) \
+	)
+endif
+endif
 ifeq ("$(TARGET_OS)","linux")
 ifeq ("$(is-full-system)","1")
 	@if [ ! -e $(TARGET_OUT_FINAL)/$(TARGET_DEFAULT_ETC_DESTDIR)/ld.so.conf ]; then \

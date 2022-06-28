@@ -57,7 +57,7 @@ endef
 define gen-image-verity
 	$(call gen-image,$1,$2.tmp,$3,$4)
 	$(Q) test -e "$(VERITYSETUP)" || (echo "Missing veritysetup" && false)
-	$(Q) $(VERITYSETUP) format --data-block-size=1024 --hash-offset=`stat -c "%s" $2.tmp` $2.tmp $2.tmp | $(VERITY_SCRIPT) > $(TARGET_OUT_FINAL)/boot/dm-verity-uboot-script.txt
+	$(Q) $(VERITYSETUP) format --data-block-size=1024 --hash-offset=`stat -c "%s" $2.tmp` $2.tmp $2.tmp | $(VERITY_SCRIPT) "$(TARGET_IMAGE_VERITY_OPTIONS)" > $(TARGET_OUT_FINAL)/boot/dm-verity-uboot-script.txt
 	$(Q) mv $2.tmp $2
 endef
 

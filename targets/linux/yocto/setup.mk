@@ -6,17 +6,15 @@
 ## Setup variables for linux/yocto target.
 ###############################################################################
 
-TARGET_LIBC := yocto
-
 YOCTO_SDK_DEFAULT_PATHS := \
 	/opt/poky* \
 	~/Library/poky* \
 	~/poky*
 
+ifndef TARGET_YOCTO_SDK
 TARGET_YOCTO_VERSION ?= 1.8
 
-ifndef TARGET_YOKTO_SDK
-TARGET_YOKTO_SDK := \
+TARGET_YOCTO_SDK := \
 	$(shell for path in $(wildcard $(YOCTO_SDK_DEFAULT_PATHS)) ; do \
 			if [ -e $$path/$(TARGET_YOCTO_VERSION) ]; then \
 				cd $$path && pwd && break; \
@@ -24,12 +22,12 @@ TARGET_YOKTO_SDK := \
 		done \
 	)
 endif
-ifeq ("$(wildcard $(TARGET_YOKTO_SDK))","")
-  $(error No Yocto SDK found, you need to set your Yocto SDK path in the TARGET_YOKTO_SDK variable)
+ifeq ("$(wildcard $(TARGET_YOCTO_SDK))","")
+  $(error No Yocto SDK found, you need to set your Yocto SDK path in the TARGET_YOCTO_SDK variable)
 endif
 
 # File containing env variables
-YOCTO_ENV_FILE := $(wildcard $(TARGET_YOKTO_SDK)/$(TARGET_YOCTO_VERSION)/environment-setup-*)
+YOCTO_ENV_FILE := $(wildcard $(TARGET_YOCTO_SDK)/$(TARGET_YOCTO_VERSION)/environment-setup-*-linux)
 
 # Yocto sdk target/host sysroot
 YOCTO_SDK_TARGET_SYSROOT := $(shell . $(YOCTO_ENV_FILE) && echo $$SDKTARGETSYSROOT)

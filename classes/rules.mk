@@ -347,6 +347,7 @@ ifeq ("$(and $(call is-module-external,$(LOCAL_MODULE)),$(call strneq,$(LOCAL_MO
   imported_CFLAGS        := $(call module-get-listed-export,$(all_depends),CFLAGS)
   imported_CXXFLAGS      := $(call module-get-listed-export,$(all_depends),CXXFLAGS)
   imported_C_INCLUDES    := $(call module-get-listed-export,$(all_depends),C_INCLUDES)
+  imported_LDFLAGS       := $(call module-get-listed-export,$(all_libs),LDFLAGS)
   imported_LDLIBS        := $(call module-get-listed-export,$(all_libs),LDLIBS)
 
   imported_CFLAGS += $(LOCAL_EXPORT_CFLAGS)
@@ -364,6 +365,7 @@ else
   imported_CFLAGS        := $(call module-get-listed-export,$(call filter-get-internal-modules,$(all_depends)),CFLAGS)
   imported_CXXFLAGS      := $(call module-get-listed-export,$(call filter-get-internal-modules,$(all_depends)),CXXFLAGS)
   imported_C_INCLUDES    := $(call module-get-listed-export,$(call filter-get-internal-modules,$(all_depends)),C_INCLUDES)
+  imported_LDFLAGS       := $(call module-get-listed-export,$(call filter-get-internal-modules,$(all_libs)),LDFLAGS)
   imported_LDLIBS        := $(call module-get-listed-export,$(call filter-get-internal-modules,$(all_libs)),LDLIBS)
 endif
 
@@ -388,9 +390,10 @@ LOCAL_CXXFLAGS := $(strip $(imported_CXXFLAGS) $(LOCAL_CXXFLAGS))
 # (this allows the module to override them)
 LOCAL_C_INCLUDES := $(strip $(LOCAL_C_INCLUDES) $(imported_C_INCLUDES))
 
-# Similarly, you want the imported/exported flags to appear _after_ the LOCAL_LDLIBS
-# due to the way Unix linkers work (depending libraries must appear before
-# dependees on final link command).
+# Similarly, you want the imported/exported flags to appear _after_ the
+# LOCAL_LDFLAGS and LOCAL_LDLIBS due to the way Unix linkers work (depending
+# libraries must appear before dependees on final link command).
+LOCAL_LDFLAGS := $(strip $(LOCAL_LDFLAGS) $(imported_LDFLAGS))
 LOCAL_LDLIBS := $(strip $(LOCAL_LDLIBS) $(imported_LDLIBS))
 
 # Simplify variable by keeping only first occurence of each item
@@ -450,8 +453,11 @@ ifneq ($(filter $(LOCAL_MODULE) 1,$(USE_UNDEFINED_SANITIZER)),)
   LOCAL_LDFLAGS += -fsanitize=undefined
 endif
 ifneq ($(filter $(LOCAL_MODULE) 1,$(USE_COVERAGE)),)
-  LOCAL_CFLAGS  += -fprofile-arcs -ftest-coverage -O0 -D__COVERAGE__
-  LOCAL_LDFLAGS += -fprofile-arcs -ftest-coverage
+  LOCAL_CFLAGS  += --coverage -D__COVERAGE__
+  LOCAL_LDFLAGS += --coverage
+  ifeq ($(filter optimized,$(USE_COVERAGE)),)
+    LOCAL_CFLAGS  += -O0 -U_FORTIFY_SOURCE
+  endif
 endif
 endif
 endif

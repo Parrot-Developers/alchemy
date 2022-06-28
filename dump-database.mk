@@ -12,6 +12,7 @@
 
 # Where to store the xml
 DUMP_DATABASE_XML_FILE := $(TARGET_OUT)/alchemy-database.xml
+DUMP_MODULES_FILE := $(TARGET_OUT)/alchemy-modules.csv
 
 # Mode used to dump the xml
 # - Dumping with 'info' is faster than with 'echo' but requires to wrap internally
@@ -219,3 +220,16 @@ dump-xml-clean:
 	$(Q) rm -f $(DUMP_DATABASE_XML_FILE)
 
 clobber: dump-xml-clean
+
+
+.PHONY: dump-modules
+dump-modules: dump-xml
+	$(Q) $(BUILD_SYSTEM)/scripts/genmodlist.py \
+		$(DUMP_DATABASE_XML_FILE) \
+		--output $(DUMP_MODULES_FILE)
+
+.PHONY: dump-modules-clean
+dump-modules-clean:
+	$(Q) rm -f $(DUMP_MODULES_FILE)
+
+clobber: dump-modules-clean

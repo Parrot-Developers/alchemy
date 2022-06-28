@@ -450,6 +450,8 @@ def processModule(ctx, module, headersOnly=False, publicOnly=False):
     if module.fields.get("SDK", ""):
         return
 
+    isHostModule = module.name.startswith("host.")
+
     logging.info("Processing module %s", module.name)
 
     # Remember modules not built but whose headers are required
@@ -466,10 +468,12 @@ def processModule(ctx, module, headersOnly=False, publicOnly=False):
     modulePath = module.fields["PATH"]
     moduleClass = module.fields["MODULE_CLASS"]
 
-    if module.name.startswith("host."):
+    if isHostModule:
         ctx.atom.write("LOCAL_HOST_MODULE := %s\n" % module.name[5:])
+        outIncludeDir = os.path.join(ctx.outDir, "host")
     else:
         ctx.atom.write("LOCAL_MODULE := %s\n" % module.name)
+        outIncludeDir = ctx.outDir
 
     # Write verbatim some fields
     fields = ["DESCRIPTION", "CATEGORY_PATH",
@@ -536,7 +540,7 @@ def processModule(ctx, module, headersOnly=False, publicOnly=False):
         exportedIncludeDirs = getExportedIncludes(ctx, module)
         for exportedInclude in exportedIncludeDirs:
             if exportedInclude[0] is not None:
-                copyHeaders(ctx, exportedInclude[0], os.path.join(ctx.outDir, exportedInclude[1]))
+                copyHeaders(ctx, exportedInclude[0], os.path.join(outIncludeDir, exportedInclude[1]))
             if os.path.isabs(exportedInclude[1]):
                 ctx.atom.write(" \\\n\t%s" % exportedInclude[1])
             elif exportedInclude[1] != "usr/include" or moduleClass == "LINUX_MODULE":
@@ -738,6 +742,27 @@ def checkTargetVar(ctx, name):
 
 #===============================================================================
 #===============================================================================
+def checkTargetCcVersion(ctx):
+    version = ctx.moduledb.targetVars.get("CC_VERSION", "")
+    allowOlder = ctx.moduledb.targetVars.get("SDK_ALLOW_OLDER_CC", "") == "1"
+    allowNewer = ctx.moduledb.targetVars.get("SDK_ALLOW_NEWER_CC", "") == "1"
+    if allowOlder and allowNewer:
+        # Everything allowed
+        return
+    if not allowOlder and not allowNewer:
+        # Strict match requested
+        checkTargetVar(ctx, "CC_VERSION")
+    if allowOlder:
+        ctx.atom.write("ifeq (\"$(call check-version,%s,$(TARGET_CC_VERSION))\",\"\")\n" % version)
+        ctx.atom.write("  $(error This sdk is for TARGET_CC_VERSION <= %s)\n" % version)
+        ctx.atom.write("endif\n\n")
+    if allowNewer:
+        ctx.atom.write("ifeq (\"$(call check-version,$(TARGET_CC_VERSION),%s)\",\"\")\n" % version)
+        ctx.atom.write("  $(error This sdk is for TARGET_CC_VERSION >= %s)\n" % version)
+        ctx.atom.write("endif\n\n")
+
+#===============================================================================
+#===============================================================================
 def writeTargetSetupVars(ctx, name, val):
     # Replace directory path referencing previous sdk or staging directory
     for dirPath in ctx.sdkDirs:
@@ -818,6 +843,11 @@ def computePrivateFiles(ctx):
             privateFiles.add(dst)
     return privateFiles
 
+def copyBuildProp(ctx):
+    srcBuildProp = os.path.join(ctx.stagingDir, 'etc', 'build.prop')
+    dstBuildProp = os.path.join(ctx.outDir, 'build.prop')
+    ctx.addFile(srcBuildProp, dstBuildProp)
+
 #===============================================================================
 # Main function.
 #===============================================================================
@@ -863,11 +893,12 @@ def main():
     # in the correct environment
     target_elements = [
         "OS", "OS_FLAVOUR",
-        "ARCH", "CPU", "CC_VERSION", "CC_FLAVOUR", "TOOLCHAIN_TRIPLET",
+        "ARCH", "CPU", "CC_FLAVOUR", "TOOLCHAIN_TRIPLET",
         "LIBC", "DEFAULT_ARM_MODE", "FLOAT_ABI"
     ]
     for element_to_check in target_elements:
         checkTargetVar(ctx, element_to_check)
+    checkTargetCcVersion(ctx)
 
     # Save initial TARGET_SETUP_XXX variables as TARGET_XXX
     for var in ctx.moduledb.targetSetupVars.keys():
@@ -906,6 +937,7 @@ def main():
         ctx.atom.write("\nendef\n")
         ctx.atom.write("$(call local-register-custom-macro,%s)\n" % macro.name)
 
+    copyBuildProp(ctx)
     ctx.finish()
 
 #===============================================================================

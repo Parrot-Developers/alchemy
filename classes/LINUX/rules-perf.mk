@@ -23,6 +23,11 @@ PERF_MAKE_ENV := \
 	LDFLAGS="$(TARGET_GLOBAL_LDFLAGS)" \
 	EXTRA_CFLAGS="$(TARGET_GLOBAL_CFLAGS) $(call normalize-system-c-includes,$(TARGET_GLOBAL_C_INCLUDES))"
 
+# Preserve CC from Yocto env (to preserve --sysroot)
+ifeq ("$(TARGET_OS_FLAVOUR)","yocto")
+PERF_MAKE_ENV += CC="$(TARGET_CC)"
+endif
+
 PERF_MAKE_ARGS := \
 	NO_DWARF=1 \
 	NO_NEWT=1 \

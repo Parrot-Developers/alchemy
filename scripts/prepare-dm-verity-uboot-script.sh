@@ -1,5 +1,7 @@
 #!/bin/bash
 
+VERITY_EXTRA=$1
+
 while read line; do
 	key=$(echo ${line} | cut -f1 -d':')
 	value=$(echo ${line} | cut -f2 -d':')
@@ -45,4 +47,4 @@ echo setenv verity_hash_block_sz ${HASH_BLOCK_SIZE}
 echo setenv verity_hash_alg ${HASH_ALG}
 echo setenv verity_salt ${SALT}
 echo setenv verity_root_hash ${ROOT_HASH}
-echo setenv verity_extra 
+echo setenv verity_extra ${VERITY_EXTRA}

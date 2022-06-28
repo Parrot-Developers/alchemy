@@ -286,7 +286,7 @@ def safeCreateFile(path):
     dirPath = os.path.dirname(path)
     if dirPath and not os.path.isdir(dirPath):
         os.makedirs(dirPath)
-    return open(path, "w")
+    return open(path, "w", newline="\n")
 
 #===============================================================================
 # Get the path to use for config edition.
@@ -318,7 +318,7 @@ def getDiffConfigPath(origPath):
 #===============================================================================
 def writeDiffConfig(configPath, diff):
     try:
-        diffFile = open(getDiffConfigPath(configPath), "w")
+        diffFile = open(getDiffConfigPath(configPath), "w", newline="\n")
         diffFile.writelines(diff)
         diffFile.close()
     except IOError as ex:

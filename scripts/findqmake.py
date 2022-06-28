@@ -27,8 +27,10 @@ def find_qmake_in_sdk(sdk):
 def find_qmake_in_sdk_root(sdkroot, options):
     # Get matching versions in reverse order to find highest one matching
     # the criteria
-    matches = [os.path.basename(x)
-            for x in glob.glob(os.path.join(sdkroot, options.version + "*"))]
+    matches = []
+    for version in options.version.split(","):
+        matches.extend([os.path.basename(x)
+                for x in glob.glob(os.path.join(sdkroot, version + "*"))])
     matches.sort(key=LooseVersion, reverse=True)
 
     for match in matches:
@@ -57,7 +59,8 @@ def check_qmake_version(qmake, version):
     except subprocess.SubprocessError:
         return False
     # Verify that it is compatible
-    return LooseVersion(actual_version) >= LooseVersion(version)
+    return any([LooseVersion(actual_version) >= LooseVersion(v)
+            for v in version.split(",")])
 
 
 def find_qmake(options):

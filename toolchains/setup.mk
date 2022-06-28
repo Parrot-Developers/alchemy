@@ -20,7 +20,8 @@ ifndef TARGET_TOOLCHAIN_TRIPLET
       __toolchain_triplet_cmd := $(TARGET_CROSS)gcc $(TARGET_GLOBAL_CFLAGS)
     endif
   endif
-  TARGET_TOOLCHAIN_TRIPLET := $(shell $(__toolchain_triplet_cmd) -print-multiarch 2>&1)
+  # Ignore line with error message indicating LD_PRELOAD issues
+  TARGET_TOOLCHAIN_TRIPLET := $(shell $(__toolchain_triplet_cmd) -print-multiarch 2>&1 | grep -v LD_PRELOAD)
   ifeq ("$(TARGET_TOOLCHAIN_TRIPLET)","")
     TARGET_TOOLCHAIN_TRIPLET := $(shell $(__toolchain_triplet_cmd) -dumpmachine)
   else ifneq ("$(findstring -print-multiarch,$(TARGET_TOOLCHAIN_TRIPLET))","")
@@ -81,6 +82,9 @@ ifeq ("$(TARGET_OS)","linux")
     __toolchain-sysroot-flags := $(TARGET_GLOBAL_CFLAGS)
     ifeq ("$(TARGET_ARCH)","arm")
       __toolchain-sysroot-flags += $(TARGET_GLOBAL_CFLAGS_$(TARGET_DEFAULT_ARM_MODE))
+    endif
+    ifeq ("$(TARGET_OS_FLAVOUR)","yocto")
+      __toolchain-sysroot-flags += $(call rest,$(TARGET_CC))
     endif
     TARGET_TOOLCHAIN_SYSROOT := $(shell $(TARGET_CROSS)gcc $(__toolchain-sysroot-flags) -print-sysroot)
     ifeq ("$(wildcard $(TARGET_TOOLCHAIN_SYSROOT))","")
