@@ -85,7 +85,7 @@ define _internal-transform-h-to-gch
 $(call _binary-print-banner1,Precompile,$3)
 $(Q) $(CCACHE) $(PRIVATE_CXX) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
-	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES),$1) \
 	$(filter-out -std=%,$(PRIVATE_GLOBAL_CFLAGS)) \
 	$(PRIVATE_GLOBAL_CXXFLAGS) \
 	$(PRIVATE_WARNINGS_CXXFLAGS) \
@@ -94,7 +94,7 @@ $(Q) $(CCACHE) $(PRIVATE_CXX) \
 	$($1_GLOBAL_PCHFLAGS) \
 	-MD -MP -MF $(call path-from-top,$(2:.gch=.d)) -MT $(call path-from-top,$2) \
 	-o $(call path-from-top,$2) \
-	$(call path-from-top,$3)
+	-c $(call path-from-top,$3)
 $(call fix-deps-file,$(2:.gch=.d))
 endef
 
@@ -115,7 +115,7 @@ define _binary-cmd-cpp-to-o-internal
 $(call _binary-print-banner1,C++,$3)
 $(Q) $(CCACHE) $(PRIVATE_CXX) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
-	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES),$1) \
 	$(filter-out $(_c++_filter_out_options),$(PRIVATE_GLOBAL_CFLAGS)) \
 	$(PRIVATE_GLOBAL_CXXFLAGS) \
 	$(PRIVATE_WARNINGS_CXXFLAGS) \
@@ -144,7 +144,7 @@ define _binary-cmd-c-to-o-internal
 $(call _binary-print-banner1,C,$3)
 $(Q) $(CCACHE) $(PRIVATE_CC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
-	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES),$1) \
 	$(PRIVATE_GLOBAL_CFLAGS) \
 	$(PRIVATE_WARNINGS_CFLAGS) \
 	$(PRIVATE_CFLAGS) \
@@ -168,7 +168,7 @@ define _binary-cmd-m-to-o-internal
 $(call _binary-print-banner1,ObjC,$3)
 $(Q) $(CCACHE) $(PRIVATE_CC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
-	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES),$1) \
 	$(filter-out -std=%,$(PRIVATE_GLOBAL_CFLAGS)) \
 	$($1_GLOBAL_OBJCFLAGS) \
 	$(PRIVATE_WARNINGS_CFLAGS) \
@@ -196,7 +196,7 @@ define _binary-cmd-mm-to-o-internal
 $(call _binary-print-banner1,ObjC++,$3)
 $(Q) $(CCACHE) $(PRIVATE_CXX) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
-	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES),$1) \
 	$(filter-out $(_objc++_filter_out_options),$(PRIVATE_GLOBAL_CFLAGS)) \
 	$($1_GLOBAL_OBJCXXFLAGS) \
 	$(PRIVATE_WARNINGS_CXXFLAGS) \
@@ -222,7 +222,7 @@ define _binary-cmd-s-to-o-internal
 $(call _binary-print-banner1,Asm,$3)
 $(Q) $(CCACHE) $(PRIVATE_CC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
-	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$($1_GLOBAL_C_INCLUDES),$1) \
 	$($1_GLOBAL_ASFLAGS) \
 	-D __ASSEMBLY__ \
 	$(filter-out -std=%,$(PRIVATE_GLOBAL_CFLAGS)) \
@@ -279,7 +279,7 @@ fi
 
 $(Q) $(TARGET_NVCC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
-	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES),TARGET) \
 	$(TARGET_GLOBAL_NVCFLAGS) \
 	$(PRIVATE_NVCFLAGS) \
 	-ccbin $(PRIVATE_NVCC_CC) \
@@ -288,7 +288,7 @@ $(Q) $(TARGET_NVCC) \
 
 @$(TARGET_NVCC) \
 	$(call normalize-c-includes-rel,$(PRIVATE_C_INCLUDES)) \
-	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES)) \
+	$(call normalize-system-c-includes-rel,$(TARGET_GLOBAL_C_INCLUDES),TARGET) \
 	$(TARGET_GLOBAL_NVCFLAGS) \
 	$(PRIVATE_NVCFLAGS) \
 	-ccbin $(PRIVATE_NVCC_CC) \

@@ -19,6 +19,7 @@ _classes_internal := \
 # module classes
 _classes_external := \
 	AUTOTOOLS \
+	MESON \
 	CMAKE \
 	QMAKE \
 	PYTHON_EXTENSION \

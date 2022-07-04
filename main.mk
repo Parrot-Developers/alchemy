@@ -13,7 +13,7 @@
 # Alchemy version
 ALCHEMY_VERSION_MAJOR := 1
 ALCHEMY_VERSION_MINOR := 3
-ALCHEMY_VERSION_REV   := 9
+ALCHEMY_VERSION_REV   := 10
 ALCHEMY_VERSION := $(ALCHEMY_VERSION_MAJOR).$(ALCHEMY_VERSION_MINOR).$(ALCHEMY_VERSION_REV)
 
 # Make sure SHELL is correctly set
@@ -213,6 +213,7 @@ endif
 # Makefile with the list of all makefiles available and include them
 USER_MAKEFILES_CACHE := $(TARGET_OUT_BUILD)/makefiles.mk
 USER_MAKEFILES :=
+internal-is-builtin := 0
 
 # Command to find files
 find-cmd := $(BUILD_SYSTEM)/scripts/findfiles.py \

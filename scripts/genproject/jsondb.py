@@ -10,13 +10,13 @@ CXX_EXTENSIONS = ['.cpp', '.cxx', '.cc',
 C_EXTENSIONS = ['.c', '.C']
 
 def _build_base_command_c(project):
-    base_command_c = ["cc -c"]
+    base_command_c = [project.get_target_var("CC"), "-c"]
     for include in project.includes:
         base_command_c.append("-I" + include)
     for autoconf_h_file in project.autoconf_h_files:
         base_command_c.append("-include " + autoconf_h_file)
     for define, value in project.defines_c.items():
-        if value is not '':
+        if value != '':
             base_command_c.append("-D%s=%s" % (define, value))
         else:
             base_command_c.append("-D%s" % (define))
@@ -25,7 +25,7 @@ def _build_base_command_c(project):
     return base_command_c
 
 def _build_base_command_cxx(project):
-    base_command_cxx = ["c++ -c"]
+    base_command_cxx = [project.get_target_var("CXX"), "-c"]
     for include in project.includes:
         base_command_cxx.append("-I" + include)
     for autoconf_h_file in project.autoconf_h_files:
@@ -34,7 +34,7 @@ def _build_base_command_cxx(project):
     defines.update(project.defines_c)
     defines.update(project.defines_cxx)
     for define, value in defines.items():
-        if value is not '':
+        if value != '':
             base_command_cxx.append("-D%s=%s" % (define, value))
         else:
             base_command_cxx.append("-D%s" % (define))
@@ -70,4 +70,4 @@ def generate(project):
                    "command": " ".join(command),
                    "file": source})
     with open(outfilepath, "w") as fd:
-        json.dump(db, fd, False, True, True, True, None, "\t")
+        json.dump(db, fd, indent=2)

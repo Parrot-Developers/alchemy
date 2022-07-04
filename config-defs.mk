@@ -100,7 +100,7 @@ __config-desc-escape = $(subst ",\",$(subst |,$(empty),$1))
 __generate-config-module-args = $(strip \
 	$(eval __mod := $1) \
 	$(eval __desc := $(call __config-desc-escape,$(__modules.$(__mod).DESCRIPTION))) \
-	$(if $(__CONFIG_DISABLE_RUNTIME_DEPS), \
+	$(if $(filter(1,$(__CONFIG_DISABLE_RUNTIME_DEPS))), \
 		$(eval __depends := $(call module-get-depends,$(__mod))) \
 		, \
 		$(eval __depends := $(call module-get-config-depends,$(__mod))) \
@@ -170,7 +170,7 @@ __call-confwrapper-args = \
 
 # With a temp file holding the (potentially) long arguments
 __call-confwrapper-file = \
-	$(eval __tmpfile := $(shell mktemp alchemy.tmp.XXXXXXXXXX)) \
+	$(eval __tmpfile := $(shell mktemp -t alchemy.tmp.XXXXXXXXXX)) \
 	$(file >$(__tmpfile),$(call __generate-config-args)) \
 	@( \
 		function cleanup { rm -f $(__tmpfile); }; \

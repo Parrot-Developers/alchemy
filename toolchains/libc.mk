@@ -115,17 +115,11 @@ $(foreach __f,$(_libc_usrlib_names), \
 	) \
 )
 
-# List of files to be put in /usr/lib/debug/lib and /usr/lib/debug/lib/<arch>
-_libc_lib_dbg_files :=
-_libc_lib_dbg_arch_files :=
-$(foreach __f,$(_libc_lib_names), \
-	$(eval _libc_lib_dbg_files += \
-		$(wildcard $(_libc_lib_dbg_dir)/$(__f)-*.so) \
-	) \
-	$(eval _libc_lib_dbg_arch_files += \
-		$(wildcard $(_libc_lib_dbg_arch_dir)/$(__f)-*.so) \
-	) \
-)
+# debug directories
+_libc_dbg_dirs := \
+	$(wildcard $(_libc_sysroot)/usr/lib/debug/.build-id) \
+	$(wildcard $(_libc_sysroot)/lib/.debug) \
+	$(wildcard $(_libc_sysroot)/usr/lib/.debug)
 
 # Some toolchains (like Linaro Toolchain 2014.04), store GCC support libraries
 # (libstdc++, ) outside of the sysroot
@@ -151,8 +145,6 @@ _libc_lib_files := $(filter-out %.py,$(_libc_lib_files))
 _libc_lib_arch_files := $(filter-out %.py,$(_libc_lib_arch_files))
 _libc_usrlib_files := $(filter-out %.py,$(_libc_usrlib_files))
 _libc_usrlib_arch_files := $(filter-out %.py,$(_libc_usrlib_arch_files))
-_libc_lib_dbg_files := $(filter-out %.py,$(_libc_lib_dbg_files))
-_libc_lib_dbg_arch_files := $(filter-out %.py,$(_libc_lib_dbg_arch_files))
 
 # Timezone data
 _libc_tzdata :=
@@ -197,8 +189,10 @@ $(_libc_installed_file): $(BUILD_SYSTEM)/toolchains/libc.mk
 	$(call _libc_copy_files,$(_libc_lib_arch_files),lib/$(_libc_arch_subdir))
 	$(call _libc_copy_files,$(_libc_usrlib_files),usr/lib)
 	$(call _libc_copy_files,$(_libc_usrlib_arch_files),usr/lib/$(_libc_arch_subdir))
-	$(call _libc_copy_files,$(_libc_lib_dbg_files),usr/lib/debug/lib)
-	$(call _libc_copy_files,$(_libc_lib_dbg_arch_files),usr/lib/debug/lib/$(_libc_arch_subdir))
+	$(foreach __d,$(_libc_dbg_dirs), \
+		@mkdir -p $(TARGET_OUT_STAGING)$(patsubst $(_libc_sysroot)%,%,$(__d))$(endl) \
+		$(Q) cp -Raf $(__d)/* $(TARGET_OUT_STAGING)$(patsubst $(_libc_sysroot)%,%,$(__d))/$(endl) \
+	)
 	$(if $(_libc_tzdata), \
 		@mkdir -p $(TARGET_OUT_STAGING)/usr/share/zoneinfo$(endl) \
 		$(Q) cp -Raf $(_libc_tzdata)/* $(TARGET_OUT_STAGING)/usr/share/zoneinfo$(endl) \

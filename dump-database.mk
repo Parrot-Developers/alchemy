@@ -191,7 +191,7 @@ else ifdef __dump_xml_with_info
 	@# Force passing TARGET_ARCH because it was unexported in setup.mk
 	+@( \
 		set -e; \
-		tmpfile=$$(mktemp tmp.XXXXXXXXXX); \
+		tmpfile=$$(mktemp -t tmp.XXXXXXXXXX); \
 		function cleanup { rm -f $${tmpfile}; }; \
 		trap cleanup SIGINT SIGTERM; \
 		$(filter-out $(MAKECMDGOALS),$(ALCHEMAKE_CMDLINE)) \

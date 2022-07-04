@@ -450,6 +450,10 @@ def processModule(ctx, module, headersOnly=False, publicOnly=False):
     if module.fields.get("SDK", ""):
         return
 
+    # Skip builtin modules (but keep libc)
+    if module.fields.get("BUILTIN", "") == "1" and module.name != "libc":
+        return
+
     isHostModule = module.name.startswith("host.")
 
     logging.info("Processing module %s", module.name)
@@ -764,16 +768,26 @@ def checkTargetCcVersion(ctx):
 #===============================================================================
 #===============================================================================
 def writeTargetSetupVars(ctx, name, val):
+    optionalCross = ctx.moduledb.targetVars.get("SDK_OPTIONAL_CROSS", "") == "1"
     # Replace directory path referencing previous sdk or staging directory
     for dirPath in ctx.sdkDirs:
         val = val.replace(dirPath, "$(LOCAL_PATH)")
     val = val.replace(ctx.stagingDir, "$(LOCAL_PATH)")
+
+    if name == "CROSS" and val and optionalCross:
+        crossDir = os.path.dirname(val)
+        ctx.setup.write("ifneq (\"$(wildcard %s)\",\"\")\n" % crossDir)
+
     ctx.setup.write("TARGET_%s :=" % name)
     for field in val.split():
         if field.startswith("-"):
             ctx.setup.write(" \\\n\t%s" % field)
         else:
             ctx.setup.write(" %s" % field)
+
+    if name == "CROSS" and val and optionalCross:
+        ctx.setup.write("\nendif")
+
     ctx.setup.write("\n\n")
 
 #===============================================================================

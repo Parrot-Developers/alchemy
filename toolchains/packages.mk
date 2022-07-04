@@ -6,6 +6,8 @@
 ## Additional packages for toolchain.
 ###############################################################################
 
+internal-is-builtin := 1
+
 # Only include libc if not already present in a used sdk
 is-full-system := 0
 ifneq ("$(TOOLCHAIN_LIBC)","")
@@ -17,3 +19,5 @@ endif
 
 # Include os specific packages
 -include $(BUILD_SYSTEM)/toolchains/$(TARGET_OS)/packages.mk
+
+internal-is-builtin := 0

@@ -8,6 +8,14 @@ if [ -f configure ]; then
 	fi
 fi
 
+# Is there a meson.build ?
+if [ -f meson.build ]; then
+	version=$(head -n 10 meson.build | grep -w version)
+	if [ "${version}" != "" ]; then
+		version=$(echo ${version} | grep -w version | sed "s/version *: *'\([^']*\)',\?/\1/g")
+	fi
+fi
+
 # Is this a linux module ?
 if [ "$1" = "linux" -a -f Makefile ]; then
 	major=$(grep "^VERSION = " Makefile | sed "s/VERSION = \(.*\)/\1/g")

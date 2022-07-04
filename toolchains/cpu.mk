@@ -107,6 +107,51 @@ ifeq ("$(TARGET_CPU)","apq8009")
   TARGET_FLOAT_ABI ?= hard
 endif
 
+ifeq ("$(TARGET_CPU)","apq8053")
+  cpu_flags += -march=armv8-a+crc -mtune=cortex-a53
+  TARGET_CPU_HAS_NEON := 1
+  ifneq ("$(TARGET_ARCH)","aarch64")
+    cpu_flags += -mfpu=crypto-neon-fp-armv8
+    TARGET_FLOAT_ABI ?= hard
+  endif
+endif
+
+ifeq ("$(TARGET_CPU)","apq8096")
+  cpu_flags += -march=armv8-a+crc
+  TARGET_CPU_HAS_NEON := 1
+  ifneq ("$(TARGET_ARCH)","aarch64")
+    cpu_flags += -mfpu=crypto-neon-fp-armv8
+    TARGET_FLOAT_ABI ?= hard
+  endif
+endif
+
+###############################################################################
+# Hisilicon cpus.
+###############################################################################
+
+ifeq ("$(TARGET_CPU)","hi3559")
+  cpu_flags += -mcpu=cortex-a73.cortex-a53
+  TARGET_CPU_HAS_NEON := 1
+  ifneq ("$(TARGET_ARCH)","aarch64")
+    TARGET_FLOAT_ABI ?= hard
+  endif
+endif
+
+ifeq ("$(TARGET_CPU)","hi3559-a53")
+  cpu_flags += -mcpu=cortex-a53
+  TARGET_CPU_HAS_NEON := 1
+  ifneq ("$(TARGET_ARCH)","aarch64")
+    TARGET_FLOAT_ABI ?= hard
+  endif
+endif
+
+ifeq ("$(TARGET_CPU)","hi3559-m7")
+  cpu_flags += -march=armv7e-m -mtune=cortex-m7
+  cpu_flags += -mfpu=fpv4-sp-d16
+  TARGET_DEFAULT_ARM_MODE ?= thumb
+  TARGET_FLOAT_ABI ?= hard
+endif
+
 ###############################################################################
 # Generic cpus.
 ###############################################################################
@@ -141,6 +186,12 @@ endif
 
 ifeq ("$(TARGET_CPU)", "cortex-m0")
   cpu_flags += -mcpu=cortex-m0
+  TARGET_DEFAULT_ARM_MODE ?= thumb
+  TARGET_FLOAT_ABI ?= soft
+endif
+
+ifeq ("$(TARGET_CPU)", "cortex-m0plus")
+  cpu_flags += -mcpu=cortex-m0plus
   TARGET_DEFAULT_ARM_MODE ?= thumb
   TARGET_FLOAT_ABI ?= soft
 endif

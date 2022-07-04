@@ -198,7 +198,7 @@ TARGET_GLOBAL_LDFLAGS += $(__extra-target-ldflags)
 ifeq ("$(TARGET_OS)","linux")
 ifneq ("$(TARGET_OS_FLAVOUR)","android")
 TARGET_LOADER := $(strip $(shell \
-	tmpfile=$$(mktemp tmp.XXXXXXXXXX); \
+	tmpfile=$$(mktemp -t tmp.XXXXXXXXXX); \
 	echo 'int main(){return 0;}' | \
 	$(TARGET_CC) $(TARGET_GLOBAL_CFLAGS) \
 		-o $${tmpfile} -xc -; \

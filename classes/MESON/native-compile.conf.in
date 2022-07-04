@@ -1,0 +1,16 @@
+[binaries]
+c = '@HOST_CC@'
+cpp = '@HOST_CXX@'
+ar = '@HOST_AR@'
+strip = '@HOST_STRIP@'
+pkgconfig = '@PKGCONFIG_BIN@'
+
+[built-in options]
+c_args = [@MESON_C_ARGS@]
+c_link_args = [@MESON_C_LINK_ARGS@]
+cpp_args = [@MESON_CPP_ARGS@]
+cpp_link_args = [@MESON_CPP_LINK_ARGS@]
+wrap_mode = 'nodownload'
+
+[properties]
+pkg_config_libdir = '@HOST_PKG_CONFIG_PATH@'

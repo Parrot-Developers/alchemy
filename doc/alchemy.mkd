@@ -577,7 +577,7 @@ include $(BUILD_XXX)
 See below for possible `BUILD_XXX` values
 
 During module definition, only `LOCAL_XXX` variables shall be modified (except
-`LOCAL_PATH` set at the beginning of the `atom.k` file). It is also possible to
+`LOCAL_PATH` set at the beginning of the `atom.mk` file). It is also possible to
 define module specific variables by prefixing them with the module name. However,
 their use shall be limited to the scope of the `atom.mk` file where they are
 defined. No reference to a variable declared by another `atom.mk` file shall
@@ -1351,12 +1351,12 @@ one from the `native` host)
 For `native` build it is possible to simplify things and skip the compilation of python.
 You can simply create symlinks in staging directory to the python executable to use.
 Or you can use virtual env to install a dedicated python environment in the staging directory.
-An example of such `atom.k` is available here [python-native-atom.mk](python-native-atom.mk).
+An example of such `atom.mk` is available here [python-native-atom.mk](python-native-atom.mk).
 
 #### Customization variables
 
 * `LOCAL_PYTHONPKG_TYPE` : Type of the package (`distutils` or `setuptools`), mandatory.
-* `LOCAL_PYTHONPKG_SETUP_PY` : Name of the `setup.py` script to execute (relative to `LOCAL_PATH').
+* `LOCAL_PYTHONPKG_SETUP_PY` : Name of the `setup.py` script to execute (relative to `LOCAL_PATH`).
   Default is `setup.py`.
 * `LOCAL_PYTHONPKG_ENV` : Optional extra environment for build/install.
 * `LOCAL_PYTHONPKG_BUILD_ARGS` : Optional extra build arguments.
@@ -1541,6 +1541,11 @@ dependencies markes as `PUBLIC`.
 By default the generated sdk can only be used by the exact same environment and
 in particular the same version of the compiler. Variable `TARGET_SDK_ALLOW_OLDER_CC`
 and/or `TARGET_SDK_ALLOW_NEWER_CC` can be set to `1` to extend the compatibility.
+
+Also, the `setup.mk` in generated sdk will contain the value of `TARGET_CROSS`.
+If the sdk is allowed to be used in other environment, vthe variable
+`TARGET_SDK_OPTIONAL_CROSS` can be set to 1 to check for existence silently
+and fallback on local toolchain in `PATH`.
 
 ## Codecheck for C false positives or intentional deviations
 

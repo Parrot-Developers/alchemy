@@ -44,10 +44,12 @@ ifneq ("$(_python-pkg-use-native-python)","")
 _python-pkg-build-args :=
 
 ifeq ("$(_mode_host)","")
-  _python-pkg-env := $(TARGET_AUTOTOOLS_CONFIGURE_ENV)
+  _python-pkg-env := $(TARGET_AUTOTOOLS_CONFIGURE_ENV) \
+     DEB_PYTHON_INSTALL_LAYOUT='deb'
   _python-pkg-install-args := --prefix="$(TARGET_OUT_STAGING)/$(TARGET_ROOT_DESTDIR)"
 else
-  _python-pkg-env := $(HOST_AUTOTOOLS_CONFIGURE_ENV)
+  _python-pkg-env := $(HOST_AUTOTOOLS_CONFIGURE_ENV) \
+     DEB_PYTHON_INSTALL_LAYOUT='deb'
   _python-pkg-install-args := --prefix="$(HOST_OUT_STAGING)/$(HOST_ROOT_DESTDIR)"
 endif
 
@@ -66,6 +68,8 @@ else ifeq ("$(_mode_host)","")
 _python-pkg-env := \
 	$(TARGET_AUTOTOOLS_CONFIGURE_ENV) \
 	PYTHONNOUSERSITE=1 \
+	SETUPTOOLS_USE_DISTUTILS=stdlib \
+	DEB_PYTHON_INSTALL_LAYOUT='deb' \
 	_python_sysroot="$(TARGET_OUT_STAGING)" \
 	_python_prefix="/$(TARGET_ROOT_DESTDIR)" \
 	_python_exec_prefix="/$(TARGET_ROOT_DESTDIR)"
@@ -90,7 +94,8 @@ else
 
 _python-pkg-env := \
 	$(HOST_AUTOTOOLS_CONFIGURE_ENV) \
-	PYTHONNOUSERSITE=1
+	PYTHONNOUSERSITE=1 \
+	SETUPTOOLS_USE_DISTUTILS=stdlib
 
 _python-pkg-build-args := \
 
@@ -118,6 +123,14 @@ endif
 ifneq ("$(strip $(_external_add_LDFLAGS))","")
   _python-pkg-env += LDFLAGS="$$LDFLAGS $(_external_add_LDFLAGS)"
 endif
+
+# Remove -Wl,--unresolved-symbols=ignore-in-shared-libs from LDFLAGS found in env
+# Under linux, python extensions .so do not link anymore with -lpython as they
+# assume all symbols will be found in the main executable
+# The flag may be included in TARGET_GLOBAL_LDFLAGS in some configuration, so
+# remove them here
+_python-pkg-remove-ldflags := -Wl,--unresolved-symbols=ignore-in-shared-libs
+_python-pkg-env := $(filter-out $(_python-pkg-remove-ldflags),$(_python-pkg-env))
 
 include $(BUILD_SYSTEM)/classes/GENERIC/rules.mk
 

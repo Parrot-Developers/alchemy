@@ -92,6 +92,8 @@ include $(BUILD_EXECUTABLE)
 ###############################################################################
 # nconf
 ###############################################################################
+ifneq ("$(TARGET_OS)","darwin")
+
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := nconf
@@ -100,19 +102,28 @@ LOCAL_SRC_FILES := nconf.c nconf.gui.c
 LOCAL_LIBRARIES := parser ncurses
 include $(BUILD_EXECUTABLE)
 
+endif
+
 ###############################################################################
 # qconf
 ###############################################################################
 QCONF_PKG := Qt5Core Qt5Gui Qt5Widgets
 
-ifeq ("$(shell pkg-config --exists $(QCONF_PKG); echo $$?)","0")
+ifeq ("$(TARGET_OS)","darwin")
+  QCONF_PKG_CONFIG_PATH := /usr/local/opt/qt5/lib/pkgconfig
+else
+  QCONF_PKG_CONFIG_PATH :=
+endif
+QCONF_PKG_CONFIG := PKG_CONFIG_PATH=$(QCONF_PKG_CONFIG_PATH) pkg-config
+
+ifeq ("$(shell $(QCONF_PKG_CONFIG) --exists $(QCONF_PKG); echo $$?)","0")
 
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := qconf
 QCONF_BUILD_DIR := $(call local-get-build-dir)
-LOCAL_CFLAGS := $(shell pkg-config $(QCONF_PKG) --cflags)
-LOCAL_LDLIBS := $(shell pkg-config $(QCONF_PKG) --libs)
+LOCAL_CFLAGS := $(shell $(QCONF_PKG_CONFIG) $(QCONF_PKG) --cflags)
+LOCAL_LDLIBS := $(shell $(QCONF_PKG_CONFIG) $(QCONF_PKG) --libs)
 LOCAL_SRC_FILES := qconf.cc
 LOCAL_LIBRARIES := parser
 
@@ -120,11 +131,12 @@ ifeq ("$(TARGET_ARCH)","x86")
   LOCAL_CFLAGS += -fPIC
 endif
 
-QCONF_MOC := $(shell pkg-config Qt5Core --variable=host_bins)/moc
+QCONF_MOC := $(shell $(QCONF_PKG_CONFIG) Qt5Core --variable=host_bins)/moc
 LOCAL_PREREQUISITES := $(QCONF_BUILD_DIR)/qconf.moc
 
 # Too many warnings due to compat stuff
 LOCAL_CFLAGS += -Wno-overloaded-virtual
+LOCAL_CXXFLAGS += -std=c++11
 
 $(QCONF_BUILD_DIR)/qconf.moc: qconf.h
 	@mkdir -p $(dir $@)

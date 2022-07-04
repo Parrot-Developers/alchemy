@@ -636,7 +636,7 @@ include $(BUILD_XXX)
 <p>See below for possible <code>BUILD_XXX</code> values</p>
 
 <p>During module definition, only <code>LOCAL_XXX</code> variables shall be modified (except
-<code>LOCAL_PATH</code> set at the beginning of the <code>atom.k</code> file). It is also possible to
+<code>LOCAL_PATH</code> set at the beginning of the <code>atom.mk</code> file). It is also possible to
 define module specific variables by prefixing them with the module name. However,
 their use shall be limited to the scope of the <code>atom.mk</code> file where they are
 defined. No reference to a variable declared by another <code>atom.mk</code> file shall
@@ -1456,14 +1456,14 @@ one from the <code>native</code> host)</p>
 <p>For <code>native</code> build it is possible to simplify things and skip the compilation of python.
 You can simply create symlinks in staging directory to the python executable to use.
 Or you can use virtual env to install a dedicated python environment in the staging directory.
-An example of such <code>atom.k</code> is available here <a href="python-native-atom.mk">python-native-atom.mk</a>.</p>
+An example of such <code>atom.mk</code> is available here <a href="python-native-atom.mk">python-native-atom.mk</a>.</p>
 
 <h4>Customization variables</h4>
 
 <ul>
 <li><code>LOCAL_PYTHONPKG_TYPE</code> : Type of the package (<code>distutils</code> or <code>setuptools</code>), mandatory.</li>
-<li><code>LOCAL_PYTHONPKG_SETUP_PY</code> : Name of the <code>setup.py</code> script to execute (relative to <code>LOCAL_PATH').
-Default is</code>setup.py`.</li>
+<li><code>LOCAL_PYTHONPKG_SETUP_PY</code> : Name of the <code>setup.py</code> script to execute (relative to <code>LOCAL_PATH</code>).
+Default is <code>setup.py</code>.</li>
 <li><code>LOCAL_PYTHONPKG_ENV</code> : Optional extra environment for build/install.</li>
 <li><code>LOCAL_PYTHONPKG_BUILD_ARGS</code> : Optional extra build arguments.</li>
 <li><code>LOCAL_PYTHONPKG_INSTALL_ARGS</code> : Optional extra install arguments.</li>
@@ -1661,6 +1661,11 @@ dependencies markes as <code>PUBLIC</code>.</p>
 <p>By default the generated sdk can only be used by the exact same environment and
 in particular the same version of the compiler. Variable <code>TARGET_SDK_ALLOW_OLDER_CC</code>
 and/or <code>TARGET_SDK_ALLOW_NEWER_CC</code> can be set to <code>1</code> to extend the compatibility.</p>
+
+<p>Also, the <code>setup.mk</code> in generated sdk will contain the value of <code>TARGET_CROSS</code>.
+If the sdk is allowed to be used in other environment, vthe variable
+<code>TARGET_SDK_OPTIONAL_CROSS</code> can be set to 1 to check for existence silently
+and fallback on local toolchain in <code>PATH</code>.</p>
 
 <h2>Codecheck for C false positives or intentional deviations</h2>
 

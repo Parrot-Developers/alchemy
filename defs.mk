@@ -92,7 +92,8 @@ strneq = $(call not,$(call streq,$1,$2))
 # Check that a version is at least the one given.
 # $1 : version.
 # $2 : minimum version.
-check-version = $(call strneq,0,$(shell expr $1 \>= $2))
+check-version = $(call streq,ge,$(shell printf "$1\n$2\n" \
+	| sort --version-sort --reverse --check=silent && echo "ge"))
 
 # Make sure an item appears only once in a list, keeping only the first reference.
 # $1 : input list.
@@ -163,6 +164,14 @@ escape-xml = $(subst ",&quot;,$(subst ',&apos;,$(subst >,&gt;,$(subst <,&lt;,$(s
 # Note: for some strange reasons, a '\' shall be written as '\\\\' to be correctly
 # interpreted. Mainly seen if a '\1' has to be written.
 escape-echo = $(subst ",\",$(subst $(dollar),\$(dollar),$(subst $(endl),\n,$(subst \,\\\\,$1))))
+
+# Build a comma-separated list of items, from a space-separated
+# list of items:   a b c d  -->  a, b, c, d
+make-comma-list = $(subst $(space),$(comma)$(space),$(strip $1))
+
+# Build a comma-separated list of single-quoted items, from a space-separated
+# list of unquoted items:   a b c d  -->  'a', 'b', 'c', 'd'
+make-sq-comma-list = $(call make-comma-list,$(patsubst %,'%',$(strip $1)))
 
 ###############################################################################
 ## Call a function(macro) for each variable in a variable list.
@@ -261,6 +270,7 @@ module-add = \
 	) \
 	$(if $(LOCAL_HOST_MODULE), \
 		$(if $(or $(call streq,$(LOCAL_MODULE_CLASS),AUTOTOOLS), \
+				$(call streq,$(LOCAL_MODULE_CLASS),MESON), \
 				$(call streq,$(LOCAL_MODULE_CLASS),CUSTOM), \
 				$(call streq,$(LOCAL_MODULE_CLASS),EXECUTABLE), \
 				$(call streq,$(LOCAL_MODULE_CLASS),STATIC_LIBRARY), \
@@ -268,7 +278,7 @@ module-add = \
 				$(call streq,$(LOCAL_MODULE_CLASS),META_PACKAGE), \
 				$(call streq,$(LOCAL_MODULE_CLASS),PYTHON_PACKAGE)), \
 			$(eval LOCAL_MODULE := host.$(LOCAL_MODULE)), \
-			$(error $(LOCAL_PATH): Only AUTOTOOLS/CUSTOM/EXECUTABLE/STATIC_LIBRARY/PREBUILT/META_PACKAGE/PYTHON_PACKAGE supported for host modules) \
+			$(error $(LOCAL_PATH): Only AUTOTOOLS/MESON/CUSTOM/EXECUTABLE/STATIC_LIBRARY/PREBUILT/META_PACKAGE/PYTHON_PACKAGE supported for host modules) \
 		) \
 	) \
 	$(eval __mod := $(LOCAL_MODULE)) \
@@ -298,6 +308,7 @@ module-add = \
 		) \
 	) \
 	$(if $(call streq,$(__add),1), \
+		$(if $(call streq,$(internal-is-builtin),1),$(eval LOCAL_BUILTIN := 1)) \
 		$(if $(LOCAL_EXPORT_CUSTOM_VARIABLES), \
 			$(eval LOCAL_EXPORT_CUSTOM_VARIABLES := $(LOCAL_EXPORT_CUSTOM_VARIABLES);)\
 		) \
@@ -383,13 +394,14 @@ is-module-list-registered = $(call not,$(strip $(foreach __lib,$1, \
 ###############################################################################
 ## Check if a module is built externally (by autotools or custom rules).
 ## $1 : module to check.
-## AUTOTOOLS/CMAKE/QMAKE/PYTHON_EXTENSION/GENERIC/CUSTOM/META_PACKAGE class or empty
+## AUTOTOOLS/MESON/CMAKE/QMAKE/PYTHON_EXTENSION/GENERIC/CUSTOM/META_PACKAGE class or empty
 ## class means external.
 ## TODO: Use _classes_external list instead
 ###############################################################################
 is-module-external = $(strip \
 	$(eval __class := $(__modules.$1.MODULE_CLASS)) \
 	$(or $(call streq,$(__class),AUTOTOOLS), \
+		$(call streq,$(__class),MESON), \
 		$(call streq,$(__class),CMAKE), \
 		$(call streq,$(__class),QMAKE), \
 		$(call streq,$(__class),PYTHON_EXTENSION), \
@@ -1367,9 +1379,13 @@ normalize-c-includes-rel = $(strip \
 # the #include_next macro
 # FIXME : adding a space between -isystem an the patch causes troubles when invoking
 # clangs' cpp (preprocessor) under darwin at least.
+# $2 can be HOST or TARGET. if empty TARGET is assumed
 normalize-system-c-includes = $(strip \
-	$(if $(or $(call streq,$(TARGET_CC_VERSION),4.4.3), \
-			$(call streq,$(TARGET_OS_FLAVOUR),yocto)), \
+	$(if $(and $(call strneq,$2,HOST), \
+		$(or $(call streq,$(TARGET_CC_VERSION),4.4.3), \
+			$(call streq,$(TARGET_CC_VERSION),4.9.3), \
+			$(call streq,$(TARGET_OS_FLAVOUR),yocto)) \
+		), \
 		$(call normalize-c-includes,$1), \
 		\
 		$(foreach __inc,$1, \
@@ -1383,9 +1399,13 @@ normalize-system-c-includes = $(strip \
 # the #include_next macro
 # FIXME : the extra space does not cause too much troubles for relative path it is
 # not used with the preprocessor (autotools only)
+# $2 can be HOST or TARGET. if empty TARGET is assumed
 normalize-system-c-includes-rel = $(strip \
-	$(if $(or $(call streq,$(TARGET_CC_VERSION),4.4.3), \
-			$(call streq,$(TARGET_OS_FLAVOUR),yocto)), \
+	$(if $(and $(call strneq,$2,HOST), \
+		$(or $(call streq,$(TARGET_CC_VERSION),4.4.3), \
+			$(call streq,$(TARGET_CC_VERSION),4.9.3), \
+			$(call streq,$(TARGET_OS_FLAVOUR),yocto)) \
+		), \
 		$(call normalize-c-includes-rel,$1), \
 		\
 		$(foreach __inc,$1, \
@@ -1463,7 +1483,11 @@ conditional-libraries-setup = \
 				$(eval __modules.$1.LIBRARIES += $(__w2)) \
 				, \
 				$(if $(and $(call is-module-host,$(__w2)),$(call is-module-registered,$(__w2))), \
-					$(eval __modules.$1.LIBRARIES += $(__w2)) \
+					$(if $(call is-module-host,$1), \
+						$(eval __modules.$1.LIBRARIES += $(__w2)) \
+						, \
+						$(eval __modules.$1.DEPENDS_HOST_MODULES += $(__w2)) \
+					) \
 				) \
 			) \
 			, \
@@ -1770,7 +1794,7 @@ $(eval __depsdata := $(strip \
 		$(__lib):$(call module-get-revision,$(__lib)) \
 	)))
 @( \
-	__tmpfile=$$(mktemp tmp.XXXXXXXXXX); \
+	__tmpfile=$$(mktemp -t tmp.XXXXXXXXXX); \
 	echo -e "$(call escape-echo,$(subst $(space),$(endl),$(__depsdata)))" > $${__tmpfile}; \
 	$(PRIVATE_OBJCOPY) --add-section \
 		$(TARGET_DEPENDS_SECTION_NAME)=$${__tmpfile} $@; \
@@ -1864,6 +1888,52 @@ $(1):
 	@mkdir -p $$(dir $$@)
 	$(Q)rm -f $$@ && ln -s $(2) $$@
 endef
+
+
+###############################################################################
+## Returns non-empty if $2 is enabled in the $1 sanitizer list.
+## List syntax is the following:
+##  - `1' enables everything, unless manually disabled
+##  - `module_name' enables the given module
+##  - `-module_name' forbids the given module
+##  - `module_name*' enables the given module and all of its dependencies,
+##	as long as module_name is enabled
+##  - `-module_name*' forbids the given module and all of its dependencies,
+##	as long as module_name is enabled
+## Forbidden module will take precedence over enabled ones
+##
+## $1 : sanitizer variable
+## $2 : module name
+###############################################################################
+is-sanitizer-enabled = $(strip \
+	$(eval __result = $(strip $(foreach __tst,$1, \
+		$(filter $(__tst),1) \
+		$(filter $(__tst),$2) \
+		$(if $(filter $(__tst),-$2),KO,) \
+		$(foreach __mod,$(__modules), \
+			$(if $(and $(filter $(__tst),$(__mod)*), \
+				$(or $(call is-module-in-make-goals,$(__mod)), \
+				$(call is-module-in-build-config,$(__mod)))), \
+			$(call __module-depends-on,$(__mod),$2),) \
+		) \
+		$(foreach __mod,$(__modules), \
+			$(if $(and $(filter $(__tst),-$(__mod)*), \
+				$(or $(call is-module-in-make-goals,$(__mod)), \
+				$(call is-module-in-build-config,$(__mod)))), \
+			$(if $(call __module-depends-on,$(__mod),$2),KO,)) \
+		) \
+	))) \
+	$(and $(__result),$(if $(filter $(__result),KO),,OK) \
+	))
+
+# Check if module $1 depends on (or is) $2, recursively
+# $1 : module tested
+# $2 : potential depended-on module
+__module-depends-on = $(strip \
+	$(or $(filter $1,$2), \
+	$(foreach __dep,$(__modules.$1.depends.all), \
+		$(filter $(__dep),$2) \
+	)))
 
 ###############################################################################
 ## Commands callable from user makefiles.

@@ -37,7 +37,8 @@ EXCLUDE_DIRS = {
         "include", "vapi",
         "man", "doc", "info",
         "pkgconfig", "cmake",
-        "aclocal", "locale"
+        "aclocal", "locale",
+        "gtk-doc",
     ],
     MODE_FULL: EXCLUDE_DIRS_ALWAYS
 }
@@ -178,11 +179,12 @@ def canStrip(filePath):
     result = False
     try:
         # get error output from nm command to check for 'no symbols'
-        process = subprocess.Popen("nm %s" % filePath,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-        res = process.communicate()[1].decode("UTF-8").rstrip("\n").split("\n")
+        res = subprocess.run("nm %s" % filePath,
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            shell=True, check=True)
+        res = res.stderr.decode("UTF-8").rstrip("\n").split("\n")
         result = (len(res) == 0 or res[0].find("no symbols") < 0)
-    except IOError:
+    except (IOError, subprocess.CalledProcessError):
         # assume not strippable if nm failed
         result = False
     return result

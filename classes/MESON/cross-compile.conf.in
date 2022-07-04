@@ -1,0 +1,29 @@
+
+[binaries]
+c = '@TARGET_CC@'
+cpp = '@TARGET_CXX@'
+ar = '@TARGET_AR@'
+strip = '@TARGET_STRIP@'
+pkgconfig = '@PKGCONFIG_BIN@'
+
+[built-in options]
+c_args = [@MESON_C_ARGS@]
+c_link_args = [@MESON_C_LINK_ARGS@]
+cpp_args = [@MESON_CPP_ARGS@]
+cpp_link_args = [@MESON_CPP_LINK_ARGS@]
+wrap_mode = 'nodownload'
+
+[properties]
+needs_exe_wrapper = true
+sys_root = '@TARGET_OUT_STAGING@'
+pkg_config_libdir = '@TARGET_PKG_CONFIG_PATH@'
+#pkg_config_static = '@STATIC@'
+# enable meson build to pass a toolchain file to cmake
+#cmake_toolchain_file = '@HOST_DIR@/share/buildroot/toolchainfile.cmake'
+#cmake_defaults = false
+
+[host_machine]
+system = '@MESON_SYSTEM@'
+cpu_family = '@MESON_CPU_FAMILY@'
+cpu = '@MESON_CPU@'
+endian = '@MESON_ENDIAN@'

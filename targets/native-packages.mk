@@ -28,6 +28,7 @@ $(call register-prebuilt-pkg-config-module,zlib,zlib)
 $(call register-prebuilt-pkg-config-module,glib-2.0,glib-2.0)
 $(call register-prebuilt-pkg-config-module,gobject-2.0,gobject-2.0)
 $(call register-prebuilt-pkg-config-module,gio-2.0,gio-2.0)
+$(call register-prebuilt-pkg-config-module,x11,x11)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := qt5-base

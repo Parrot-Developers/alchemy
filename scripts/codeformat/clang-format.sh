@@ -56,7 +56,7 @@ applyperm ()
 
 for FILE in ${FILES}; do
 	NAME=$(basename ${FILE})
-	TMP=$(mktemp ${FILE}.tmp.XXXXXX)
+	TMP=$(mktemp -t ${NAME}.tmp.XXXXXX)
 	${CLANG_FORMAT} -style=file --assume-filename=${NAME} <${FILE} >${TMP} || { rm "$TMP"; exit 1; }
 	cmp -s ${FILE} ${TMP} && { rm "$TMP"; continue; }
 	applyperm ${FILE} ${TMP} || { rm "$TMP"; exit 1; }

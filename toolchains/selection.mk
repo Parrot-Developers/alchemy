@@ -102,6 +102,9 @@ else
   else
     TARGET_CC ?= $(TARGET_CROSS)clang
     TARGET_CXX ?= $(TARGET_CROSS)clang++
+    ifneq ("$(wildcard $(TARGET_CROSS)clang-cpp)","")
+      TARGET_CPP ?= $(TARGET_CROSS)clang-cpp
+    endif
   endif
   TARGET_AS ?= $(TARGET_CROSS)as
   TARGET_FC ?= $(TARGET_CROSS)gfortran
