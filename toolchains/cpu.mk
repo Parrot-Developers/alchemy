@@ -176,6 +176,11 @@ ifeq ("$(TARGET_CPU)","armv7a-neon")
   TARGET_FLOAT_ABI ?= softfp
 endif
 
+# aarch64 has neon support, unless specifically set to the contrary
+ifeq ("$(TARGET_ARCH)","aarch64")
+  TARGET_CPU_HAS_NEON ?= 1
+endif
+
 ###############################################################################
 # Microcontrollers.
 ###############################################################################

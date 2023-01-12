@@ -15,11 +15,11 @@
 _autotools_install_bin := $(shell which install 2>/dev/null)
 
 # Update host compilation path
-ifeq ("$(HOST_OS)","windows")
-  _autotools_host_path := $(shell cygpath -u $(HOST_OUT_STAGING)/bin):$(shell cygpath -u $(HOST_OUT_STAGING)/$(HOST_DEFAULT_BIN_DESTDIR)):$(PATH)
-else
-  _autotools_host_path := $(HOST_OUT_STAGING)/bin:$(HOST_OUT_STAGING)/$(HOST_DEFAULT_BIN_DESTDIR):$(PATH)
-endif
+_autotools_host_path := $(call make-path-list, \
+	$(HOST_OUT_STAGING)/bin \
+	$(HOST_OUT_STAGING)/$(HOST_DEFAULT_BIN_DESTDIR) \
+	$(call split-path-list,$(PATH)) \
+)
 
 # Update target compilation path (use host binaries)
 _autotools_target_path := $(_autotools_host_path)
@@ -166,7 +166,10 @@ HOST_AUTOTOOLS_LDFLAGS := \
 
 # Setup pkg-config
 # Use packages from both HOST_OUT_STAGING and standard places
-HOST_PKG_CONFIG_PATH := $(HOST_OUT_STAGING)/lib/pkgconfig:$(HOST_OUT_STAGING)/$(HOST_DEFAULT_LIB_DESTDIR)/pkgconfig
+HOST_PKG_CONFIG_PATH := $(call make-path-list, \
+	$(HOST_OUT_STAGING)/lib/pkgconfig \
+	$(HOST_OUT_STAGING)/$(HOST_DEFAULT_LIB_DESTDIR)/pkgconfig \
+)
 HOST_PKG_CONFIG_ENV := \
 	PKG_CONFIG="$(PKGCONFIG_BIN)" \
 	PKG_CONFIG_PATH="$(HOST_PKG_CONFIG_PATH)" \
@@ -263,7 +266,7 @@ TARGET_AUTOTOOLS_LDFLAGS := \
 	$(TARGET_GLOBAL_LDFLAGS) \
 	$(TARGET_GLOBAL_LDLIBS)
 
-_target_pkg_config_dirs := \
+_target_pkg_config_subdirs := \
 	lib/$(TARGET_TOOLCHAIN_TRIPLET)/pkgconfig \
 	lib/pkgconfig \
 	$(TARGET_DEFAULT_LIB_DESTDIR)/$(TARGET_TOOLCHAIN_TRIPLET)/pkgconfig \
@@ -272,10 +275,16 @@ _target_pkg_config_dirs := \
 ifndef TARGET_PKG_CONFIG_PATH
   TARGET_PKG_CONFIG_PATH :=
 endif
+
+_target_pkg_config_dirs :=
 $(foreach __dir,$(TARGET_OUT_STAGING) $(TARGET_SDK_DIRS), \
-	$(foreach __dir2,$(_target_pkg_config_dirs), \
-		$(eval TARGET_PKG_CONFIG_PATH := $(TARGET_PKG_CONFIG_PATH):$(__dir)/$(__dir2)) \
+	$(foreach __dir2,$(_target_pkg_config_subdirs), \
+		$(eval _target_pkg_config_dirs += $(__dir)/$(__dir2)) \
 	) \
+)
+TARGET_PKG_CONFIG_PATH := $(call make-path-list, \
+	$(call split-path-list,$(TARGET_PKG_CONFIG_PATH)) \
+	$(_target_pkg_config_dirs) \
 )
 
 # Setup pkg-config
@@ -315,7 +324,7 @@ TARGET_AUTOTOOLS_CONFIGURE_ENV := \
 	CPPFLAGS="$(TARGET_AUTOTOOLS_CPPFLAGS)" \
 	CFLAGS="$(TARGET_AUTOTOOLS_CFLAGS)" \
 	CXXFLAGS="$(TARGET_AUTOTOOLS_CXXFLAGS)" \
-	LDFLAGS="$(TARGET_AUTOTOOLS_LDFLAGS)" \
+	LDFLAGS="$(filter-out -lrt,$(TARGET_AUTOTOOLS_LDFLAGS))" \
 	BISON_PATH="$(BISON_BIN)" \
 	XDG_DATA_DIRS=$(TARGET_XDG_DATA_DIRS) \
 	$(TARGET_PKG_CONFIG_ENV)

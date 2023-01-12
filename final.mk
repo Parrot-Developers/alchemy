@@ -46,13 +46,9 @@ ifeq ("$(is-full-system)","1")
 endif
 endif
 
-# When valgrind is used, some libs shall not be stripped
-ifneq ("$(call is-module-in-build-config,valgrind)","")
+# Valgrind requires its libraries etc to be unstripped
 MAKEFINAL_ARGS += \
-	--strip-filter="ld-*.so" \
-	--strip-filter="libc-*.so" \
-	--strip-filter="vgpreload*.so"
-endif
+    --strip-filter="usr/libexec/valgrind"
 
 # When python is used, keep its files, otherwise filter them (default)
 ifneq ("$(call is-module-in-build-config,python)","")

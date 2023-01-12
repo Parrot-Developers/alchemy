@@ -173,6 +173,23 @@ make-comma-list = $(subst $(space),$(comma)$(space),$(strip $1))
 # list of unquoted items:   a b c d  -->  'a', 'b', 'c', 'd'
 make-sq-comma-list = $(call make-comma-list,$(patsubst %,'%',$(strip $1)))
 
+# Build a colon-separated list of items, from a space-separated
+# list of items:   a b c d  -->  a:b:c:d
+make-colon-list = $(subst $(space),$(colon),$(strip $1))
+
+# Normalize a directory path by converting it to unix under windows host,
+# no-op otherwise
+normalize-path = $(if $(call streq,$(HOST_OS),windows),$(shell cygpath -u $1),$1)
+normalize-paths = $(foreach __norm_path_dir,$1,$(call normalize-path,$(__norm_path_dir)))
+
+# Build a PATH style list (colon separated directories) from a list of space separated directories
+# It handles the fact that on windows host, directories must first be converted to their unix form
+# to avoid ':' in their name....
+make-path-list = $(call make-colon-list,$(call normalize-paths,$1))
+
+# Split a PATH style list (colon separated directories) to a space separated list
+split-path-list = $(subst $(colon),$(space),$1)
+
 ###############################################################################
 ## Call a function(macro) for each variable in a variable list.
 ## A variable list is a list of ';' separated <var>=<value> pairs.

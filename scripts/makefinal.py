@@ -315,10 +315,11 @@ def doCopy(dstFileName, srcFileName, options, forceCopy=False):
             and canStrip(srcFileName):
         doStrip = True
 
-    # Files in usr/lib/debug are never to be stripped
+    # Files in usr/lib/debug, usr/lib/.debug or lib/.debug are never to be stripped
     # Either they are kept as they are (option --strip-debug),
     # Or they are not copied.
-    if relPath.startswith("usr/lib/debug"):
+    if relPath.startswith("usr/lib/debug") or relPath.startswith("usr/lib/.debug") \
+                                           or relPath.startswith("lib/.debug"):
         if options.strip and '--strip-debug' in options.strip:
             doStrip = False
         elif doStrip:
@@ -330,7 +331,7 @@ def doCopy(dstFileName, srcFileName, options, forceCopy=False):
     # check strip filter
     if doStrip and options.reStripFilters:
         for reStripFilter in options.reStripFilters:
-            if reStripFilter.match(os.path.basename(srcFileName)):
+            if reStripFilter.match(relPath):
                 logging.debug("Not stripping: %s", relPath)
                 doStrip = False
 
