@@ -1272,7 +1272,7 @@ Some variables containing generic content can also be used :
 
 ### CMake modules
 
-This class of modules if for the compilation of packages that use `cmake`.
+This class of modules is for the compilation of packages that use `cmake`.
 `Alchemy` provides internally everything needed for the compilation, in
 particular a toolchain file.
 
@@ -1299,7 +1299,7 @@ not a `:=` definition.
 
 ### QMake modules
 
-This class of modules if for the compilation of packages that use `qt` and
+This class of modules is for the compilation of packages that use `qt` and
 `qmake`. `Alchemy` provides internally everything needed for the compilation,
 in particular a `alchemy.pri` file to be included in your `.pro` to get all
 dependencies from atom.mk (include paths, libraries...).
