@@ -40,7 +40,7 @@ def find_qmake_in_sdk_root(sdkroot, options):
 
 
 def find_qmake_in_path():
-    # Get smake binary in PATH
+    # Get qmake binary in PATH
     try:
         qmake = subprocess.check_output(
                 "which qmake",
