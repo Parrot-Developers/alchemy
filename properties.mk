@@ -16,6 +16,16 @@ TARGET_BUILD_PROPERTIES += \
 	ro.build.alchemy.variant=$(TARGET_PRODUCT_VARIANT) \
 	ro.build.hostname=$(shell hostname)
 
+# Parrot build properties
+TARGET_BUILD_PROPERTIES += \
+	ro.parrot.build.group=$(PARROT_BUILD_PROP_GROUP) \
+	ro.parrot.build.project=$(PARROT_BUILD_PROP_PROJECT) \
+	ro.parrot.build.product=$(PARROT_BUILD_PROP_PRODUCT) \
+	ro.parrot.build.variant=$(PARROT_BUILD_PROP_VARIANT) \
+	ro.parrot.build.region=$(PARROT_BUILD_PROP_REGION) \
+	ro.parrot.build.uid=$(PARROT_BUILD_PROP_UID) \
+	ro.parrot.build.version=$(PARROT_BUILD_PROP_VERSION)
+
 # Put modules properties.
 $(foreach __mod,$(ALL_BUILD_MODULES), \
 	$(eval TARGET_BUILD_PROPERTIES += $(__modules.$(__mod).BUILD_PROPERTIES)) \
