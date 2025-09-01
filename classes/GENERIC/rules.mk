@@ -76,6 +76,17 @@ endif
 endif
 
 ###############################################################################
+# Download file if necessary
+###############################################################################
+
+$(_module_archive_file):
+ifneq ("$(_module_archive_site)","")
+	@echo "Downloading $(_module_archive_file)"
+	@mkdir -p $(dir $@)
+	@curl -L -o $@ $(_module_archive_site)
+endif
+
+###############################################################################
 # Force unpack if patches are changed to make sure they are correctly applied
 ###############################################################################
 
