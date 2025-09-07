@@ -589,7 +589,7 @@ endif
 _module_archive_site :=
 
 ifneq ("$(LOCAL_ARCHIVE_SITE)","")
-	_module_archive_site := $(LOCAL_ARCHIVE_SITE)/$(LOCAL_ARCHIVE)
+	_module_archive_site := $(LOCAL_ARCHIVE_SITE)
 endif
 
 ###############################################################################
@@ -859,6 +859,7 @@ $(LOCAL_TARGETS): PRIVATE_ARCHIVE := $(_module_archive_file)
 $(LOCAL_TARGETS): PRIVATE_ARCHIVE_UNPACK_DIR := $(_module_build_dir)
 $(LOCAL_TARGETS): PRIVATE_ARCHIVE_SUBDIR := $(LOCAL_ARCHIVE_SUBDIR)
 $(LOCAL_TARGETS): PRIVATE_ARCHIVE_PATCHES := $(LOCAL_ARCHIVE_PATCHES)
+$(LOCAL_TARGETS): PRIVATE_ARCHIVE_SITE := $(_module_archive_site)
 
 # Setup custom variables.
 # The first loop is to clear content for current module.
