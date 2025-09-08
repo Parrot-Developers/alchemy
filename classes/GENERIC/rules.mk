@@ -76,6 +76,18 @@ endif
 endif
 
 ###############################################################################
+# Download file if necessary
+###############################################################################
+
+$(_module_archive_file):
+ifneq ("$(_module_archive_site)","")
+	$(call _generic-msg,Downloading)
+	@echo "Downloading $(PRIVATE_ARCHIVE_SITE)"
+	@mkdir -p $(dir $@)
+	@curl -L -o $@ $(PRIVATE_ARCHIVE_SITE)
+endif
+
+###############################################################################
 # Force unpack if patches are changed to make sure they are correctly applied
 ###############################################################################
 
@@ -83,6 +95,7 @@ endif
 $(_module_unpacked_stamp_file): $(_module_archive_file) $(addprefix $(LOCAL_PATH)/,$(_module_archive_patches))
 ifneq ("$(_module_archive_file)","")
 	$(call _generic-msg,Unpacking)
+	@echo "Unpacking $(PRIVATE_ARCHIVE) to $(PRIVATE_ARCHIVE_UNPACK_DIR)"
 	@mkdir -p $(PRIVATE_ARCHIVE_UNPACK_DIR)
 	+$(call macro-exec-cmd,ARCHIVE_CMD_UNPACK,_generic-def-cmd-unpack)
 	$(call copy-license-files,$(PRIVATE_PATH),$(PRIVATE_ARCHIVE_UNPACK_DIR)/$(PRIVATE_ARCHIVE_SUBDIR))

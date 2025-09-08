@@ -583,6 +583,16 @@ all_prerequisites += $(_module_copy_to_build_dir_dst_files)
 endif
 
 ###############################################################################
+## Archive download
+## Do this if an archive source has been defined using LOCAL_ARCHIVE_SITE.
+###############################################################################
+_module_archive_site :=
+
+ifneq ("$(LOCAL_ARCHIVE_SITE)","")
+	_module_archive_site := $(LOCAL_ARCHIVE_SITE)
+endif
+
+###############################################################################
 ## Archive extraction + patches.
 ## Do this step if there is no archive but there is a post unpack command.
 ## This is to handle cases where a pre-configure step is needed but no
@@ -596,7 +606,13 @@ ifneq ("$(or $(LOCAL_ARCHIVE),$(value LOCAL_ARCHIVE_CMD_POST_UNPACK))","")
 
 # Full path to archive file (can be empty if we only want post unpack command)
 ifneq ("$(strip $(LOCAL_ARCHIVE))","")
-  _module_archive_file := $(LOCAL_PATH)/$(LOCAL_ARCHIVE)
+
+ifneq ("$(_module_archive_site)","")
+	_module_archive_file := $(TARGET_OUT_DOWNLOAD)/$(LOCAL_ARCHIVE)
+else
+	_module_archive_file := $(LOCAL_PATH)/$(LOCAL_ARCHIVE)
+endif
+
 endif
 
 # Patches to apply
@@ -843,6 +859,7 @@ $(LOCAL_TARGETS): PRIVATE_ARCHIVE := $(_module_archive_file)
 $(LOCAL_TARGETS): PRIVATE_ARCHIVE_UNPACK_DIR := $(_module_build_dir)
 $(LOCAL_TARGETS): PRIVATE_ARCHIVE_SUBDIR := $(LOCAL_ARCHIVE_SUBDIR)
 $(LOCAL_TARGETS): PRIVATE_ARCHIVE_PATCHES := $(LOCAL_ARCHIVE_PATCHES)
+$(LOCAL_TARGETS): PRIVATE_ARCHIVE_SITE := $(_module_archive_site)
 
 # Setup custom variables.
 # The first loop is to clear content for current module.
