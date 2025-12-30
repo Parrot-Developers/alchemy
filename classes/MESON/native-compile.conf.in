@@ -3,7 +3,7 @@ c = '@HOST_CC@'
 cpp = '@HOST_CXX@'
 ar = '@HOST_AR@'
 strip = '@HOST_STRIP@'
-pkgconfig = '@PKGCONFIG_BIN@'
+pkg-config = '@PKGCONFIG_BIN@'
 
 [built-in options]
 c_args = [@MESON_C_ARGS@]

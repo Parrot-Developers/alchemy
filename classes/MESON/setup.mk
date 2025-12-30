@@ -238,7 +238,7 @@ define _meson-def-cmd-configure
 	$(_meson-gen-conf-file)
 	$(Q) cd $(PRIVATE_OBJ_DIR) && \
 		$($(PRIVATE_MODE)_MESON_CONFIGURE_ENV) $(PRIVATE_CONFIGURE_ENV) \
-		$(MESON) \
+		$(MESON) setup \
 		$($(PRIVATE_MODE)_MESON_CONFIGURE_ARGS) $(PRIVATE_CONFIGURE_ARGS) \
 		$(_meson-get-conf-file-args) \
 		$(PRIVATE_OBJ_DIR) $(PRIVATE_SRC_DIR)

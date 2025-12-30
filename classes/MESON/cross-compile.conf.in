@@ -4,7 +4,7 @@ c = '@TARGET_CC@'
 cpp = '@TARGET_CXX@'
 ar = '@TARGET_AR@'
 strip = '@TARGET_STRIP@'
-pkgconfig = '@PKGCONFIG_BIN@'
+pkg-config = '@PKGCONFIG_BIN@'
 
 [built-in options]
 c_args = [@MESON_C_ARGS@]

@@ -9,7 +9,7 @@
 ###############################################################################
 ## Get the IDE list available
 ###############################################################################
-genproject-get-ides = eclipse qtcreator jsondb vscode
+genproject-get-ides = eclipse qtcreator jsondb vscode compflags
 
 ###############################################################################
 ## Get the available genproject targets for a given module.

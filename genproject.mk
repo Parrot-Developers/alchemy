@@ -7,7 +7,7 @@
 ###############################################################################
 
 # Available generators
-GENPROJECT_KINDS := eclipse qtcreator jsondb vscode
+GENPROJECT_KINDS := eclipse qtcreator jsondb vscode compflags
 
 define genproject-help-msg
 	@echo "--------------------"

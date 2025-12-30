@@ -11,7 +11,7 @@ import xml.parsers.expat
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import moduledb
 
-_PROJECT_KINDS = {"eclipse": None, "qtcreator": None, "jsondb": None, "vscode": None}
+_PROJECT_KINDS = {"eclipse": None, "qtcreator": None, "jsondb": None, "vscode": None, "compflags": None}
 
 _SOURCE_EXTENSIONS = [".c", ".cpp", ".cc", ".cxx"]
 _HEADER_EXTENSIONS = [".h", ".hpp", ".hh", ".hxx"]
